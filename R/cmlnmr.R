@@ -5,20 +5,34 @@
 #' Build numerical integration points for an aggregate study
 #'
 #' Sobol' quasi-Monte-Carlo points mapped through normal margins defined by
-#' the study covariate means and standard deviations. Effect modifiers are
-#' assumed continuous in this first version (a Gaussian-copula correlation
-#' from IPD is a planned extension).
+#' the study covariate means and standard deviations. When a correlation
+#' matrix `cor` is supplied the margins are coupled by a Gaussian copula
+#' (for normal margins this is exactly correlated multivariate normal draws,
+#' `mean + sd * z` with `z` correlated by `chol(cor)`); otherwise the
+#' covariates are integrated independently.
 #' @noRd
-.cpaic_integration_points <- function(means, sds, n_int) {
+.cpaic_integration_points <- function(means, sds, n_int, cor = NULL) {
   P <- length(means)
   if (!requireNamespace("randtoolbox", quietly = TRUE)) {
     stop("Package 'randtoolbox' is required for cmlnmr() integration.",
          call. = FALSE)
   }
   u <- matrix(randtoolbox::sobol(n = n_int, dim = P), nrow = n_int, ncol = P)
-  X <- matrix(NA_real_, n_int, P)
-  for (p in seq_len(P)) X[, p] <- stats::qnorm(u[, p], means[p], sds[p])
-  X
+  z <- stats::qnorm(u)                       # independent standard normals
+  if (!is.null(cor) && P > 1L) z <- z %*% chol(cor)   # Gaussian copula
+  sweep(sweep(z, 2, sds, "*"), 2, means, "+")
+}
+
+#' Covariate correlation matrix for the Gaussian copula, from IPD
+#' @noRd
+.cpaic_copula_cor <- function(X, given = NULL) {
+  if (ncol(X) < 2L) return(NULL)
+  R <- if (is.null(given)) stats::cor(X, use = "pairwise.complete.obs") else given
+  R <- (R + t(R)) / 2
+  if (min(eigen(R, symmetric = TRUE, only.values = TRUE)$values) <= 1e-8) {
+    R <- as.matrix(Matrix::nearPD(R, corr = TRUE)$mat)
+  }
+  R
 }
 
 #' Lexis (episode) expansion of survival IPD into interval-at-risk rows
@@ -59,17 +73,23 @@
 #' component parameters, the network is connected by construction.
 #'
 #' Supported families: `"binomial"` (logit), `"gaussian"` (identity),
-#' `"poisson"` (log), and `"survival"`. Survival uses a
-#' piecewise-exponential proportional-hazards model: the baseline log-hazard
-#' is a step function with one level per interval defined by `cut_points`,
-#' so it is exponential when `cut_points = NULL` and arbitrarily flexible as
-#' intervals are added. Individual patient data are split at the cut points
+#' `"poisson"` (log), and `"survival"`. Survival uses a proportional-hazards
+#' model with a flexible baseline: `baseline = "piecewise"` gives a
+#' piecewise-exponential step baseline (one level per interval defined by
+#' `cut_points`; exponential when `cut_points = NULL`), while
+#' `baseline = "mspline"` gives a smooth M-spline baseline hazard
+#' (non-negative basis with simplex weights, `n_basis` functions) over the
+#' `cut_points` grid. Individual patient data are split at the cut points
 #' internally; aggregate survival data are supplied as events and
 #' person-time per arm and (when `cut_points` are given) per interval. The
 #' aggregate likelihood approximates the expected events in an arm-interval
 #' by person-time times the integrated hazard, which is most accurate when
-#' the intervals are narrow enough that the baseline hazard is approximately
-#' constant within each.
+#' the intervals are narrow.
+#'
+#' Aggregate covariates are integrated with a Gaussian copula: the
+#' correlation is estimated from the IPD (or supplied via `cor`) so the
+#' integration points respect the covariate correlation structure rather
+#' than treating the effect modifiers as independent.
 #'
 #' Identifiability note: a component whose effect-modifier interaction is
 #' informed only by aggregate arms is weakly identified, because main and
@@ -96,6 +116,14 @@
 #'   model; e.g. `c(6, 12)` gives three intervals.
 #' @param interval Survival only: name of the aggregate interval-index
 #'   column (values `1..K`) required when `cut_points` are supplied.
+#' @param baseline Survival baseline hazard: `"piecewise"` (default,
+#'   step function) or `"mspline"` (smooth M-spline over the `cut_points`
+#'   grid).
+#' @param n_basis Number of M-spline basis functions when
+#'   `baseline = "mspline"` (must be `<=` the number of intervals).
+#' @param cor Optional covariate correlation matrix for the Gaussian-copula
+#'   integration. Defaults to the IPD correlation; pass a matrix to override
+#'   or the identity to integrate covariates independently.
 #' @param n_int Integration points per aggregate arm (ignored for
 #'   `gaussian`, which is exact at the covariate means).
 #' @param prior_intercept_sd,prior_beta_sd,prior_reg_sd Prior SDs.
@@ -123,14 +151,20 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
                    study = ".study", trt = ".trt", outcome = ".y",
                    time = ".time", exposure = ".exposure",
                    r = "r", n = "n", E = "E", se = "se",
-                   cut_points = NULL, interval = ".interval", n_int = 64L,
+                   cut_points = NULL, interval = ".interval",
+                   baseline = c("piecewise", "mspline"), n_basis = 6L,
+                   cor = NULL, n_int = 64L,
                    prior_intercept_sd = 10, prior_beta_sd = 10,
                    prior_reg_sd = 2.5, chains = 4L, iter_warmup = 500L,
                    iter_sampling = 500L, seed = NULL, ...) {
+  baseline <- match.arg(baseline)
   family <- match.arg(family,
                       c("binomial", "gaussian", "poisson", "survival"))
   stan_family <- switch(family, binomial = "binomial", gaussian = "normal",
                         poisson = "poisson", survival = "survival")
+  if (family == "survival" && baseline == "mspline") {
+    stan_family <- "survival_mspline"
+  }
   if (!requireNamespace("cmdstanr", quietly = TRUE)) {
     stop("cmlnmr() needs 'cmdstanr'. Install from ",
          "https://stan-dev.r-universe.dev .", call. = FALSE)
@@ -207,12 +241,18 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
             call. = FALSE)
   }
 
+  # Covariate correlation for the Gaussian-copula integration, estimated
+  # from the (pre-expansion) IPD unless supplied via `cor`.
+  cor_mat <- .cpaic_copula_cor(
+    as.matrix(ipd[, effect_modifiers, drop = FALSE]), cor)
+
   # Survival: Lexis-expand IPD into interval-at-risk rows and configure the
   # piecewise-exponential baseline (K = 1 reduces to the exponential model).
   K <- 1L
   interval_ipd <- NULL
   time_ipd_vec <- NULL
   event_vec <- NULL
+  Msp <- NULL
   interval_agd <- rep(1L, nrow(agd))
   if (family == "survival") {
     K <- length(cut_points) + 1L
@@ -226,6 +266,26 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
       if (any(interval_agd < 1L | interval_agd > K)) {
         stop("`", interval, "` values must be in 1..", K, ".", call. = FALSE)
       }
+    }
+    if (baseline == "mspline") {
+      if (K < 2L) {
+        stop("baseline = 'mspline' needs `cut_points` to define a time grid.",
+             call. = FALSE)
+      }
+      if (n_basis > K) {
+        stop("`n_basis` (", n_basis, ") must be <= the number of intervals (",
+             K, ").", call. = FALSE)
+      }
+      if (!requireNamespace("splines2", quietly = TRUE)) {
+        stop("Package 'splines2' is required for baseline = 'mspline'.",
+             call. = FALSE)
+      }
+      t_max <- max(ipd[[time]])
+      cuts_full <- c(0, cut_points, t_max)
+      mid <- (utils::head(cuts_full, -1) + utils::tail(cuts_full, -1)) / 2
+      Msp <- matrix(as.numeric(splines2::mSpline(
+        mid, df = n_basis, degree = 3, intercept = TRUE,
+        Boundary.knots = c(0, t_max))), nrow = K)
     }
     ipd <- .cpaic_lexis(ipd, time, outcome, cut_points)
     interval_ipd <- as.integer(ipd[[".interval"]])
@@ -250,7 +310,7 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
                       function(v) agd[[paste0(v, "_mean")]][a], numeric(1))
       sds <- vapply(effect_modifiers,
                     function(v) agd[[paste0(v, "_sd")]][a], numeric(1))
-      .cpaic_integration_points(means, sds, n_int_eff)
+      .cpaic_integration_points(means, sds, n_int_eff, cor = cor_mat)
     })
     X_agd_int <- do.call(rbind, X_list)
   }
@@ -286,6 +346,10 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
       E_agd = as.numeric(agd[[E]]),             # person-time per arm-interval
       interval_agd = interval_agd))
   )
+  if (family == "survival" && baseline == "mspline") {
+    standata$n_basis <- ncol(Msp)
+    standata$Msp <- Msp
+  }
 
   mod <- .cpaic_stan_model(stan_family)
   fit <- mod$sample(

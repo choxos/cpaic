@@ -152,3 +152,56 @@ test_that("cmlnmr fits a piecewise-exponential (flexible) survival baseline", {
   expect_gt(ab, 0.4)
   expect_lt(ab, 1.2)
 })
+
+test_that("Gaussian copula correlates the integration points", {
+  skip_if_not_installed("randtoolbox")
+  R <- matrix(c(1, 0.8, 0.8, 1), 2)
+  Xc <- .cpaic_integration_points(c(0, 0), c(1, 1), 4096, cor = R)
+  Xi <- .cpaic_integration_points(c(0, 0), c(1, 1), 4096, cor = NULL)
+  expect_gt(stats::cor(Xc[, 1], Xc[, 2]), 0.6)        # copula induces it
+  expect_lt(abs(stats::cor(Xi[, 1], Xi[, 2])), 0.1)   # independent otherwise
+  expect_equal(colMeans(Xc), c(0, 0), tolerance = 0.05)  # margins preserved
+  expect_equal(apply(Xc, 2, stats::sd), c(1, 1), tolerance = 0.05)
+})
+
+test_that("cmlnmr fits an M-spline survival baseline", {
+  skip_on_cran()
+  skip_if_not_installed("cmdstanr")
+  skip_if_not_installed("randtoolbox")
+  skip_if_not_installed("splines2")
+  skip_if(is.null(tryCatch(cmdstanr::cmdstan_path(), error = function(e) NULL)),
+          "cmdstan not installed")
+
+  set.seed(5)
+  Cmat <- build_C_matrix(c("Placebo", "A", "A+B"), inactive = "Placebo")
+  beta <- c(A = 0.5, B = 0.3)
+  gen <- function(study, trt, n, mux1) {
+    x1 <- rnorm(n, mux1, 1)
+    tc <- Cmat[trt, ]
+    lp <- 0.3 * x1 + sum(tc * beta)
+    t <- (rexp(n) / (0.03 * exp(lp)))^(1 / 1.3)
+    data.frame(.study = study, .trt = trt, .y = as.integer(t <= 24),
+               .time = pmin(t, 24), x1 = x1)
+  }
+  ipd <- rbind(gen("S1", "Placebo", 400, 0), gen("S1", "A", 400, 0),
+               gen("S2", "A", 400, 0.3), gen("S2", "A+B", 400, 0.3))
+  cuts <- c(4, 8, 12, 16)
+  mk <- function(study, trt, n, mux1) {
+    d <- gen(study, trt, n, mux1)
+    dl <- .cpaic_lexis(d, ".time", ".y", cuts)
+    agg <- aggregate(cbind(r = dl$.event, E = dl$.texp),
+                     by = list(.interval = dl$.interval), sum)
+    data.frame(.study = study, .trt = trt, .interval = agg$.interval,
+               r = agg$r, E = agg$E, x1_mean = mean(d$x1), x1_sd = sd(d$x1))
+  }
+  agd <- rbind(mk("S3", "Placebo", 600, -0.2), mk("S3", "A+B", 600, 0.4))
+
+  fit <- cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "Placebo",
+                family = "survival", cut_points = cuts, baseline = "mspline",
+                n_basis = 4, chains = 2, iter_warmup = 400,
+                iter_sampling = 400, seed = 1)
+  ce <- component_effects(fit)
+  expect_true(all(is.finite(ce$estimate)))
+  expect_true(all(ce$estimate > 0))
+  expect_lt(max(fit$fit$summary("beta")$rhat), 1.2)
+})

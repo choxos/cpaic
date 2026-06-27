@@ -22,6 +22,9 @@ cmlnmr(
   se = "se",
   cut_points = NULL,
   interval = ".interval",
+  baseline = c("piecewise", "mspline"),
+  n_basis = 6L,
+  cor = NULL,
   n_int = 64L,
   prior_intercept_sd = 10,
   prior_beta_sd = 10,
@@ -64,6 +67,17 @@ model; e.g. \code{c(6, 12)} gives three intervals.}
 \item{interval}{Survival only: name of the aggregate interval-index
 column (values \verb{1..K}) required when \code{cut_points} are supplied.}
 
+\item{baseline}{Survival baseline hazard: \code{"piecewise"} (default,
+step function) or \code{"mspline"} (smooth M-spline over the \code{cut_points}
+grid).}
+
+\item{n_basis}{Number of M-spline basis functions when
+\code{baseline = "mspline"} (must be \code{<=} the number of intervals).}
+
+\item{cor}{Optional covariate correlation matrix for the Gaussian-copula
+integration. Defaults to the IPD correlation; pass a matrix to override
+or the identity to integrate covariates independently.}
+
 \item{n_int}{Integration points per aggregate arm (ignored for
 \code{gaussian}, which is exact at the covariate means).}
 
@@ -87,17 +101,23 @@ component parameters, the network is connected by construction.
 }
 \details{
 Supported families: \code{"binomial"} (logit), \code{"gaussian"} (identity),
-\code{"poisson"} (log), and \code{"survival"}. Survival uses a
-piecewise-exponential proportional-hazards model: the baseline log-hazard
-is a step function with one level per interval defined by \code{cut_points},
-so it is exponential when \code{cut_points = NULL} and arbitrarily flexible as
-intervals are added. Individual patient data are split at the cut points
+\code{"poisson"} (log), and \code{"survival"}. Survival uses a proportional-hazards
+model with a flexible baseline: \code{baseline = "piecewise"} gives a
+piecewise-exponential step baseline (one level per interval defined by
+\code{cut_points}; exponential when \code{cut_points = NULL}), while
+\code{baseline = "mspline"} gives a smooth M-spline baseline hazard
+(non-negative basis with simplex weights, \code{n_basis} functions) over the
+\code{cut_points} grid. Individual patient data are split at the cut points
 internally; aggregate survival data are supplied as events and
 person-time per arm and (when \code{cut_points} are given) per interval. The
 aggregate likelihood approximates the expected events in an arm-interval
 by person-time times the integrated hazard, which is most accurate when
-the intervals are narrow enough that the baseline hazard is approximately
-constant within each.
+the intervals are narrow.
+
+Aggregate covariates are integrated with a Gaussian copula: the
+correlation is estimated from the IPD (or supplied via \code{cor}) so the
+integration points respect the covariate correlation structure rather
+than treating the effect modifiers as independent.
 
 Identifiability note: a component whose effect-modifier interaction is
 informed only by aggregate arms is weakly identified, because main and

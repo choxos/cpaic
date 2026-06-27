@@ -52,6 +52,7 @@ Suggests:
     randtoolbox,
     rmarkdown,
     spelling,
+    splines2,
     testthat (>= 3.0.0),
     tibble,
     viscomp,
