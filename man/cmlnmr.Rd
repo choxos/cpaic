@@ -14,8 +14,12 @@ cmlnmr(
   study = ".study",
   trt = ".trt",
   outcome = ".y",
+  time = ".time",
+  exposure = ".exposure",
   r = "r",
   n = "n",
+  E = "E",
+  se = "se",
   n_int = 64L,
   prior_intercept_sd = 10,
   prior_beta_sd = 10,
@@ -28,25 +32,33 @@ cmlnmr(
 )
 }
 \arguments{
-\item{ipd}{Individual patient data: a data frame with a study column, a
-treatment column, a binary outcome, and the effect-modifier columns.}
+\item{ipd}{Individual patient data (one row per patient).}
 
-\item{agd}{Aggregate data, one row per arm, with a study column, a
-treatment column, event count \code{r}, sample size \code{n}, and, for each
-effect modifier \code{x}, columns \code{x_mean} and \code{x_sd}.}
+\item{agd}{Aggregate data (one row per arm) with the per-study covariate
+summaries \code{x_mean}, \code{x_sd} for each effect modifier \code{x}.}
 
 \item{effect_modifiers}{Character vector of effect-modifier names.}
 
 \item{inactive, sep.comps}{Component coding (see \code{\link[=cpaic_network]{cpaic_network()}}).}
 
-\item{family}{Outcome family. Currently \code{"binomial"}.}
+\item{family}{One of \code{"binomial"}, \code{"gaussian"}, \code{"poisson"},
+\code{"survival"}.}
 
-\item{study, trt, outcome, r, n}{Column names.}
+\item{study, trt}{Column names (in both \code{ipd} and \code{agd}).}
 
-\item{n_int}{Number of integration points per aggregate arm.}
+\item{outcome}{IPD outcome column: 0/1 (binomial), numeric (gaussian),
+count (poisson), or the event indicator for survival.}
 
-\item{prior_intercept_sd, prior_beta_sd, prior_reg_sd}{Prior standard
-deviations.}
+\item{time, exposure}{IPD time / exposure column (survival, poisson).}
+
+\item{r, n, E, se}{Aggregate columns: events \code{r}, sample size \code{n}
+(binomial), exposure \code{E} (poisson/survival), mean \code{outcome} and its
+standard error \code{se} (gaussian).}
+
+\item{n_int}{Integration points per aggregate arm (ignored for
+\code{gaussian}, which is exact at the covariate means).}
+
+\item{prior_intercept_sd, prior_beta_sd, prior_reg_sd}{Prior SDs.}
 
 \item{chains, iter_warmup, iter_sampling, seed}{Passed to \code{cmdstanr}.}
 
@@ -59,31 +71,27 @@ component design, and a tidy table of component effects.
 \description{
 The Bayesian flagship of cpaic. The relative effect of every treatment is
 the sum of its component effects (\verb{theta = C beta}), estimated jointly
-from individual patient data and aggregate data. Aggregate arms are
-fitted by integrating the individual-level model over each study's
-covariate distribution (numerical integration). Because disconnected
-sub-networks share component parameters, the network is connected by
-construction; population-adjusted relative effects in any target
-population follow from the fitted component effects and effect-modifier
-interactions.
+from individual patient data (IPD) and aggregate data (AgD). Aggregate
+arms are fitted by integrating the individual-level model over each
+study's covariate distribution. Because disconnected sub-networks share
+component parameters, the network is connected by construction.
 }
 \details{
-This first version supports binary outcomes with continuous effect
-modifiers and is fitted with \code{cmdstanr}. Other families and a
-Gaussian-copula integration are planned.
+Supported families: \code{"binomial"} (logit), \code{"gaussian"} (identity),
+\code{"poisson"} (log), and \code{"survival"} (exponential, fitted through the
+Poisson formulation with person-time exposure). Flexible parametric and
+spline survival baselines are future work; the frequentist \code{\link[=cstc]{cstc()}} and
+\code{\link[=cmaic]{cmaic()}} cover proportional-hazards survival.
 
-Note on identifiability: a component whose effect-modifier interaction is
-informed only by aggregate arms (no individual patient data) is weakly
-identified, because the main and interaction effects are only constrained
-through the integrated population-average outcome. Such components rely on
-the regression prior (\code{prior_reg_sd}); supply individual patient data for
-those components where possible.
+Identifiability note: a component whose effect-modifier interaction is
+informed only by aggregate arms is weakly identified, because main and
+interaction effects are constrained only through the integrated
+population-average outcome. Supply IPD for such components where possible;
+\code{prior_reg_sd} regularizes otherwise.
 }
 \examples{
 \dontshow{if (requireNamespace("cmdstanr", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 \donttest{
-# IPD (study, treatment, binary outcome, effect modifier) and aggregate
-# arms with per-study covariate summaries (x1_mean, x1_sd).
 ipd <- data.frame(.study = "S1",
                   .trt = rep(c("Placebo", "A"), each = 100),
                   .y = rbinom(200, 1, 0.5), x1 = rnorm(200))

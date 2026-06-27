@@ -17,10 +17,9 @@ documentation/
 inst/doc/
 /.quarto/
 
-# Compiled Stan / C++ (cmdstanr caches compiled models next to .stan)
-inst/stan/*.exe
-inst/stan/**/*.o
-inst/stan/**/*.hpp
+# Compiled Stan / C++ (keep only the .stan sources under inst/stan)
+inst/stan/*
+!inst/stan/*.stan
 src/*.o
 src/*.so
 src/*.dll

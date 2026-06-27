@@ -59,13 +59,15 @@ and `documentation/PROGRESS.md` for the running build log.
   (treatment effect = `C %*% beta_component`), integrating the individual
   model over each study's covariate distribution. Disconnected
   sub-networks share component parameters and are therefore connected by
-  construction. **Status: binary/logit implemented and validated**
-  (`inst/stan/cpaic_binomial.stan`, fitted via `cmdstanr`). Normal and
-  Poisson are template extensions of the binary Stan model; survival
-  ML-NMR (parametric baseline hazards + integration) is deferred as a
-  separate effort (survival is already covered frequentially by
-  `cstc()`/`cmaic()`). Caveat: components with effect modifiers informed
-  only by aggregate data are weakly identified.
+  construction. **Status: all four families implemented and validated**
+  via `cmdstanr` — `inst/stan/cpaic_binomial.stan` (logit),
+  `cpaic_normal.stan` (identity; exact at covariate means),
+  `cpaic_poisson.stan` (log; also used for **survival** via the
+  exponential / person-time formulation). Flexible parametric and spline
+  survival baselines are future work (proportional-hazards survival is
+  covered frequentially by `cstc()`/`cmaic()`). Caveat: components with
+  effect modifiers informed only by aggregate data are weakly identified
+  (`prior_reg_sd` regularizes).
 - **Phase 3** — validation (simulation + reproduction of published
   examples) and the documentation suite.
 
