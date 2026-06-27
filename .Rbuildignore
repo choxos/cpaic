@@ -1,0 +1,17 @@
+^documentation$
+^CLAUDE\.md$
+^\.codegraph$
+^LICENSE$
+^data-raw$
+^.*\.Rproj$
+^\.Rproj\.user$
+^\.github$
+^\.git$
+^\.gitignore$
+^\.DS_Store$
+^.*\.Rcheck$
+^\.lintr$
+^cran-comments\.md$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$

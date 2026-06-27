@@ -1,0 +1,35 @@
+# Technical documentation (kept local, not version-controlled per project decision)
+documentation/
+
+# R / package build artifacts
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj
+.Rapp.history
+*.tar.gz
+*.Rcheck/
+..Rcheck/
+/docs/            # pkgdown output
+/doc/
+/Meta/
+inst/doc/
+/.quarto/
+
+# Compiled Stan / C++ (cmdstanr caches compiled models next to .stan)
+inst/stan/*.exe
+inst/stan/**/*.o
+inst/stan/**/*.hpp
+src/*.o
+src/*.so
+src/*.dll
+*.stanc
+
+# macOS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Codegraph symlink artifact
+.codegraph

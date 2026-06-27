@@ -1,0 +1,126 @@
+---
+title: "Getting started with cpaic"
+output: rmarkdown::html_vignette
+bibliography: cpaic.bib
+vignette: >
+  %\VignetteIndexEntry{Getting started with cpaic}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6,
+                      fig.height = 4)
+```
+
+```{r setup}
+library(cpaic)
+```
+
+## The problem
+
+Network meta-analysis needs a *connected* network. When the evidence splits
+into two or more sub-networks with no common comparator, the network is
+**disconnected** and the treatments in different sub-networks cannot be
+compared directly.
+
+`cpaic` reconnects such a network through the *additive component* structure
+of the treatments (component network meta-analysis), and then adjusts the
+comparisons for between-study differences in effect modifiers using anchored
+population-adjustment methods (STC and MAIC; ML-NMR is in development). The
+result is an indirect comparison that is both connected and
+population-adjusted.
+
+## A disconnected example
+
+The bundled data describe a binary-outcome network in two pieces:
+
+* sub-network 1, anchored on placebo: `Placebo`, `A`, `B`;
+* sub-network 2, isolated: `A+B`, `A+B+C`, `A+B+D`.
+
+No treatment is shared between the two pieces, so the network is
+disconnected. The shared components `A` and `B` bridge it.
+
+```{r}
+net <- cpaic_network(cpaic_bin_agd, ipd = cpaic_bin_ipd, sm = "OR",
+                     family = "binomial", ipd_covariates = "x1",
+                     inactive = "Placebo")
+net
+```
+
+## Is the network bridgeable?
+
+A disconnected network can be bridged only if the shared components make all
+component effects identifiable, that is `rank(X) = number of components`.
+
+```{r}
+cpaic_connectivity(net)
+```
+
+The report confirms two sub-networks, identifies `A` and `B` as the bridging
+components, and shows the component effects are identifiable.
+
+```{r, fig.alt = "Component network coloured by sub-network"}
+plot(net)
+```
+
+## Step 1: connect with component NMA
+
+`cnma_bridge()` fits the additive component model and reconstructs the
+relative effects across the gap.
+
+```{r}
+br <- cnma_bridge(net)
+component_effects(br)
+```
+
+## Step 2: adjust for effect modifiers
+
+Components `C` and `D` come from the IPD studies, whose effect modifier `x1`
+is imbalanced relative to the target population (`x1 = 0`). Anchored STC fits
+an outcome regression with treatment-by-`x1` interactions and reads off the
+treatment effect at the target.
+
+```{r}
+fit_stc <- cstc(net, target = c(x1 = 0), effect_modifiers = "x1")
+component_effects(fit_stc)
+```
+
+Anchored MAIC instead reweights each IPD study to the target population.
+
+```{r}
+fit_maic <- cmaic(net, target = c(x1 = 0), effect_modifiers = "x1",
+                  n_boot = 100, seed = 1)
+effective_sample_size(fit_maic)
+```
+
+Population adjustment moves the `C` and `D` effects relative to the
+unadjusted (naive) bridge, while the placebo-anchored components `A` and `B`
+are unchanged:
+
+```{r}
+data.frame(
+  component = component_effects(br)$component,
+  naive     = round(component_effects(br)$estimate, 3),
+  cSTC      = round(component_effects(fit_stc)$estimate, 3),
+  cMAIC     = round(component_effects(fit_maic)$estimate, 3)
+)
+```
+
+## Reporting
+
+```{r}
+relative_effects(fit_stc)
+additivity_test(fit_stc)
+```
+
+```{r, fig.alt = "Forest plot of relative effects versus placebo"}
+forest(fit_stc)
+```
+
+## Where next
+
+* `vignette("cpaic-methods")` (in preparation) covers the statistical
+  framework in depth.
+* The full mathematical foundations and a validation study are provided with
+  the development sources.
