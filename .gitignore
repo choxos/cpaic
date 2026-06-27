@@ -11,7 +11,8 @@ documentation/
 *.tar.gz
 *.Rcheck/
 ..Rcheck/
-/docs/            # pkgdown output
+# pkgdown output (.gitignore has no inline comments, so keep this on its own line)
+/docs/
 /doc/
 /Meta/
 inst/doc/
