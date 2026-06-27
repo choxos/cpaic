@@ -90,7 +90,7 @@ population-average outcome. Supply IPD for such components where possible;
 \code{prior_reg_sd} regularizes otherwise.
 }
 \examples{
-\dontshow{if (requireNamespace("cmdstanr", quietly = TRUE)) withAutoprint(\{ # examplesIf}
+\dontshow{if (requireNamespace("cmdstanr", quietly = TRUE) && !inherits(try(cmdstanr::cmdstan_path(), silent = TRUE), "try-error")) withAutoprint(\{ # examplesIf}
 \donttest{
 ipd <- data.frame(.study = "S1",
                   .trt = rep(c("Placebo", "A"), each = 100),

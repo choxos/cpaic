@@ -65,7 +65,7 @@
 #' @return An object of class `cpaic_mlnmr` with the `cmdstanr` fit, the
 #'   component design, and a tidy table of component effects.
 #' @seealso [cmaic()], [cstc()], [cnma_bridge()]
-#' @examplesIf requireNamespace("cmdstanr", quietly = TRUE)
+#' @examplesIf requireNamespace("cmdstanr", quietly = TRUE) && !inherits(try(cmdstanr::cmdstan_path(), silent = TRUE), "try-error")
 #' \donttest{
 #' ipd <- data.frame(.study = "S1",
 #'                   .trt = rep(c("Placebo", "A"), each = 100),
