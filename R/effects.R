@@ -1,5 +1,19 @@
 # Post-fit relative effects and league tables ---------------------------------
 
+#' Validate a reference treatment and confidence/credible level
+#' @noRd
+.cpaic_check_ref_level <- function(reference, trts, level) {
+  if (!is.character(reference) || length(reference) != 1L ||
+      !reference %in% trts) {
+    stop("`reference` must be one of the network treatments: ",
+         paste(trts, collapse = ", "), call. = FALSE)
+  }
+  if (!is.numeric(level) || length(level) != 1L || level <= 0 || level >= 1) {
+    stop("`level` must be a single number in (0, 1).", call. = FALSE)
+  }
+  invisible(NULL)
+}
+
 #' Is the summary measure on a (natural) log scale?
 #' @noRd
 .is_log_sm <- function(sm) {
@@ -23,7 +37,10 @@
 #' @param ... Unused.
 #'
 #' @return A data frame with columns `treatment`, `comparator`, `estimate`,
-#'   `se` (link scale), `lower`, `upper`, `z`, `p`.
+#'   `se` (link scale), `lower`, `upper`, and `z`/`p` for frequentist fits.
+#'   For `cmlnmr()` (Bayesian) fits the intervals are credible intervals and
+#'   the final column is `pr_gt0`, the posterior probability that the
+#'   effect (on the link scale) exceeds zero, instead of `z`/`p`.
 #' @export
 relative_effects <- function(object, reference = NULL, all_contrasts = FALSE,
                              backtransf = TRUE, level = 0.95, ...) {
@@ -46,6 +63,7 @@ relative_effects.cpaic_mlnmr <- function(object, reference = NULL,
   colnames(Theta) <- rownames(C)
   trts <- rownames(C)
   if (is.null(reference)) reference <- object$reference
+  .cpaic_check_ref_level(reference, trts, level)
   a <- (1 - level) / 2
   logsm <- .is_log_sm(object$sm)
   bt <- function(v) if (backtransf && logsm) exp(v) else v
@@ -83,6 +101,7 @@ relative_effects.cpaic_bridge <- function(object, reference = NULL,
   seTE <- fit[[paste0("seTE.", suffix)]]
   trts <- rownames(TE)
   if (is.null(reference)) reference <- object$reference
+  .cpaic_check_ref_level(reference, trts, level)
   z <- stats::qnorm(1 - (1 - level) / 2)
   sm <- object$sm
   logsm <- .is_log_sm(sm)

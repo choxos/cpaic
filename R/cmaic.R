@@ -104,6 +104,12 @@
     boot[b, names(cb)] <- cb
   }
   se <- apply(boot, 2, stats::sd, na.rm = TRUE)
+  n_ok <- colSums(!is.na(boot))
+  if (any(n_ok < 0.5 * n_boot)) {
+    warning("Fewer than half of the ", n_boot, " bootstrap replicates ",
+            "succeeded for a contrast (min ", min(n_ok),
+            "); its standard error may be unstable.", call. = FALSE)
+  }
 
   list(
     contrasts = data.frame(
@@ -161,6 +167,11 @@ cmaic <- function(network, target, effect_modifiers = NULL, target_sd = NULL,
     stop("`network` has no IPD; cmaic() requires individual patient data.",
          call. = FALSE)
   }
+  if (!is.numeric(n_boot) || length(n_boot) != 1L || !is.finite(n_boot) ||
+      n_boot < 1L) {
+    stop("`n_boot` must be a positive integer.", call. = FALSE)
+  }
+  n_boot <- as.integer(n_boot)
   if (!is.null(seed)) set.seed(seed)
   info <- network$ipd_info
   family <- network$family
@@ -180,6 +191,11 @@ cmaic <- function(network, target, effect_modifiers = NULL, target_sd = NULL,
   # _sq_CENTERED columns built by .cpaic_center() are never matched).
   if (!is.null(target_sd)) {
     target_sd <- as.list(target_sd)
+    if (any(vapply(target_sd, function(v)
+            !is.null(v) && (!is.numeric(v) || (is.finite(v) && v < 0)),
+            logical(1)))) {
+      stop("`target_sd` values must be non-negative.", call. = FALSE)
+    }
     has_sd <- vapply(effect_modifiers, function(e)
       !is.null(target_sd[[e]]) && is.finite(target_sd[[e]]), logical(1))
     em_centered_cols <- c(em_centered_cols,

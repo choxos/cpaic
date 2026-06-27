@@ -34,16 +34,25 @@ cnma_bridge <- function(network, common = FALSE, random = TRUE, ...) {
   agd <- network$agd
 
   conn <- cpaic_connectivity(network)
-  # Only meaningful when treatments actually decompose into components; a
-  # singleton-treatment network is rank-deficient component-wise by
-  # construction yet its treatment effects are perfectly well defined.
   has_components <- any(grepl(network$sep.comps, network$treatments,
                              fixed = TRUE))
-  if (has_components && !conn$identifiable) {
-    warning("Component effects are not uniquely identifiable: rank(X) = ",
-            conn$rank, " < ", conn$n_components, " components. Some effects ",
-            "will be NA. Check that the sub-networks share enough components ",
-            "(see cpaic_connectivity()).", call. = FALSE)
+  if (!conn$identifiable) {
+    if (!conn$connected) {
+      # Disconnected AND non-identifiable: the cross-sub-network contrasts
+      # are not estimable; refuse rather than return spurious finite effects.
+      stop("The network is disconnected and cannot be bridged: the ",
+           "sub-networks do not share enough components to identify the ",
+           "component effects (rank(X) = ", conn$rank, " < ",
+           conn$n_components, "). See cpaic_connectivity().", call. = FALSE)
+    } else if (has_components) {
+      # Connected but a component is not separately identifiable; the
+      # treatment effects are still defined, the component will be NA. (A
+      # connected singleton-treatment network is component-degenerate by
+      # construction and needs no warning.)
+      warning("Component effects are not uniquely identifiable: rank(X) = ",
+              conn$rank, " < ", conn$n_components, " components. Some effects ",
+              "will be NA. See cpaic_connectivity().", call. = FALSE)
+    }
   }
 
   run <- function() {

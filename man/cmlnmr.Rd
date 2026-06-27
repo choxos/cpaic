@@ -105,14 +105,16 @@ Supported families: \code{"binomial"} (logit), \code{"gaussian"} (identity),
 model with a flexible baseline: \code{baseline = "piecewise"} gives a
 piecewise-exponential step baseline (one level per interval defined by
 \code{cut_points}; exponential when \code{cut_points = NULL}), while
-\code{baseline = "mspline"} gives a smooth M-spline baseline hazard
-(non-negative basis with simplex weights, \code{n_basis} functions) over the
-\code{cut_points} grid. Individual patient data are split at the cut points
-internally; aggregate survival data are supplied as events and
-person-time per arm and (when \code{cut_points} are given) per interval. The
-aggregate likelihood approximates the expected events in an arm-interval
-by person-time times the integrated hazard, which is most accurate when
-the intervals are narrow.
+\code{baseline = "mspline"} gives a smooth baseline hazard from a non-negative
+M-spline basis (\code{n_basis} functions, simplex weights) evaluated at the
+interval midpoints over the \code{cut_points} grid. Individual patient data are
+split at the cut points internally; aggregate survival data are supplied
+as events and person-time per arm and (when \code{cut_points} are given) per
+interval. The aggregate likelihood approximates the expected events in an
+arm-interval by person-time times the integrated hazard; this assumes the
+person-time is independent of the covariates within an interval (most
+accurate when the intervals are narrow), so it is approximate when effect
+modifiers also drive censoring.
 
 Aggregate covariates are integrated with a Gaussian copula: the
 correlation is estimated from the IPD (or supplied via \code{cor}) so the

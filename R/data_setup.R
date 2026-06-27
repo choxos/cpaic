@@ -116,6 +116,9 @@ cpaic_network <- function(agd, ipd = NULL,
     stop("`agd` is missing column(s): ", paste(miss, collapse = ", "),
          call. = FALSE)
   }
+  if (nrow(agd) == 0L) {
+    stop("`agd` has no comparisons (zero rows).", call. = FALSE)
+  }
 
   treatments <- sort(unique(c(as.character(agd[[treat1]]),
                               as.character(agd[[treat2]]))))
@@ -155,6 +158,12 @@ cpaic_network <- function(agd, ipd = NULL,
     if (length(miss_cov)) {
       stop("`ipd` is missing covariate column(s): ",
            paste(miss_cov, collapse = ", "), call. = FALSE)
+    }
+    bad_arms <- setdiff(unique(as.character(ipd[[ipd_trt]])), treatments)
+    if (length(bad_arms)) {
+      stop("IPD treatment(s) not present in the aggregate network: ",
+           paste(bad_arms, collapse = ", "),
+           ". Every IPD arm must also appear in `agd`.", call. = FALSE)
     }
     if (family == "survival") {
       if (is.null(ipd_time) || is.null(ipd_status)) {

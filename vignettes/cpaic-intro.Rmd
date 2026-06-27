@@ -27,7 +27,7 @@ compared directly.
 `cpaic` reconnects such a network through the *additive component* structure
 of the treatments (component network meta-analysis), and then adjusts the
 comparisons for between-study differences in effect modifiers using anchored
-population-adjustment methods (STC and MAIC; ML-NMR is in development). The
+population-adjustment methods (STC, MAIC, and ML-NMR). The
 result is an indirect comparison that is both connected and
 population-adjusted.
 

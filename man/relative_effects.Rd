@@ -30,7 +30,10 @@ of versus the reference.}
 }
 \value{
 A data frame with columns \code{treatment}, \code{comparator}, \code{estimate},
-\code{se} (link scale), \code{lower}, \code{upper}, \code{z}, \code{p}.
+\code{se} (link scale), \code{lower}, \code{upper}, and \code{z}/\code{p} for frequentist fits.
+For \code{cmlnmr()} (Bayesian) fits the intervals are credible intervals and
+the final column is \code{pr_gt0}, the posterior probability that the
+effect (on the link scale) exceeds zero, instead of \code{z}/\code{p}.
 }
 \description{
 Tidies the (random- or common-effects) relative effects from the

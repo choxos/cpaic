@@ -77,14 +77,16 @@
 #' model with a flexible baseline: `baseline = "piecewise"` gives a
 #' piecewise-exponential step baseline (one level per interval defined by
 #' `cut_points`; exponential when `cut_points = NULL`), while
-#' `baseline = "mspline"` gives a smooth M-spline baseline hazard
-#' (non-negative basis with simplex weights, `n_basis` functions) over the
-#' `cut_points` grid. Individual patient data are split at the cut points
-#' internally; aggregate survival data are supplied as events and
-#' person-time per arm and (when `cut_points` are given) per interval. The
-#' aggregate likelihood approximates the expected events in an arm-interval
-#' by person-time times the integrated hazard, which is most accurate when
-#' the intervals are narrow.
+#' `baseline = "mspline"` gives a smooth baseline hazard from a non-negative
+#' M-spline basis (`n_basis` functions, simplex weights) evaluated at the
+#' interval midpoints over the `cut_points` grid. Individual patient data are
+#' split at the cut points internally; aggregate survival data are supplied
+#' as events and person-time per arm and (when `cut_points` are given) per
+#' interval. The aggregate likelihood approximates the expected events in an
+#' arm-interval by person-time times the integrated hazard; this assumes the
+#' person-time is independent of the covariates within an interval (most
+#' accurate when the intervals are narrow), so it is approximate when effect
+#' modifiers also drive censoring.
 #'
 #' Aggregate covariates are integrated with a Gaussian copula: the
 #' correlation is estimated from the IPD (or supplied via `cor`) so the
@@ -211,6 +213,51 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
     }
   }
 
+  # Family-specific value checks (guard against invalid Stan inputs).
+  need <- function(cols, where) {
+    m <- setdiff(cols, names(if (where == "agd") agd else ipd))
+    if (length(m)) stop("`", where, "` is missing column(s): ",
+                        paste(m, collapse = ", "), call. = FALSE)
+  }
+  pos <- function(x) is.finite(x) & x > 0
+  if (family == "binomial") {
+    need(c(r, n), "agd")
+    if (!all(stats::na.omit(ipd[[outcome]]) %in% c(0, 1))) {
+      stop("binomial IPD outcome must be 0 or 1.", call. = FALSE)
+    }
+    if (any(agd[[r]] < 0 | agd[[r]] > agd[[n]])) {
+      stop("aggregate binomial counts must satisfy 0 <= r <= n.",
+           call. = FALSE)
+    }
+  } else if (family == "gaussian") {
+    need(c(outcome, se), "agd")
+    if (any(!pos(agd[[se]]))) {
+      stop("aggregate gaussian `se` must be positive.", call. = FALSE)
+    }
+  } else if (family == "poisson") {
+    need(c(r, E), "agd")
+    if (any(agd[[r]] < 0) || any(!pos(agd[[E]]))) {
+      stop("aggregate poisson needs `r` >= 0 and positive exposure `E`.",
+           call. = FALSE)
+    }
+    if (!is.null(exposure) && exposure %in% names(ipd) &&
+        any(!pos(ipd[[exposure]]))) {
+      stop("poisson IPD exposure must be positive.", call. = FALSE)
+    }
+  } else if (family == "survival") {
+    need(c(r, E), "agd")
+    if (any(!pos(ipd[[time]]))) {
+      stop("survival IPD time must be positive.", call. = FALSE)
+    }
+    if (!all(stats::na.omit(ipd[[outcome]]) %in% c(0, 1))) {
+      stop("survival IPD status (`outcome`) must be 0 or 1.", call. = FALSE)
+    }
+    if (any(agd[[r]] < 0) || any(!pos(agd[[E]]))) {
+      stop("aggregate survival needs `r` >= 0 and positive person-time `E`.",
+           call. = FALSE)
+    }
+  }
+
   # Reference treatment for reported relative effects.
   reference <- if (!is.null(inactive) && inactive %in% rownames(C)) {
     inactive
@@ -280,7 +327,7 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
         stop("Package 'splines2' is required for baseline = 'mspline'.",
              call. = FALSE)
       }
-      t_max <- max(ipd[[time]])
+      t_max <- max(c(ipd[[time]], cut_points))
       cuts_full <- c(0, cut_points, t_max)
       mid <- (utils::head(cuts_full, -1) + utils::tail(cuts_full, -1)) / 2
       Msp <- matrix(as.numeric(splines2::mSpline(
@@ -356,6 +403,7 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
     data = standata, chains = chains, parallel_chains = chains,
     iter_warmup = iter_warmup, iter_sampling = iter_sampling,
     seed = seed %||% 1L, refresh = 0, show_messages = FALSE)
+  .cpaic_check_diagnostics(fit)
 
   beta_draws <- fit$draws("beta", format = "draws_matrix")
   comp_tbl <- data.frame(
@@ -373,6 +421,34 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
            gaussian = "MD", poisson = "IRR", survival = "HR"),
          method = "cML-NMR"),
     class = c("cpaic_mlnmr", "cpaic_fit"))
+}
+
+#' Warn on poor MCMC diagnostics from a cmdstanr fit
+#' @noRd
+.cpaic_check_diagnostics <- function(fit) {
+  diag <- tryCatch(fit$diagnostic_summary(quiet = TRUE),
+                   error = function(e) NULL)
+  if (!is.null(diag)) {
+    nd <- sum(diag$num_divergent %||% 0)
+    if (nd > 0) {
+      warning(nd, " divergent transition(s) in cmlnmr(); results may be ",
+              "unreliable (consider higher adapt_delta or more iterations).",
+              call. = FALSE)
+    }
+    ntd <- sum(diag$num_max_treedepth %||% 0)
+    if (ntd > 0) {
+      warning(ntd, " iteration(s) saturated the maximum tree depth.",
+              call. = FALSE)
+    }
+  }
+  rh <- tryCatch(max(fit$summary(c("beta", "mu"))$rhat, na.rm = TRUE),
+                 error = function(e) NA_real_)
+  if (is.finite(rh) && rh > 1.05) {
+    warning("Maximum Rhat = ", round(rh, 3), " (> 1.05); the chains may not ",
+            "have converged. Increase `iter_warmup`/`iter_sampling`.",
+            call. = FALSE)
+  }
+  invisible(NULL)
 }
 
 #' Compile (and cache) a cpaic Stan model with cmdstanr
