@@ -1,0 +1,45 @@
+url: https://choxos.github.io/cpaic/
+
+template:
+  bootstrap: 5
+
+reference:
+- title: Network setup
+  desc: Build a (possibly disconnected) component network and code components.
+  contents:
+  - cpaic_network
+  - build_C_matrix
+- title: Connectivity
+  desc: Detect disconnection and check component-bridge identifiability.
+  contents:
+  - cpaic_connectivity
+- title: Connection layer
+  desc: Reconnect a disconnected network through shared components.
+  contents:
+  - cnma_bridge
+  - additivity_test
+- title: Population adjustment
+  desc: Anchored, population-adjusted indirect comparison across the network.
+  contents:
+  - cmaic
+  - cstc
+  - cmlnmr
+  - effective_sample_size
+- title: Reporting and visualization
+  contents:
+  - relative_effects
+  - league_table
+  - component_effects
+  - forest
+  - plot.cpaic_network
+- title: Data
+  contents:
+  - cpaic_bin_agd
+  - cpaic_bin_ipd
+
+articles:
+- title: Articles
+  navbar: ~
+  contents:
+  - cpaic-intro
+  - cpaic-methods
