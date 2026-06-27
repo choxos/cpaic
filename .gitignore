@@ -30,5 +30,6 @@ src/*.dll
 .vscode/
 .idea/
 
-# Codegraph symlink artifact
+# Codegraph / tooling artifacts
 .codegraph
+.omo/
