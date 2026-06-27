@@ -41,6 +41,13 @@ test_that("cmlnmr recovers component effects when identified", {
                 info = paste("component", cc))
   }
   expect_lt(max(fit$fit$summary("beta")$rhat), 1.1)
+
+  # relative_effects() must work on the Bayesian fit (no $bridge slot).
+  re <- relative_effects(fit)
+  expect_s3_class(re, "cpaic_effects")
+  expect_true(all(c("treatment", "estimate", "lower", "upper") %in% names(re)))
+  expect_true(nrow(re) >= 1)
+  expect_error(additivity_test(fit), "LOO")
 })
 
 test_that("cmlnmr runs for gaussian, poisson, and survival families", {

@@ -106,6 +106,66 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
                            as.character(agd[[study]]))))
   sidx <- function(s) match(as.character(s), studies)
 
+  # Front-door validation.
+  if (Q < 1L) {
+    stop("`effect_modifiers` must name at least one covariate.", call. = FALSE)
+  }
+  if (nrow(ipd) == 0L) {
+    stop("cmlnmr() requires at least one row of IPD in this version.",
+         call. = FALSE)
+  }
+  if (as.integer(n_int) < 1L) {
+    stop("`n_int` must be a positive integer.", call. = FALSE)
+  }
+  miss_em <- setdiff(effect_modifiers, names(ipd))
+  if (length(miss_em)) {
+    stop("`ipd` is missing effect-modifier column(s): ",
+         paste(miss_em, collapse = ", "), call. = FALSE)
+  }
+  for (v in effect_modifiers) {
+    if (!paste0(v, "_mean") %in% names(agd)) {
+      stop("`agd` is missing `", v, "_mean`.", call. = FALSE)
+    }
+    if (family != "gaussian") {
+      sdn <- paste0(v, "_sd")
+      if (!sdn %in% names(agd)) stop("`agd` is missing `", sdn, "`.",
+                                     call. = FALSE)
+      if (any(!is.finite(agd[[sdn]]) | agd[[sdn]] <= 0)) {
+        stop("`", sdn, "` must be positive and finite.", call. = FALSE)
+      }
+    }
+  }
+
+  # Reference treatment for reported relative effects.
+  reference <- if (!is.null(inactive) && inactive %in% rownames(C)) {
+    inactive
+  } else {
+    rownames(C)[1]
+  }
+
+  # Identifiability: component effects are estimable only if the within-study
+  # arm contrasts span all components; otherwise some are prior-driven.
+  arm_tbl <- unique(rbind(
+    data.frame(s = as.character(ipd[[study]]), t = as.character(ipd[[trt]]),
+               stringsAsFactors = FALSE),
+    data.frame(s = as.character(agd[[study]]), t = as.character(agd[[trt]]),
+               stringsAsFactors = FALSE)))
+  Dlist <- lapply(unique(arm_tbl$s), function(ss) {
+    ts <- arm_tbl$t[arm_tbl$s == ss]
+    if (length(ts) < 2L) return(NULL)
+    Cs <- C[match(ts, rownames(C)), , drop = FALSE]
+    sweep(Cs[-1, , drop = FALSE], 2, Cs[1, ], "-")
+  })
+  Dmat <- do.call(rbind, Dlist)
+  rk <- if (is.null(Dmat) || !nrow(Dmat)) 0L else
+    as.integer(Matrix::rankMatrix(Dmat))
+  if (rk < ncol(C)) {
+    warning("Only ", rk, " of ", ncol(C), " component effects are identified ",
+            "by within-study contrasts; the remainder are informed only by ",
+            "the prior. Provide evidence that contrasts those components.",
+            call. = FALSE)
+  }
+
   Tc_ipd <- C[match(as.character(ipd[[trt]]), rownames(C)), , drop = FALSE]
   X_ipd <- as.matrix(ipd[, effect_modifiers, drop = FALSE])
   Tc_agd <- C[match(as.character(agd[[trt]]), rownames(C)), , drop = FALSE]
@@ -175,6 +235,8 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
   structure(
     list(fit = fit, components = comp_tbl, C.matrix = C, comps = comps,
          family = family, effect_modifiers = effect_modifiers,
+         reference = reference, sm = switch(family, binomial = "OR",
+           gaussian = "MD", poisson = "IRR", survival = "HR"),
          method = "cML-NMR"),
     class = c("cpaic_mlnmr", "cpaic_fit"))
 }

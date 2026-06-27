@@ -79,10 +79,12 @@
 #' contrasts replace the corresponding unadjusted aggregate contrasts and
 #' [cnma_bridge()] combines them through the additive component model.
 #'
-#' Unlike [cmaic()] (reweighting) this is the regression-/G-computation
-#' route. It is implemented natively here because `mlumr::stc()` targets
-#' the *unanchored* two-trial case; the delta-method machinery is adapted
-#' from that package.
+#' Unlike [cmaic()] (reweighting) this is the regression-adjustment route.
+#' The reported treatment coefficient is the *conditional* effect at the
+#' target effect-modifier means (not a marginal standardization); for
+#' collapsible measures the two coincide. It is implemented natively here
+#' because `mlumr::stc()` targets the *unanchored* two-trial case; the link
+#' and standard-error machinery is adapted from that package.
 #'
 #' @param network A [cpaic_network()] object that includes IPD.
 #' @param target Named numeric vector (or list / one-row data frame) of
@@ -120,6 +122,10 @@ cstc <- function(network, target, effect_modifiers = NULL,
     stop("`target` must supply a mean for every effect modifier: ",
          paste(effect_modifiers, collapse = ", "), call. = FALSE)
   }
+  if (!all(vapply(target_mean, function(v)
+           is.numeric(v) && length(v) == 1L && is.finite(v), logical(1)))) {
+    stop("`target` values must be finite numeric scalars.", call. = FALSE)
+  }
 
   outcome_args <- list(time = network$cols$ipd_time,
                        status = network$cols$ipd_status,
@@ -134,6 +140,10 @@ cstc <- function(network, target, effect_modifiers = NULL,
                          drop = FALSE]
     agd_s <- agd[as.character(agd[[cols$studlab]]) == s, , drop = FALSE]
     arms <- unique(as.character(ipd_s[[info$trt]]))
+    if (length(arms) > 2L) {
+      stop("IPD study '", s, "' has ", length(arms), " arms; cstc() ",
+           "supports two-arm IPD studies in this version.", call. = FALSE)
+    }
     ref_arm <- if (nrow(agd_s)) {
       as.character(agd_s[[cols$treat2]][1])
     } else if (network$reference %in% arms) {

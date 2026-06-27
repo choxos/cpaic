@@ -39,7 +39,7 @@ and `documentation/PROGRESS.md` for the running build log.
                          |
                          v
         connected + population-adjusted network
-        relative_effects(), marginal_effects(), predict()
+        relative_effects(), league_table(), component_effects()
 ```
 
 - **Connection layer** = additive cNMA. Design decomposition `delta = X
@@ -103,7 +103,7 @@ R/
   cmaic.R            # cmaic(): per-edge maicplus weights -> bridge
   cstc.R             # cstc(): native anchored STC -> bridge
   cmlnmr.R           # Phase 2: component-additive ML-NMR
-  effects.R          # relative_effects/component_effects/marginal_effects/predict + S3
+  effects.R          # relative_effects/component_effects/league_table + S3
   diagnostics.R      # additivity Q-test, ESS, integration checks
   plot.R             # component network plots, forest plots
   utils.R, zzz.R

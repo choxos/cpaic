@@ -24,12 +24,13 @@ anchored STC / MAIC / ML-NMR provide the population adjustment.
 
 ## Status
 
-- **Phase 1 (frequentist core) — available now.**
+- **Frequentist core — available.**
   `cnma_bridge()` (reconnect via components), `cmaic()` (component MAIC),
   `cstc()` (component anchored STC), with binary, continuous, count, and
   survival outcomes.
-- **Phase 2 (Bayesian flagship `cmlnmr()`, component-additive ML-NMR) — in
-  development.**
+- **Bayesian flagship `cmlnmr()` (component-additive ML-NMR) — available.**
+  Binary, continuous, count, and survival (exponential) outcomes; fitted
+  with `cmdstanr`. Flexible parametric survival baselines are in progress.
 
 ## Installation
 

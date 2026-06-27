@@ -1,6 +1,7 @@
 ^documentation$
 ^CLAUDE\.md$
-^\.codegraph$
+^\.codegraph
+^\.omo
 ^LICENSE$
 ^data-raw$
 ^.*\.Rproj$

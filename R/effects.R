@@ -36,6 +36,43 @@ relative_effects.cpaic_fit <- function(object, ...) {
 }
 
 #' @export
+relative_effects.cpaic_mlnmr <- function(object, reference = NULL,
+                                         all_contrasts = FALSE,
+                                         backtransf = TRUE, level = 0.95,
+                                         ...) {
+  C <- object$C.matrix
+  beta <- as.matrix(object$fit$draws("beta", format = "draws_matrix"))
+  Theta <- beta %*% t(C)              # draws x treatments (theta = C beta)
+  colnames(Theta) <- rownames(C)
+  trts <- rownames(C)
+  if (is.null(reference)) reference <- object$reference
+  a <- (1 - level) / 2
+  logsm <- .is_log_sm(object$sm)
+  bt <- function(v) if (backtransf && logsm) exp(v) else v
+
+  build <- function(t1, t2) {
+    d <- Theta[, t1] - Theta[, t2]
+    q <- stats::quantile(d, c(a, 1 - a), names = FALSE)
+    data.frame(treatment = t1, comparator = t2, estimate = bt(mean(d)),
+               se = stats::sd(d), lower = bt(q[1]), upper = bt(q[2]),
+               pr_gt0 = mean(d > 0), stringsAsFactors = FALSE)
+  }
+  if (all_contrasts) {
+    pairs <- expand.grid(t1 = trts, t2 = trts, stringsAsFactors = FALSE)
+    pairs <- pairs[pairs$t1 != pairs$t2, ]
+    out <- do.call(rbind, Map(build, pairs$t1, pairs$t2))
+  } else {
+    others <- setdiff(trts, reference)
+    out <- do.call(rbind, lapply(others, build, t2 = reference))
+  }
+  rownames(out) <- NULL
+  attr(out, "sm") <- object$sm
+  attr(out, "backtransf") <- backtransf && logsm
+  class(out) <- c("cpaic_effects", "data.frame")
+  out
+}
+
+#' @export
 relative_effects.cpaic_bridge <- function(object, reference = NULL,
                                           all_contrasts = FALSE,
                                           backtransf = TRUE, level = 0.95,

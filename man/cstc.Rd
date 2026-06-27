@@ -41,10 +41,12 @@ contrasts replace the corresponding unadjusted aggregate contrasts and
 \code{\link[=cnma_bridge]{cnma_bridge()}} combines them through the additive component model.
 }
 \details{
-Unlike \code{\link[=cmaic]{cmaic()}} (reweighting) this is the regression-/G-computation
-route. It is implemented natively here because \code{mlumr::stc()} targets
-the \emph{unanchored} two-trial case; the delta-method machinery is adapted
-from that package.
+Unlike \code{\link[=cmaic]{cmaic()}} (reweighting) this is the regression-adjustment route.
+The reported treatment coefficient is the \emph{conditional} effect at the
+target effect-modifier means (not a marginal standardization); for
+collapsible measures the two coincide. It is implemented natively here
+because \code{mlumr::stc()} targets the \emph{unanchored} two-trial case; the link
+and standard-error machinery is adapted from that package.
 }
 \examples{
 net <- cpaic_network(cpaic_bin_agd, ipd = cpaic_bin_ipd, sm = "OR",

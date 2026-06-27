@@ -171,7 +171,20 @@ cmaic <- function(network, target, effect_modifiers = NULL, target_sd = NULL,
     stop("`target` must supply a mean for every effect modifier: ",
          paste(effect_modifiers, collapse = ", "), call. = FALSE)
   }
+  if (!all(vapply(target_mean, function(v)
+           is.numeric(v) && length(v) == 1L && is.finite(v), logical(1)))) {
+    stop("`target` values must be finite numeric scalars.", call. = FALSE)
+  }
   em_centered_cols <- paste0(effect_modifiers, "_CENTERED")
+  # Match second moments too when target_sd is supplied (otherwise the
+  # _sq_CENTERED columns built by .cpaic_center() are never matched).
+  if (!is.null(target_sd)) {
+    target_sd <- as.list(target_sd)
+    has_sd <- vapply(effect_modifiers, function(e)
+      !is.null(target_sd[[e]]) && is.finite(target_sd[[e]]), logical(1))
+    em_centered_cols <- c(em_centered_cols,
+                          paste0(effect_modifiers[has_sd], "_sq_CENTERED"))
+  }
 
   outcome_args <- list(time = network$cols$ipd_time,
                        status = network$cols$ipd_status,
@@ -190,6 +203,10 @@ cmaic <- function(network, target, effect_modifiers = NULL, target_sd = NULL,
     # present, else the network reference if it is an arm, else first arm.
     agd_s <- agd[as.character(agd[[cols$studlab]]) == s, , drop = FALSE]
     arms <- unique(as.character(ipd_s[[info$trt]]))
+    if (length(arms) > 2L) {
+      stop("IPD study '", s, "' has ", length(arms), " arms; cmaic() ",
+           "supports two-arm IPD studies in this version.", call. = FALSE)
+    }
     ref_arm <- if (nrow(agd_s)) {
       as.character(agd_s[[cols$treat2]][1])
     } else if (network$reference %in% arms) {

@@ -12,8 +12,7 @@
 #' replace unadjusted contrasts with adjusted ones before calling this
 #' function.
 #'
-#' @param network A [cpaic_network()] object, or an aggregate contrast
-#'   data frame (then `sm` and the column names are taken from `...`).
+#' @param network A [cpaic_network()] object.
 #' @param common,random Fit common- and/or random-effects models.
 #' @param ... Additional arguments passed to [netmeta::discomb()] (e.g.
 #'   `tau.preset`).
@@ -34,6 +33,19 @@ cnma_bridge <- function(network, common = FALSE, random = TRUE, ...) {
   cols <- network$cols
   agd <- network$agd
 
+  conn <- cpaic_connectivity(network)
+  # Only meaningful when treatments actually decompose into components; a
+  # singleton-treatment network is rank-deficient component-wise by
+  # construction yet its treatment effects are perfectly well defined.
+  has_components <- any(grepl(network$sep.comps, network$treatments,
+                             fixed = TRUE))
+  if (has_components && !conn$identifiable) {
+    warning("Component effects are not uniquely identifiable: rank(X) = ",
+            conn$rank, " < ", conn$n_components, " components. Some effects ",
+            "will be NA. Check that the sub-networks share enough components ",
+            "(see cpaic_connectivity()).", call. = FALSE)
+  }
+
   run <- function() {
     netmeta::discomb(
       TE = agd[[cols$TE]],
@@ -50,13 +62,9 @@ cnma_bridge <- function(network, common = FALSE, random = TRUE, ...) {
       ...
     )
   }
-  # When no treatment actually decomposes into components, the network is a
-  # standard (singleton-treatment) network; discomb's component machinery is
-  # then trivially degenerate and emits noise. Real component networks keep
-  # their identifiability warnings (cpaic_connectivity() is the primary
-  # check).
-  has_components <- any(grepl(network$sep.comps, network$treatments,
-                             fixed = TRUE))
+  # For a singleton-treatment network discomb's component machinery is
+  # trivially degenerate and emits noise; suppress it there (the treatment
+  # effects are still correct). Real component networks keep their warnings.
   fit <- if (has_components) run() else suppressWarnings(run())
 
   effect <- if (random) "random" else "common"
@@ -72,6 +80,7 @@ cnma_bridge <- function(network, common = FALSE, random = TRUE, ...) {
       effect = effect,
       Q = list(Q = fit$Q.additive, df = fit$df.Q.additive,
                pval = fit$pval.Q.additive),
+      connectivity = conn,
       network = network
     ),
     class = "cpaic_bridge"

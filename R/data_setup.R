@@ -166,6 +166,26 @@ cpaic_network <- function(agd, ipd = NULL,
         stop("`ipd` is missing survival column(s): ",
              paste(miss_surv, collapse = ", "), call. = FALSE)
       }
+    } else if (!ipd_outcome %in% names(ipd)) {
+      stop("`ipd` is missing the outcome column `", ipd_outcome,
+           "` (set via `ipd_outcome`).", call. = FALSE)
+    }
+    if (family == "poisson" && !is.null(ipd_exposure) &&
+        !ipd_exposure %in% names(ipd)) {
+      stop("`ipd` is missing the exposure column `", ipd_exposure,
+           "` (set via `ipd_exposure`).", call. = FALSE)
+    }
+    # The IPD-adjusted contrast scale is fixed by the family's link, so the
+    # network summary measure `sm` must be on the matching scale.
+    ok_sm <- switch(family, binomial = "OR", gaussian = c("MD", "SMD"),
+                    poisson = c("IRR", "RR"), survival = "HR")
+    if (!sm %in% ok_sm) {
+      scale_name <- switch(family, binomial = "log-odds-ratio",
+                           gaussian = "mean-difference", poisson = "log-rate",
+                           survival = "log-hazard")
+      stop("With IPD of family '", family, "', the adjusted contrasts are ",
+           "on the ", scale_name, " scale; `sm` must be one of {",
+           paste(ok_sm, collapse = ", "), "}, not '", sm, "'.", call. = FALSE)
     }
     ipd_studies <- unique(as.character(ipd[[ipd_study]]))
     ipd_info <- list(study = ipd_study, trt = ipd_trt, outcome = ipd_outcome,

@@ -21,6 +21,14 @@ additivity_test.cpaic_fit <- function(object, ...) {
 }
 
 #' @export
+additivity_test.cpaic_mlnmr <- function(object, ...) {
+  stop("additivity_test() (Cochran Q) applies to the frequentist component ",
+       "bridge, not to cmlnmr(). For the Bayesian model, compare an additive ",
+       "fit against one with interaction terms using information criteria ",
+       "(e.g. LOO).", call. = FALSE)
+}
+
+#' @export
 additivity_test.cpaic_bridge <- function(object, ...) {
   out <- data.frame(Q = object$Q$Q, df = object$Q$df, pval = object$Q$pval,
                     row.names = NULL)

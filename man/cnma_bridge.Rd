@@ -7,8 +7,7 @@
 cnma_bridge(network, common = FALSE, random = TRUE, ...)
 }
 \arguments{
-\item{network}{A \code{\link[=cpaic_network]{cpaic_network()}} object, or an aggregate contrast
-data frame (then \code{sm} and the column names are taken from \code{...}).}
+\item{network}{A \code{\link[=cpaic_network]{cpaic_network()}} object.}
 
 \item{common, random}{Fit common- and/or random-effects models.}
 
