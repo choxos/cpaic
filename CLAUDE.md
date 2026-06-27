@@ -62,12 +62,15 @@ and `documentation/PROGRESS.md` for the running build log.
   construction. **Status: all four families implemented and validated**
   via `cmdstanr` — `inst/stan/cpaic_binomial.stan` (logit),
   `cpaic_normal.stan` (identity; exact at covariate means),
-  `cpaic_poisson.stan` (log; also used for **survival** via the
-  exponential / person-time formulation). Flexible parametric and spline
-  survival baselines are future work (proportional-hazards survival is
-  covered frequentially by `cstc()`/`cmaic()`). Caveat: components with
-  effect modifiers informed only by aggregate data are weakly identified
-  (`prior_reg_sd` regularizes).
+  `cpaic_poisson.stan` (log), and `cpaic_survival.stan`
+  (**piecewise-exponential** proportional hazards: a step-function baseline
+  log-hazard with one level per `cut_points` interval; `cut_points = NULL`
+  is exponential, more intervals give a flexible baseline). IPD are
+  Lexis-expanded internally; aggregate survival is events + person-time per
+  arm and per interval. Caveat: components with effect modifiers informed
+  only by aggregate data are weakly identified (`prior_reg_sd` regularizes);
+  the aggregate survival likelihood uses a person-time times integrated-
+  hazard approximation, most accurate with narrow intervals.
 - **Phase 3** — validation (simulation + reproduction of published
   examples) and the documentation suite.
 

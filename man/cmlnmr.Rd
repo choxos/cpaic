@@ -20,6 +20,8 @@ cmlnmr(
   n = "n",
   E = "E",
   se = "se",
+  cut_points = NULL,
+  interval = ".interval",
   n_int = 64L,
   prior_intercept_sd = 10,
   prior_beta_sd = 10,
@@ -55,6 +57,13 @@ count (poisson), or the event indicator for survival.}
 (binomial), exposure \code{E} (poisson/survival), mean \code{outcome} and its
 standard error \code{se} (gaussian).}
 
+\item{cut_points}{Survival only: interior interval boundaries for the
+piecewise-exponential baseline. \code{NULL} (default) gives the exponential
+model; e.g. \code{c(6, 12)} gives three intervals.}
+
+\item{interval}{Survival only: name of the aggregate interval-index
+column (values \verb{1..K}) required when \code{cut_points} are supplied.}
+
 \item{n_int}{Integration points per aggregate arm (ignored for
 \code{gaussian}, which is exact at the covariate means).}
 
@@ -78,10 +87,17 @@ component parameters, the network is connected by construction.
 }
 \details{
 Supported families: \code{"binomial"} (logit), \code{"gaussian"} (identity),
-\code{"poisson"} (log), and \code{"survival"} (exponential, fitted through the
-Poisson formulation with person-time exposure). Flexible parametric and
-spline survival baselines are future work; the frequentist \code{\link[=cstc]{cstc()}} and
-\code{\link[=cmaic]{cmaic()}} cover proportional-hazards survival.
+\code{"poisson"} (log), and \code{"survival"}. Survival uses a
+piecewise-exponential proportional-hazards model: the baseline log-hazard
+is a step function with one level per interval defined by \code{cut_points},
+so it is exponential when \code{cut_points = NULL} and arbitrarily flexible as
+intervals are added. Individual patient data are split at the cut points
+internally; aggregate survival data are supplied as events and
+person-time per arm and (when \code{cut_points} are given) per interval. The
+aggregate likelihood approximates the expected events in an arm-interval
+by person-time times the integrated hazard, which is most accurate when
+the intervals are narrow enough that the baseline hazard is approximately
+constant within each.
 
 Identifiability note: a component whose effect-modifier interaction is
 informed only by aggregate arms is weakly identified, because main and

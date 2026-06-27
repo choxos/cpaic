@@ -29,8 +29,9 @@ anchored STC / MAIC / ML-NMR provide the population adjustment.
   `cstc()` (component anchored STC), with binary, continuous, count, and
   survival outcomes.
 - **Bayesian flagship `cmlnmr()` (component-additive ML-NMR) — available.**
-  Binary, continuous, count, and survival (exponential) outcomes; fitted
-  with `cmdstanr`. Flexible parametric survival baselines are in progress.
+  Binary, continuous, count, and survival outcomes; fitted with `cmdstanr`.
+  Survival uses a piecewise-exponential proportional-hazards model with a
+  flexible (step-function) baseline set by `cut_points`.
 
 ## Installation
 

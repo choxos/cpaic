@@ -21,6 +21,34 @@
   X
 }
 
+#' Lexis (episode) expansion of survival IPD into interval-at-risk rows
+#'
+#' Splits each individual's follow-up at `cut_points`, returning one row per
+#' interval the individual is at risk in, with the time at risk in that
+#' interval (`.texp`), an event indicator for that interval (`.event`), and
+#' the interval index (`.interval`). With `cut_points = NULL` there is a
+#' single interval (the exponential model).
+#' @noRd
+.cpaic_lexis <- function(ipd, time_col, status_col, cut_points) {
+  cuts <- c(0, cut_points, Inf)
+  K <- length(cut_points) + 1L
+  out <- vector("list", K)
+  tt <- ipd[[time_col]]
+  ss <- as.integer(ipd[[status_col]])
+  for (k in seq_len(K)) {
+    lo <- cuts[k]
+    hi <- cuts[k + 1]
+    at_risk <- tt > lo
+    if (!any(at_risk)) next
+    sub <- ipd[at_risk, , drop = FALSE]
+    sub$.interval <- k
+    sub$.texp <- pmin(tt[at_risk], hi) - lo
+    sub$.event <- as.integer(ss[at_risk] == 1L & tt[at_risk] <= hi)
+    out[[k]] <- sub
+  }
+  do.call(rbind, out)
+}
+
 #' Component-additive multilevel network meta-regression (ML-NMR)
 #'
 #' The Bayesian flagship of cpaic. The relative effect of every treatment is
@@ -31,10 +59,17 @@
 #' component parameters, the network is connected by construction.
 #'
 #' Supported families: `"binomial"` (logit), `"gaussian"` (identity),
-#' `"poisson"` (log), and `"survival"` (exponential, fitted through the
-#' Poisson formulation with person-time exposure). Flexible parametric and
-#' spline survival baselines are future work; the frequentist [cstc()] and
-#' [cmaic()] cover proportional-hazards survival.
+#' `"poisson"` (log), and `"survival"`. Survival uses a
+#' piecewise-exponential proportional-hazards model: the baseline log-hazard
+#' is a step function with one level per interval defined by `cut_points`,
+#' so it is exponential when `cut_points = NULL` and arbitrarily flexible as
+#' intervals are added. Individual patient data are split at the cut points
+#' internally; aggregate survival data are supplied as events and
+#' person-time per arm and (when `cut_points` are given) per interval. The
+#' aggregate likelihood approximates the expected events in an arm-interval
+#' by person-time times the integrated hazard, which is most accurate when
+#' the intervals are narrow enough that the baseline hazard is approximately
+#' constant within each.
 #'
 #' Identifiability note: a component whose effect-modifier interaction is
 #' informed only by aggregate arms is weakly identified, because main and
@@ -56,6 +91,11 @@
 #' @param r,n,E,se Aggregate columns: events `r`, sample size `n`
 #'   (binomial), exposure `E` (poisson/survival), mean `outcome` and its
 #'   standard error `se` (gaussian).
+#' @param cut_points Survival only: interior interval boundaries for the
+#'   piecewise-exponential baseline. `NULL` (default) gives the exponential
+#'   model; e.g. `c(6, 12)` gives three intervals.
+#' @param interval Survival only: name of the aggregate interval-index
+#'   column (values `1..K`) required when `cut_points` are supplied.
 #' @param n_int Integration points per aggregate arm (ignored for
 #'   `gaussian`, which is exact at the covariate means).
 #' @param prior_intercept_sd,prior_beta_sd,prior_reg_sd Prior SDs.
@@ -82,14 +122,15 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
                    sep.comps = "+", family = "binomial",
                    study = ".study", trt = ".trt", outcome = ".y",
                    time = ".time", exposure = ".exposure",
-                   r = "r", n = "n", E = "E", se = "se", n_int = 64L,
+                   r = "r", n = "n", E = "E", se = "se",
+                   cut_points = NULL, interval = ".interval", n_int = 64L,
                    prior_intercept_sd = 10, prior_beta_sd = 10,
                    prior_reg_sd = 2.5, chains = 4L, iter_warmup = 500L,
                    iter_sampling = 500L, seed = NULL, ...) {
   family <- match.arg(family,
                       c("binomial", "gaussian", "poisson", "survival"))
   stan_family <- switch(family, binomial = "binomial", gaussian = "normal",
-                        poisson = "poisson", survival = "poisson")
+                        poisson = "poisson", survival = "survival")
   if (!requireNamespace("cmdstanr", quietly = TRUE)) {
     stop("cmlnmr() needs 'cmdstanr'. Install from ",
          "https://stan-dev.r-universe.dev .", call. = FALSE)
@@ -166,6 +207,32 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
             call. = FALSE)
   }
 
+  # Survival: Lexis-expand IPD into interval-at-risk rows and configure the
+  # piecewise-exponential baseline (K = 1 reduces to the exponential model).
+  K <- 1L
+  interval_ipd <- NULL
+  time_ipd_vec <- NULL
+  event_vec <- NULL
+  interval_agd <- rep(1L, nrow(agd))
+  if (family == "survival") {
+    K <- length(cut_points) + 1L
+    if (K > 1L) {
+      if (!interval %in% names(agd)) {
+        stop("With `cut_points`, `agd` must have an interval column `",
+             interval, "` (values 1..", K, "), giving events `", r,
+             "` and person-time `", E, "` per arm-interval.", call. = FALSE)
+      }
+      interval_agd <- as.integer(agd[[interval]])
+      if (any(interval_agd < 1L | interval_agd > K)) {
+        stop("`", interval, "` values must be in 1..", K, ".", call. = FALSE)
+      }
+    }
+    ipd <- .cpaic_lexis(ipd, time, outcome, cut_points)
+    interval_ipd <- as.integer(ipd[[".interval"]])
+    time_ipd_vec <- as.numeric(ipd[[".texp"]])
+    event_vec <- as.integer(ipd[[".event"]])
+  }
+
   Tc_ipd <- C[match(as.character(ipd[[trt]]), rownames(C)), , drop = FALSE]
   X_ipd <- as.matrix(ipd[, effect_modifiers, drop = FALSE])
   Tc_agd <- C[match(as.character(agd[[trt]]), rownames(C)), , drop = FALSE]
@@ -211,10 +278,13 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
       offset_ipd = as.numeric(ipd[[exposure]]),
       r_agd = as.integer(agd[[r]]), E_agd = as.numeric(agd[[E]]))),
     survival = c(base, list(
-      y_ipd = as.integer(ipd[[outcome]]),       # event indicator
-      offset_ipd = as.numeric(ipd[[time]]),     # follow-up time
-      r_agd = as.integer(agd[[r]]),             # total events
-      E_agd = as.numeric(agd[[E]])))            # total person-time
+      K = K,
+      y_ipd = event_vec,                        # event in interval-row
+      time_ipd = time_ipd_vec,                  # time at risk in interval
+      interval_ipd = interval_ipd,
+      r_agd = as.integer(agd[[r]]),             # events per arm-interval
+      E_agd = as.numeric(agd[[E]]),             # person-time per arm-interval
+      interval_agd = interval_agd))
   )
 
   mod <- .cpaic_stan_model(stan_family)
