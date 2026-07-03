@@ -1,0 +1,36 @@
+# Technical documentation (kept local, not version-controlled per project decision)
+documentation/
+
+# R / package build artifacts
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj
+.Rapp.history
+*.tar.gz
+*.Rcheck/
+..Rcheck/
+# pkgdown output (.gitignore has no inline comments, so keep this on its own line)
+/docs/
+/doc/
+/Meta/
+inst/doc/
+/.quarto/
+
+# Compiled Stan / C++ (keep only the .stan sources under inst/stan)
+inst/stan/*
+!inst/stan/*.stan
+src/*.o
+src/*.so
+src/*.dll
+*.stanc
+
+# macOS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Codegraph / tooling artifacts
+.codegraph
+.omo/

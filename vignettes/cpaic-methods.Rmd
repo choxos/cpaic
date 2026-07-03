@@ -1,0 +1,160 @@
+---
+title: "The cpaic statistical framework"
+output: rmarkdown::html_vignette
+bibliography: cpaic.bib
+vignette: >
+  %\VignetteIndexEntry{The cpaic statistical framework}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(cpaic)
+```
+
+This vignette describes the statistical framework behind cpaic. The
+companion mathematical-foundations document (shipped with the development
+sources) gives the full derivations; here we summarize the model and show
+how each piece maps to a function.
+
+## Two layers
+
+cpaic targets networks that are *disconnected*: the treatments split into
+two or more sub-networks with no common comparator, so standard network
+meta-analysis cannot compare across the gap. Two layers solve the two
+distinct problems.
+
+1. **Connection layer (component network meta-analysis).** Multi-component
+   treatments are decomposed into additive component effects. When
+   sub-networks share components, the component effects bridge the gap.
+2. **Adjustment layer (population adjustment).** Where individual patient
+   data (IPD) are available, each evidence edge is corrected for
+   between-study imbalance in effect modifiers, using anchored STC, MAIC,
+   or ML-NMR.
+
+The output is an indirect comparison that is both connected and
+population-adjusted.
+
+## The additive component model
+
+Let $\delta$ be the vector of observed relative effects (one per
+comparison), $B$ the edge-incidence (contrast) matrix mapping comparisons
+to treatments, and $C$ the treatment-by-component matrix with
+$C_{tc} = 1$ if treatment $t$ contains component $c$. Treatment effects are
+additive in the component effects $\beta$,
+$$ \theta = C\beta, \qquad \delta = B\theta = BC\beta = X\beta, $$
+with $X = BC$ the component design matrix. With inverse-variance weights
+$W$, the component effects are estimated by weighted least squares
+$$ \hat\beta = (X^\top W X)^{+} X^\top W d, \qquad
+   \mathrm{Cov}(\hat\theta) = C (X^\top W X)^{+} C^\top, $$
+where $(\cdot)^{+}$ is the Moore-Penrose inverse and $d$ the data vector
+[@rucker2020cnma]. The additivity assumption is checked with a Cochran $Q$
+statistic. This is implemented in `cnma_bridge()`, a wrapper around
+`netmeta::discomb()`.
+
+## Connecting a disconnected network
+
+A disconnected network can be bridged only if the shared components make
+the component effects identifiable, that is
+$\mathrm{rank}(X) = K$, the number of components. `cpaic_connectivity()`
+detects the sub-networks, lists the bridging components, and reports
+identifiability.
+
+```{r}
+net <- cpaic_network(cpaic_bin_agd, sm = "OR", inactive = "Placebo")
+cpaic_connectivity(net)
+```
+
+When identifiable, `cnma_bridge()` reconstructs the relative effects across
+the gap from the component effects.
+
+```{r}
+component_effects(cnma_bridge(net))
+```
+
+## Anchored simulated treatment comparison (cSTC)
+
+For each IPD study, `cstc()` fits an outcome regression with treatment main
+effects, prognostic main effects, and treatment-by-effect-modifier
+interactions, with the effect modifiers centered at a target population.
+On the link scale,
+$$ g\{E(y \mid \text{arm } t, x)\}
+   = \mu + \beta_t + \gamma_t^\top (x - \bar x_{\text{target}}) + \dots $$
+so the treatment coefficient $\beta_t$ is the population-adjusted contrast
+at the target (the interaction term vanishes at $x = \bar x_{\text{target}}$).
+This is the anchored generalization of regression-based standardization; it
+is implemented natively because `mlumr::stc()` targets the unanchored
+two-trial case.
+
+```{r}
+net_ipd <- cpaic_network(cpaic_bin_agd, ipd = cpaic_bin_ipd, sm = "OR",
+                         family = "binomial", ipd_covariates = "x1",
+                         inactive = "Placebo")
+component_effects(cstc(net_ipd, target = c(x1 = 0), effect_modifiers = "x1"))
+```
+
+## Anchored matching-adjusted indirect comparison (cMAIC)
+
+`cmaic()` reweights each IPD study so that its effect-modifier distribution
+matches the target population, using entropy-balancing weights
+$w_i = \exp(\tilde x_i^\top \alpha)$ with $\tilde x_i$ the centered effect
+modifiers [@phillippo2020mlnmr]. The effective sample size is
+$\mathrm{ESS} = (\sum_i w_i)^2 / \sum_i w_i^2$. The weighted within-study
+contrasts, with bootstrap standard errors that propagate the weighting
+uncertainty, are then combined through the component model.
+
+```{r}
+fit_maic <- cmaic(net_ipd, target = c(x1 = 0), effect_modifiers = "x1",
+                  n_boot = 100, seed = 1)
+effective_sample_size(fit_maic)
+```
+
+## The unification
+
+For a single IPD edge anchored on a common comparator, combining the
+adjusted contrast with the aggregate comparator contrast through the
+component model is exactly a Bucher indirect comparison. The component
+model generalizes this to a network: many adjusted and unadjusted contrasts
+are combined simultaneously through $\hat\beta = (X^\top W X)^{+} X^\top W d$,
+and the bridge supplies the contrasts that are otherwise unavailable across
+the disconnection. The key assumption is that component effects (and their
+effect-modifier interactions) are constant across sub-networks
+[@rucker2021disconnected].
+
+## Component-additive ML-NMR
+
+`cmlnmr()` places the component structure inside multilevel network
+meta-regression: the relative effect of an arm is $C\beta$ rather than a
+free per-treatment parameter, and aggregate arms are fitted by integrating
+the individual model over each study's covariate distribution. Disconnected
+sub-networks share the component parameters, so the network is connected by
+construction. All four outcome families are supported; survival uses a
+proportional-hazards model with a flexible baseline (piecewise-exponential
+by default, or a smooth M-spline), set through `cut_points` and `baseline`.
+Aggregate covariates are integrated with a Gaussian copula whose
+correlation is estimated from the individual patient data. A component
+whose effect-modifier interaction is informed only by aggregate data is
+weakly identified and relies on the regression prior.
+
+```{r, eval = FALSE}
+# Requires cmdstanr; see ?cmlnmr.
+fit <- cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "Placebo",
+              family = "binomial")
+component_effects(fit)
+```
+
+## Assumptions and caveats
+
+* **Additivity** of component effects (test with `additivity_test()`; add
+  interaction terms if violated).
+* **Identifiability**: a disconnected network is bridgeable only when
+  `cpaic_connectivity()` reports `identifiable = TRUE`.
+* **Cross-population transportability** of effect modifiers (the standard
+  population-adjustment assumption), here extended to constancy of
+  component effects across sub-networks.
+* **Non-collapsibility**: MAIC targets a marginal effect and STC a
+  conditional effect, so for noncollapsible measures they answer slightly
+  different questions.
+
+## References
