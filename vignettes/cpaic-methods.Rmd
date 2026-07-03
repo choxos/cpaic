@@ -129,10 +129,13 @@ meta-regression: the relative effect of an arm is $C\beta$ rather than a
 free per-treatment parameter, and aggregate arms are fitted by integrating
 the individual model over each study's covariate distribution. Disconnected
 sub-networks share the component parameters, so the network is connected by
-construction. All four outcome families are supported (survival through the
-exponential / person-time formulation). A component whose effect-modifier
-interaction is informed only by aggregate data is weakly identified and
-relies on the regression prior.
+construction. All four outcome families are supported; survival uses a
+proportional-hazards model with a flexible baseline (piecewise-exponential
+by default, or a smooth M-spline), set through `cut_points` and `baseline`.
+Aggregate covariates are integrated with a Gaussian copula whose
+correlation is estimated from the individual patient data. A component
+whose effect-modifier interaction is informed only by aggregate data is
+weakly identified and relies on the regression prior.
 
 ```{r, eval = FALSE}
 # Requires cmdstanr; see ?cmlnmr.

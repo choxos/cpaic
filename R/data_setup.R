@@ -186,7 +186,7 @@ cpaic_network <- function(agd, ipd = NULL,
     }
     # The IPD-adjusted contrast scale is fixed by the family's link, so the
     # network summary measure `sm` must be on the matching scale.
-    ok_sm <- switch(family, binomial = "OR", gaussian = c("MD", "SMD"),
+    ok_sm <- switch(family, binomial = "OR", gaussian = "MD",
                     poisson = c("IRR", "RR"), survival = "HR")
     if (!sm %in% ok_sm) {
       scale_name <- switch(family, binomial = "log-odds-ratio",

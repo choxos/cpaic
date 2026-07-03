@@ -120,7 +120,6 @@ forest(fit_stc)
 
 ## Where next
 
-* `vignette("cpaic-methods")` (in preparation) covers the statistical
-  framework in depth.
+* `vignette("cpaic-methods")` covers the statistical framework in depth.
 * The full mathematical foundations and a validation study are provided with
   the development sources.

@@ -32,6 +32,10 @@
                   stop("unsupported family: ", family, call. = FALSE))
     y <- data[[outcome_col]]
     if (family == "poisson" && !is.null(exposure_col)) {
+      if (any(!is.finite(data[[exposure_col]]) | data[[exposure_col]] <= 0)) {
+        stop("Poisson IPD exposure must be positive and finite.",
+             call. = FALSE)
+      }
       off <- log(data[[exposure_col]])
       fit <- stats::glm(y ~ arm + offset(off), family = fam, weights = w)
     } else {
@@ -40,6 +44,10 @@
     cf <- stats::coef(fit)
   }
   cf <- cf[grepl("^arm", names(cf))]
+  if (!length(cf)) {
+    stop("No non-reference arm coefficient was estimated for an IPD study; ",
+         "check the treatment/arm coding.", call. = FALSE)
+  }
   names(cf) <- sub("^arm", "", names(cf))
   cf
 }
@@ -168,8 +176,8 @@ cmaic <- function(network, target, effect_modifiers = NULL, target_sd = NULL,
          call. = FALSE)
   }
   if (!is.numeric(n_boot) || length(n_boot) != 1L || !is.finite(n_boot) ||
-      n_boot < 1L) {
-    stop("`n_boot` must be a positive integer.", call. = FALSE)
+      n_boot < 2L) {
+    stop("`n_boot` must be an integer >= 2.", call. = FALSE)
   }
   n_boot <- as.integer(n_boot)
   if (!is.null(seed)) set.seed(seed)
@@ -192,9 +200,10 @@ cmaic <- function(network, target, effect_modifiers = NULL, target_sd = NULL,
   if (!is.null(target_sd)) {
     target_sd <- as.list(target_sd)
     if (any(vapply(target_sd, function(v)
-            !is.null(v) && (!is.numeric(v) || (is.finite(v) && v < 0)),
-            logical(1)))) {
-      stop("`target_sd` values must be non-negative.", call. = FALSE)
+            !is.null(v) && (!is.numeric(v) || length(v) != 1L ||
+                            !is.finite(v) || v < 0), logical(1)))) {
+      stop("`target_sd` values must be finite and non-negative.",
+           call. = FALSE)
     }
     has_sd <- vapply(effect_modifiers, function(e)
       !is.null(target_sd[[e]]) && is.finite(target_sd[[e]]), logical(1))
@@ -263,22 +272,36 @@ cmaic <- function(network, target, effect_modifiers = NULL, target_sd = NULL,
 }
 
 #' Replace (or append) aggregate contrasts with population-adjusted ones
+#'
+#' Matching is orientation-insensitive (a study-`{treat1,treat2}` pair keyed
+#' on the unordered treatment set), so an aggregate row recorded in the
+#' opposite direction is *replaced* (with the sign flipped) rather than
+#' appended, which would double-count the study.
 #' @noRd
 .cpaic_replace_contrasts <- function(agd, adj_df, cols) {
-  key <- function(df, t1, t2, sl) paste(df[[sl]], df[[t1]], df[[t2]], sep = "\r")
-  agd_key <- key(agd, cols$treat1, cols$treat2, cols$studlab)
-  adj_key <- paste(adj_df[[cols$studlab]], adj_df$treat1, adj_df$treat2,
-                   sep = "\r")
+  ukey <- function(sl, a, b) {
+    paste(sl, pmin(a, b), pmax(a, b), sep = "\r")
+  }
+  agd_key <- ukey(as.character(agd[[cols$studlab]]),
+                  as.character(agd[[cols$treat1]]),
+                  as.character(agd[[cols$treat2]]))
   for (j in seq_len(nrow(adj_df))) {
-    hit <- which(agd_key == adj_key[j])
+    sl <- as.character(adj_df[[cols$studlab]][j])
+    t1 <- adj_df$treat1[j]
+    t2 <- adj_df$treat2[j]
+    hit <- which(agd_key == ukey(sl, t1, t2))
     if (length(hit)) {
-      agd[[cols$TE]][hit]   <- adj_df$TE[j]
-      agd[[cols$seTE]][hit] <- adj_df$seTE[j]
+      for (h in hit) {
+        same_dir <- as.character(agd[[cols$treat1]][h]) == t1 &&
+          as.character(agd[[cols$treat2]][h]) == t2
+        agd[[cols$TE]][h]   <- if (same_dir) adj_df$TE[j] else -adj_df$TE[j]
+        agd[[cols$seTE]][h] <- adj_df$seTE[j]
+      }
     } else {
       newrow <- agd[1, , drop = FALSE]
-      newrow[[cols$studlab]] <- adj_df[[cols$studlab]][j]
-      newrow[[cols$treat1]]  <- adj_df$treat1[j]
-      newrow[[cols$treat2]]  <- adj_df$treat2[j]
+      newrow[[cols$studlab]] <- sl
+      newrow[[cols$treat1]]  <- t1
+      newrow[[cols$treat2]]  <- t2
       newrow[[cols$TE]]      <- adj_df$TE[j]
       newrow[[cols$seTE]]    <- adj_df$seTE[j]
       agd <- rbind(agd, newrow)

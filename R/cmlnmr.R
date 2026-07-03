@@ -191,6 +191,25 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
     stop("cmlnmr() requires at least one row of IPD in this version.",
          call. = FALSE)
   }
+  if (nrow(agd) == 0L) {
+    stop("cmlnmr() requires aggregate data.", call. = FALSE)
+  }
+  if (!is.null(inactive) && !inactive %in% all_trts) {
+    stop("`inactive` (\"", inactive, "\") is not one of the treatments.",
+         call. = FALSE)
+  }
+  if (length(cut_points) &&
+      (is.unsorted(cut_points, strictly = TRUE) || any(cut_points <= 0))) {
+    stop("`cut_points` must be strictly increasing and positive.",
+         call. = FALSE)
+  }
+  if (!is.null(cor)) {
+    if (!is.matrix(cor) || nrow(cor) != Q || ncol(cor) != Q ||
+        any(!is.finite(cor)) || !isTRUE(all.equal(cor, t(cor)))) {
+      stop("`cor` must be a finite symmetric ", Q, "x", Q, " matrix.",
+           call. = FALSE)
+    }
+  }
   if (as.integer(n_int) < 1L) {
     stop("`n_int` must be a positive integer.", call. = FALSE)
   }
@@ -402,7 +421,7 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
   fit <- mod$sample(
     data = standata, chains = chains, parallel_chains = chains,
     iter_warmup = iter_warmup, iter_sampling = iter_sampling,
-    seed = seed %||% 1L, refresh = 0, show_messages = FALSE)
+    seed = seed %||% 1L, refresh = 0, show_messages = FALSE, ...)
   .cpaic_check_diagnostics(fit)
 
   beta_draws <- fit$draws("beta", format = "draws_matrix")

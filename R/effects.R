@@ -27,7 +27,8 @@
 #' all pairwise comparisons. Effects are reported on the natural scale of
 #' the summary measure (e.g. odds ratios) unless `backtransf = FALSE`.
 #'
-#' @param object A `cpaic_bridge`, `cpaic_maic`, or `cpaic_stc` object.
+#' @param object A fitted cpaic object (`cpaic_bridge`, `cpaic_maic`,
+#'   `cpaic_stc`, or `cpaic_mlnmr`).
 #' @param reference Reference treatment. Defaults to the network reference.
 #' @param all_contrasts If `TRUE`, return all pairwise comparisons instead
 #'   of versus the reference.
@@ -66,13 +67,13 @@ relative_effects.cpaic_mlnmr <- function(object, reference = NULL,
   .cpaic_check_ref_level(reference, trts, level)
   a <- (1 - level) / 2
   logsm <- .is_log_sm(object$sm)
-  bt <- function(v) if (backtransf && logsm) exp(v) else v
 
   build <- function(t1, t2) {
-    d <- Theta[, t1] - Theta[, t2]
-    q <- stats::quantile(d, c(a, 1 - a), names = FALSE)
-    data.frame(treatment = t1, comparator = t2, estimate = bt(mean(d)),
-               se = stats::sd(d), lower = bt(q[1]), upper = bt(q[2]),
+    d <- Theta[, t1] - Theta[, t2]                 # link scale
+    e <- if (backtransf && logsm) exp(d) else d     # reporting scale
+    q <- stats::quantile(e, c(a, 1 - a), names = FALSE)
+    data.frame(treatment = t1, comparator = t2, estimate = mean(e),
+               se = stats::sd(d), lower = q[1], upper = q[2],
                pr_gt0 = mean(d > 0), stringsAsFactors = FALSE)
   }
   if (all_contrasts) {
@@ -139,7 +140,8 @@ relative_effects.cpaic_bridge <- function(object, reference = NULL,
 #' @export
 print.cpaic_effects <- function(x, digits = 3, ...) {
   sm <- attr(x, "sm")
-  bt <- attr(x, "backtransf")
+  if (is.null(sm)) sm <- ""
+  bt <- isTRUE(attr(x, "backtransf"))
   cat("Relative effects (", sm, if (bt) ", back-transformed" else
       ", link scale", ")\n", sep = "")
   df <- as.data.frame(x)

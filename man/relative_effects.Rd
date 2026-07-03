@@ -14,7 +14,8 @@ relative_effects(
 )
 }
 \arguments{
-\item{object}{A \code{cpaic_bridge}, \code{cpaic_maic}, or \code{cpaic_stc} object.}
+\item{object}{A fitted cpaic object (\code{cpaic_bridge}, \code{cpaic_maic},
+\code{cpaic_stc}, or \code{cpaic_mlnmr}).}
 
 \item{reference}{Reference treatment. Defaults to the network reference.}
 

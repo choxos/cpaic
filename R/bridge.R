@@ -33,6 +33,14 @@ cnma_bridge <- function(network, common = FALSE, random = TRUE, ...) {
   cols <- network$cols
   agd <- network$agd
 
+  if (any(!is.finite(agd[[cols$TE]])) ||
+      any(!is.finite(agd[[cols$seTE]]) | agd[[cols$seTE]] <= 0)) {
+    stop("All contrasts must have a finite `TE` and a finite positive ",
+         "`seTE` before bridging; NA/Inf/non-positive values remain ",
+         "(an unadjusted IPD edge, perhaps). Fill them with cmaic()/cstc() ",
+         "or supply complete aggregate data.", call. = FALSE)
+  }
+
   conn <- cpaic_connectivity(network)
   has_components <- any(grepl(network$sep.comps, network$treatments,
                              fixed = TRUE))
@@ -138,7 +146,8 @@ print.cpaic_bridge <- function(x, ...) {
 
 #' Component effects from a cpaic fit
 #'
-#' @param object A `cpaic_bridge`, `cpaic_maic`, or `cpaic_stc` object.
+#' @param object A fitted cpaic object (`cpaic_bridge`, `cpaic_maic`,
+#'   `cpaic_stc`, or `cpaic_mlnmr`).
 #' @param ... Unused.
 #' @return A data frame of component effects (estimate, se, CI, p-value).
 #' @export

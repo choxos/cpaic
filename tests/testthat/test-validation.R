@@ -76,7 +76,7 @@ test_that("cmaic validates n_boot and target_sd", {
                        family = "binomial", ipd_covariates = "x1",
                        inactive = "Placebo")
   expect_error(cmaic(net, target = c(x1 = 0), effect_modifiers = "x1",
-                     n_boot = 0), "positive integer")
+                     n_boot = 0), ">= 2")
   expect_error(cmaic(net, target = c(x1 = 0), target_sd = c(x1 = -1),
                      effect_modifiers = "x1", n_boot = 10), "non-negative")
 })
@@ -86,6 +86,51 @@ test_that("relative_effects validates reference and level", {
                                   inactive = "Placebo"))
   expect_error(relative_effects(br, reference = "NOPE"), "must be one of")
   expect_error(relative_effects(br, level = 1.5), "in \\(0, 1\\)")
+})
+
+test_that("cnma_bridge rejects non-finite contrasts", {
+  agd <- cpaic_bin_agd
+  agd$TE[1] <- NA
+  net <- cpaic_network(agd, sm = "OR", inactive = "Placebo")
+  expect_error(cnma_bridge(net), "finite")
+})
+
+test_that("gaussian networks reject SMD (only raw MD implemented)", {
+  set.seed(1)
+  ipd <- data.frame(.study = "S1", .trt = rep(c("A", "Placebo"), each = 20),
+                    .y = rnorm(40), x1 = rnorm(40))
+  agd <- data.frame(studlab = c("S1", "S2"), treat1 = c("A", "B"),
+                    treat2 = c("Placebo", "Placebo"), TE = c(0.5, 0.3),
+                    seTE = c(0.1, 0.1))
+  expect_error(
+    cpaic_network(agd, ipd = ipd, sm = "SMD", family = "gaussian",
+                  ipd_covariates = "x1", inactive = "Placebo"),
+    "must be one of")
+})
+
+test_that("cmaic requires n_boot >= 2", {
+  net <- cpaic_network(cpaic_bin_agd, ipd = cpaic_bin_ipd, sm = "OR",
+                       family = "binomial", ipd_covariates = "x1",
+                       inactive = "Placebo")
+  expect_error(cmaic(net, target = c(x1 = 0), effect_modifiers = "x1",
+                     n_boot = 1), ">= 2")
+})
+
+test_that("cmlnmr validates inactive and cut_points before sampling", {
+  skip_if_not_installed("cmdstanr")
+  skip_if_not_installed("randtoolbox")
+  set.seed(1)
+  ipd <- data.frame(.study = "S1", .trt = rep(c("Placebo", "A"), each = 20),
+                    .y = rbinom(40, 1, 0.5), x1 = rnorm(40))
+  agd <- data.frame(.study = "S2", .trt = c("Placebo", "A+B"),
+                    r = c(10, 12), n = c(20, 20), E = c(20, 20),
+                    x1_mean = c(0, 0), x1_sd = c(1, 1))
+  expect_error(cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "NOPE"),
+               "not one of the treatments")
+  expect_error(
+    cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "Placebo",
+           family = "survival", cut_points = c(12, 6)),
+    "strictly increasing")
 })
 
 test_that("target_sd matches second moments (no longer a no-op)", {
