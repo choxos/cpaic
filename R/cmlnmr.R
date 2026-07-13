@@ -107,34 +107,6 @@
   R
 }
 
-#' Lexis (episode) expansion of survival IPD into interval-at-risk rows
-#'
-#' Splits each individual's follow-up at `cut_points`, returning one row per
-#' interval the individual is at risk in, with the time at risk in that
-#' interval (`.texp`), an event indicator for that interval (`.event`), and
-#' the interval index (`.interval`). With `cut_points = NULL` there is a
-#' single interval (the exponential model). Right-censoring only.
-#' @noRd
-.cpaic_lexis <- function(ipd, time_col, status_col, cut_points) {
-  cuts <- c(0, cut_points, Inf)
-  K <- length(cut_points) + 1L
-  out <- vector("list", K)
-  tt <- ipd[[time_col]]
-  ss <- as.integer(ipd[[status_col]])
-  for (k in seq_len(K)) {
-    lo <- cuts[k]
-    hi <- cuts[k + 1]
-    at_risk <- tt > lo
-    if (!any(at_risk)) next
-    sub <- ipd[at_risk, , drop = FALSE]
-    sub$.interval <- k
-    sub$.texp <- pmin(tt[at_risk], hi) - lo
-    sub$.event <- as.integer(ss[at_risk] == 1L & tt[at_risk] <= hi)
-    out[[k]] <- sub
-  }
-  do.call(rbind, out)
-}
-
 #' Component-additive multilevel network meta-regression (ML-NMR)
 #'
 #' The Bayesian flagship of cpaic. The relative effect of every treatment is
@@ -166,26 +138,39 @@
 #' IPD and normal otherwise; a normal margin on a binary covariate would
 #' integrate over a population that cannot occur.
 #'
-#' @section Survival (approximations, read before use):
-#' Survival uses a proportional-hazards model with a piecewise-constant
-#' baseline log-hazard on the `cut_points` grid (`cut_points = NULL` gives the
-#' exponential model). With `baseline = "mspline"` the interval heights are
-#' *smoothed* by an M-spline basis evaluated at the interval midpoints. This is
-#' a piecewise-exponential model with a smoothed step baseline; it is **not**
-#' the continuous-time integrated M-spline survival likelihood of `multinma`,
-#' which uses both the M-spline hazard basis and its integrated (I-spline)
-#' cumulative hazard and supports left-, interval-censoring and delayed entry.
-#' cpaic handles right-censoring only.
+#' @section Random effects:
+#' `trt_effects = "random"` adds study-arm deviations around the
+#' component-implied relative effects. Deviations use a non-centered
+#' parameterization by default. Within a multi-arm study, deviations relative
+#' to the study baseline have the standard NMA correlation of 0.5. The
+#' heterogeneity standard deviation `tau` has a half-normal(0, 1) prior by
+#' default. The centered parameterization is available only to reproduce
+#' sampling comparisons.
 #'
-#' Aggregate survival data are supplied as events and person-time per arm and
-#' per interval, and the expected events are approximated by
-#' `person-time x mean hazard`. This is an approximation even without
-#' censoring, because higher-hazard individuals leave the risk set earlier, so
-#' the *baseline* covariate distribution does not describe the covariate
-#' distribution of the accumulated person-time. In a two-group example
-#' (hazards 0.1 and 0.4, 50:50, follow-up to t = 10) it overstates expected
-#' events by about 36%. Narrow intervals reduce the bias; supply IPD, or
-#' interval-specific risk-set covariate summaries, where accuracy matters.
+#' @section Priors:
+#' Defaults follow the Stan prior-choice recommendations. Component effects
+#' use normal(0, 2.5), component by effect-modifier interactions use
+#' normal(0, 1), study intercepts use normal(0, 2.5), and `tau` uses
+#' half-normal(0, 1). Interaction priors do real regularization when Gamma is
+#' weakly identified, so every fitted object records the complete prior
+#' specification. Use [prior_sensitivity()] to quantify contrast movement and
+#' `prior_predictive = TRUE` with [prior_predictive_check()] to inspect prior
+#' implications before fitting the likelihood.
+#'
+#' @section Survival:
+#' Survival uses the exact individual likelihood ported from `multinma`
+#' (Phillippo et al. 2020). The model evaluates a hazard basis and its
+#' integrated cumulative-hazard basis at every outcome, interval start, and
+#' delayed-entry time. It supports observed events, right censoring, left
+#' censoring, interval censoring, and delayed entry. `baseline = "piecewise"`
+#' gives a piecewise-exponential baseline; `baseline = "mspline"` gives a
+#' continuous cubic M-spline baseline.
+#'
+#' Aggregate survival input must contain reconstructed event and censoring rows
+#' with the same outcome-time columns as IPD, plus repeated arm-level covariate
+#' summaries. The likelihood of every aggregate row is averaged over its
+#' covariate integration points with `log_sum_exp`. Aggregate event counts and
+#' person-time alone cannot recover this likelihood and are rejected explicitly.
 #'
 #' @section Identifiability:
 #' A relative effect is uniquely estimable only if its component contrast lies
@@ -194,7 +179,7 @@
 #' number. Note this checks identification of `beta`; a component x
 #' effect-modifier interaction is additionally identified only by covariate
 #' variation on the contrasts that involve it, and interactions informed only
-#' by aggregate arms are weakly identified (`prior_reg_sd` regularizes).
+#' by aggregate arms are weakly identified (`prior_gamma_scale` regularizes).
 #'
 #' @param ipd Individual patient data (one row per patient).
 #' @param agd Aggregate data (one row per arm) with the per-study covariate
@@ -212,26 +197,42 @@
 #' @param study,trt Column names (in both `ipd` and `agd`).
 #' @param outcome IPD outcome column: 0/1 (binomial), numeric (gaussian),
 #'   count (poisson), or the event indicator for survival.
-#' @param time,exposure IPD time / exposure column (survival, poisson).
+#' @param time,exposure Outcome-time column for survival in both IPD and AgD;
+#'   IPD exposure column for Poisson outcomes.
+#' @param start,entry Survival columns giving the lower endpoint for
+#'   interval-censored outcomes and the delayed-entry time. Missing columns
+#'   imply zero.
 #' @param r,n,E,se Aggregate columns: events `r`, sample size `n`
-#'   (binomial), exposure `E` (poisson/survival), mean `outcome` and its
-#'   standard error `se` (gaussian).
-#' @param cut_points Survival only: interior interval boundaries for the
-#'   piecewise-constant baseline. `NULL` (default) gives the exponential
-#'   model; e.g. `c(6, 12)` gives three intervals.
-#' @param interval Survival only: name of the aggregate interval-index
-#'   column (values `1..K`) required when `cut_points` are supplied.
+#'   (binomial), exposure `E` (poisson), mean `outcome` and its standard error
+#'   `se` (gaussian).
+#' @param cut_points Survival only: interior interval boundaries for a
+#'   piecewise baseline. `NULL` gives the exponential model. This argument is
+#'   ignored for a continuous M-spline baseline.
+#' @param interval Retained for source compatibility; exact survival data do
+#'   not use interval-indexed event counts.
 #' @param baseline Survival baseline hazard: `"piecewise"` (default, free
-#'   step heights) or `"mspline"` (step heights smoothed by an M-spline
-#'   evaluated at interval midpoints; see the Survival section).
-#' @param n_basis Number of M-spline basis functions when
-#'   `baseline = "mspline"` (must be `<=` the number of intervals).
+#'   step heights) or `"mspline"` (a continuous cubic M-spline with its exact
+#'   integrated basis).
+#' @param n_basis Number of cubic M-spline basis functions. Must be at least 4.
 #' @param cor Optional covariate correlation matrix for the Gaussian-copula
 #'   integration. Must be a positive-definite correlation matrix (unit
 #'   diagonal). Defaults to the within-study IPD correlation.
 #' @param n_int Integration points per aggregate arm (ignored for
 #'   `gaussian`, which is exact at the covariate means).
-#' @param prior_intercept_sd,prior_beta_sd,prior_reg_sd Prior SDs.
+#' @param trt_effects Treatment-effect model: `"fixed"` or `"random"`.
+#' @param re_parameterization Random-effects parameterization. The default
+#'   `"noncentered"` should be used for inference; `"centered"` is provided for
+#'   sampling diagnostics.
+#' @param prior_intercept_sd,prior_beta_sd,prior_reg_sd Standard deviations for
+#'   study-intercept, component-effect, and prognostic-regression normal priors.
+#' @param prior_gamma_dist,prior_gamma_scale,prior_gamma_df Distribution, scale,
+#'   and degrees of freedom for interaction priors. The Student t option uses
+#'   the stated degrees of freedom.
+#' @param prior_tau_dist,prior_tau_scale,prior_tau_df Distribution, scale, and
+#'   degrees of freedom for the positive heterogeneity prior.
+#' @param prior_predictive If `TRUE`, sample from the prior and omit the
+#'   observed likelihood. Replicated outcomes remain available for
+#'   [prior_predictive_check()].
 #' @param chains,iter_warmup,iter_sampling,seed Passed to `cmdstanr`.
 #' @param ... Passed to the `cmdstanr` sampler (e.g. `adapt_delta`).
 #'
@@ -264,14 +265,27 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
                    margins = NULL,
                    study = ".study", trt = ".trt", outcome = ".y",
                    time = ".time", exposure = ".exposure",
+                   start = ".start", entry = ".entry",
                    r = "r", n = "n", E = "E", se = "se",
                    cut_points = NULL, interval = ".interval",
                    baseline = c("piecewise", "mspline"), n_basis = 6L,
                    cor = NULL, n_int = 64L,
-                   prior_intercept_sd = 10, prior_beta_sd = 10,
-                   prior_reg_sd = 2.5, chains = 4L, iter_warmup = 500L,
+                   trt_effects = c("fixed", "random"),
+                   re_parameterization = c("noncentered", "centered"),
+                   prior_intercept_sd = 2.5, prior_beta_sd = 2.5,
+                   prior_reg_sd = 1,
+                   prior_gamma_dist = c("normal", "student_t"),
+                   prior_gamma_scale = 1, prior_gamma_df = 4,
+                   prior_tau_dist = c("half-normal", "half-student-t"),
+                   prior_tau_scale = 1, prior_tau_df = 4,
+                   prior_predictive = FALSE,
+                   chains = 4L, iter_warmup = 500L,
                    iter_sampling = 500L, seed = NULL, ...) {
   baseline <- match.arg(baseline)
+  trt_effects <- match.arg(trt_effects)
+  re_parameterization <- match.arg(re_parameterization)
+  prior_gamma_dist <- match.arg(prior_gamma_dist)
+  prior_tau_dist <- match.arg(prior_tau_dist)
   family <- match.arg(family,
                       c("binomial", "gaussian", "poisson", "survival"))
   stan_family <- switch(family, binomial = "binomial", gaussian = "normal",
@@ -283,8 +297,33 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
     stop("cmlnmr() needs 'cmdstanr'. Install from ",
          "https://stan-dev.r-universe.dev .", call. = FALSE)
   }
-  ipd <- as.data.frame(ipd)
-  agd <- as.data.frame(agd)
+  if (!is.logical(prior_predictive) || length(prior_predictive) != 1L ||
+      is.na(prior_predictive)) {
+    stop("`prior_predictive` must be TRUE or FALSE.", call. = FALSE)
+  }
+  prior_values <- c(
+    prior_intercept_sd = prior_intercept_sd,
+    prior_beta_sd = prior_beta_sd,
+    prior_reg_sd = prior_reg_sd,
+    prior_gamma_scale = prior_gamma_scale,
+    prior_gamma_df = prior_gamma_df,
+    prior_tau_scale = prior_tau_scale,
+    prior_tau_df = prior_tau_df
+  )
+  if (any(!is.finite(prior_values)) || any(prior_values <= 0)) {
+    stop("All prior scales and degrees of freedom must be positive and finite.",
+         call. = FALSE)
+  }
+
+  sample_args <- list(...)
+  if (length(sample_args) &&
+      (is.null(names(sample_args)) || any(!nzchar(names(sample_args))))) {
+    stop("Sampler arguments in `...` must be named.", call. = FALSE)
+  }
+  ipd_input <- as.data.frame(ipd)
+  agd_input <- as.data.frame(agd)
+  ipd <- ipd_input
+  agd <- agd_input
   Q <- length(effect_modifiers)
 
   all_trts <- sort(unique(c(as.character(ipd[[trt]]),
@@ -366,6 +405,8 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
   }
 
   # Family-specific value checks (guard against invalid Stan inputs).
+  surv_ipd <- NULL
+  surv_agd <- NULL
   need <- function(cols, where) {
     m <- setdiff(cols, names(if (where == "agd") agd else ipd))
     if (length(m)) stop("`", where, "` is missing column(s): ",
@@ -397,22 +438,14 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
       stop("poisson IPD exposure must be positive.", call. = FALSE)
     }
   } else if (family == "survival") {
-    need(c(r, E), "agd")
-    if (any(!pos(ipd[[time]]))) {
-      stop("survival IPD time must be positive.", call. = FALSE)
-    }
-    if (!all(stats::na.omit(ipd[[outcome]]) %in% c(0, 1))) {
-      stop("survival IPD status (`outcome`) must be 0 or 1.", call. = FALSE)
-    }
-    if (any(agd[[r]] < 0) || any(!pos(agd[[E]]))) {
-      stop("aggregate survival needs `r` >= 0 and positive person-time `E`.",
-           call. = FALSE)
-    }
-    warning("The aggregate survival likelihood approximates expected events ",
-            "by person-time x mean hazard. Higher-hazard individuals leave ",
-            "the risk set earlier, so this is biased upward unless the ",
-            "intervals are narrow. See the Survival section of ?cmlnmr.",
-            call. = FALSE)
+    surv_ipd <- .cpaic_survival_outcomes(
+      ipd, time_col = time, status_col = outcome, start_col = start,
+      entry_col = entry, source = "ipd"
+    )
+    surv_agd <- .cpaic_survival_outcomes(
+      agd, time_col = time, status_col = outcome, start_col = start,
+      entry_col = entry, source = "agd"
+    )
   }
 
   # Reference treatment for reported relative effects.
@@ -463,59 +496,37 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
   # First-order information design for the population-adjusted estimand
   # (beta, vec(Gamma)). This decides which contrasts are estimable AT A GIVEN
   # TARGET POPULATION, which is a strictly stronger requirement than
-  # estimability of the component main effects. Built from the pre-expansion
-  # IPD, since the Lexis expansion below duplicates rows.
+  # estimability of the component main effects.
   joint_design <- .cpaic_joint_design(C, ipd, agd, effect_modifiers,
                                       study = study, trt = trt)
   joint_design_ipd <- .cpaic_joint_design(C, ipd, agd[0, , drop = FALSE],
                                           effect_modifiers, study = study,
                                           trt = trt)
 
-  # Survival: Lexis-expand IPD into interval-at-risk rows and configure the
-  # piecewise baseline (K = 1 reduces to the exponential model).
-  K <- 1L
-  interval_ipd <- NULL
-  time_ipd_vec <- NULL
-  event_vec <- NULL
-  Msp <- NULL
-  interval_agd <- rep(1L, nrow(agd))
+  # Exact survival bases. The integrated basis is evaluated at every outcome,
+  # interval-start, and delayed-entry time.
+  survival_spec <- NULL
+  survival_ipd_basis <- NULL
+  survival_agd_basis <- NULL
   if (family == "survival") {
-    K <- length(cut_points) + 1L
-    if (K > 1L) {
-      if (!interval %in% names(agd)) {
-        stop("With `cut_points`, `agd` must have an interval column `",
-             interval, "` (values 1..", K, "), giving events `", r,
-             "` and person-time `", E, "` per arm-interval.", call. = FALSE)
-      }
-      interval_agd <- as.integer(agd[[interval]])
-      if (any(interval_agd < 1L | interval_agd > K)) {
-        stop("`", interval, "` values must be in 1..", K, ".", call. = FALSE)
-      }
+    basis_cuts <- cut_points
+    if (baseline == "mspline" && length(cut_points)) {
+      warning("`cut_points` is ignored for baseline = 'mspline'; `n_basis` ",
+              "controls the continuous cubic basis.", call. = FALSE)
+      basis_cuts <- numeric()
     }
-    if (baseline == "mspline") {
-      if (K < 2L) {
-        stop("baseline = 'mspline' needs `cut_points` to define a time grid.",
-             call. = FALSE)
-      }
-      if (n_basis > K) {
-        stop("`n_basis` (", n_basis, ") must be <= the number of intervals (",
-             K, ").", call. = FALSE)
-      }
-      if (!requireNamespace("splines2", quietly = TRUE)) {
-        stop("Package 'splines2' is required for baseline = 'mspline'.",
-             call. = FALSE)
-      }
-      t_max <- max(c(ipd[[time]], cut_points))
-      cuts_full <- c(0, cut_points, t_max)
-      mid <- (utils::head(cuts_full, -1) + utils::tail(cuts_full, -1)) / 2
-      Msp <- matrix(as.numeric(splines2::mSpline(
-        mid, df = n_basis, degree = 3, intercept = TRUE,
-        Boundary.knots = c(0, t_max))), nrow = K)
-    }
-    ipd <- .cpaic_lexis(ipd, time, outcome, cut_points)
-    interval_ipd <- as.integer(ipd[[".interval"]])
-    time_ipd_vec <- as.numeric(ipd[[".texp"]])
-    event_vec <- as.integer(ipd[[".event"]])
+    survival_spec <- .cpaic_survival_basis_spec(
+      observed_times = c(surv_ipd$time, surv_agd$time),
+      baseline = baseline, cut_points = basis_cuts, n_basis = n_basis
+    )
+    survival_ipd_basis <- .cpaic_survival_basis_eval(
+      survival_spec, surv_ipd$time, surv_ipd$start_time,
+      surv_ipd$entry_time
+    )
+    survival_agd_basis <- .cpaic_survival_basis_eval(
+      survival_spec, surv_agd$time, surv_agd$start_time,
+      surv_agd$entry_time
+    )
   }
 
   Tc_ipd <- C[match(as.character(ipd[[trt]]), rownames(C)), , drop = FALSE]
@@ -547,14 +558,32 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
     X_agd_int <- do.call(rbind, X_list)
   }
 
+  re <- .cpaic_random_effects(ipd, agd, study, trt)
+  if (trt_effects == "random" && re$N_delta < 1L) {
+    stop("Random effects need at least one within-study treatment contrast.",
+         call. = FALSE)
+  }
+  N_delta_stan <- max(1L, re$N_delta)
+  L_delta_stan <- if (re$N_delta) re$L_delta else matrix(1, 1, 1)
+
   base <- list(
     N_ipd = nrow(ipd), N_agd = nrow(agd), N_studies = length(studies),
     C = ncol(C), P = Q, Q = Q, n_int = n_int_eff,
     study_ipd = sidx(ipd[[study]]), Tc_ipd = Tc_ipd, X_ipd = X_ipd,
     em_idx = matrix(rep(seq_len(Q), each = nrow(ipd)), nrow = nrow(ipd)),
     study_agd = sidx(agd[[study]]), Tc_agd = Tc_agd, X_agd_int = X_agd_int,
+    RE = as.integer(trt_effects == "random"),
+    noncentered = as.integer(re_parameterization == "noncentered"),
+    N_delta = N_delta_stan, L_delta = L_delta_stan,
+    re_idx_ipd = re$re_idx_ipd, re_idx_agd = re$re_idx_agd,
+    prior_only = as.integer(prior_predictive),
     prior_intercept_sd = prior_intercept_sd, prior_beta_sd = prior_beta_sd,
-    prior_reg_sd = prior_reg_sd
+    prior_reg_sd = prior_reg_sd,
+    prior_gamma_dist = match(prior_gamma_dist, c("normal", "student_t")),
+    prior_gamma_scale = prior_gamma_scale, prior_gamma_df = prior_gamma_df,
+    prior_tau_dist = match(prior_tau_dist,
+                           c("half-normal", "half-student-t")),
+    prior_tau_scale = prior_tau_scale, prior_tau_df = prior_tau_df
   )
 
   standata <- switch(
@@ -570,25 +599,32 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
       offset_ipd = as.numeric(ipd[[exposure]]),
       r_agd = as.integer(agd[[r]]), E_agd = as.numeric(agd[[E]]))),
     survival = c(base, list(
-      K = K,
-      y_ipd = event_vec,                        # event in interval-row
-      time_ipd = time_ipd_vec,                  # time at risk in interval
-      interval_ipd = interval_ipd,
-      r_agd = as.integer(agd[[r]]),             # events per arm-interval
-      E_agd = as.numeric(agd[[E]]),             # person-time per arm-interval
-      interval_agd = interval_agd))
+      N_base = survival_spec$n_basis,
+      time_basis_ipd = survival_ipd_basis$time,
+      itime_basis_ipd = survival_ipd_basis$itime,
+      start_basis_ipd = survival_ipd_basis$start_itime,
+      entry_basis_ipd = survival_ipd_basis$entry_itime,
+      delayed_ipd = survival_ipd_basis$delayed,
+      status_ipd = surv_ipd$status,
+      time_basis_agd = survival_agd_basis$time,
+      itime_basis_agd = survival_agd_basis$itime,
+      start_basis_agd = survival_agd_basis$start_itime,
+      entry_basis_agd = survival_agd_basis$entry_itime,
+      delayed_agd = survival_agd_basis$delayed,
+      status_agd = surv_agd$status))
   )
-  if (family == "survival" && baseline == "mspline") {
-    standata$n_basis <- ncol(Msp)
-    standata$Msp <- Msp
-  }
 
   mod <- .cpaic_stan_model(stan_family)
-  fit <- mod$sample(
+  sample_defaults <- list(
     data = standata, chains = chains, parallel_chains = chains,
     iter_warmup = iter_warmup, iter_sampling = iter_sampling,
-    seed = seed %||% 1L, refresh = 0, show_messages = FALSE, ...)
-  .cpaic_check_diagnostics(fit)
+    seed = seed %||% 1L, refresh = 0, show_messages = FALSE
+  )
+  if (length(sample_args)) {
+    sample_defaults[names(sample_args)] <- NULL
+  }
+  fit <- do.call(mod$sample, c(sample_defaults, sample_args))
+  diagnostics <- .cpaic_check_diagnostics(fit)
 
   beta_draws <- fit$draws("beta", format = "draws_matrix")
   comp_tbl <- data.frame(
@@ -603,6 +639,45 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
     comp_tbl[bad_comp, c("estimate", "se", "lower", "upper")] <- NA_real_
   }
 
+  observed <- switch(
+    family,
+    binomial = list(ipd = as.integer(ipd[[outcome]]),
+                    agd = as.integer(agd[[r]])),
+    gaussian = list(ipd = as.numeric(ipd[[outcome]]),
+                    agd = as.numeric(agd[[outcome]])),
+    poisson = list(ipd = as.integer(ipd[[outcome]]),
+                   agd = as.integer(agd[[r]])),
+    survival = list(ipd = as.integer(surv_ipd$status != 0L),
+                    agd = as.integer(surv_agd$status != 0L))
+  )
+  rep_variables <- switch(
+    family,
+    binomial = list(ipd = "yrep_ipd", agd = "rrep_agd"),
+    gaussian = list(ipd = "yrep_ipd", agd = "yrep_agd"),
+    poisson = list(ipd = "yrep_ipd", agd = "rrep_agd"),
+    survival = list(ipd = "event_rep_ipd", agd = "event_rep_agd")
+  )
+  refit_args <- list(
+    ipd = ipd_input, agd = agd_input,
+    effect_modifiers = effect_modifiers, inactive = inactive,
+    sep.comps = sep.comps, family = family, margins = margins,
+    study = study, trt = trt, outcome = outcome, time = time,
+    exposure = exposure, start = start, entry = entry,
+    r = r, n = n, E = E, se = se, cut_points = cut_points,
+    interval = interval, baseline = baseline, n_basis = n_basis,
+    cor = cor, n_int = n_int, trt_effects = trt_effects,
+    re_parameterization = re_parameterization,
+    prior_intercept_sd = prior_intercept_sd,
+    prior_beta_sd = prior_beta_sd, prior_reg_sd = prior_reg_sd,
+    prior_gamma_dist = prior_gamma_dist,
+    prior_gamma_scale = prior_gamma_scale, prior_gamma_df = prior_gamma_df,
+    prior_tau_dist = prior_tau_dist, prior_tau_scale = prior_tau_scale,
+    prior_tau_df = prior_tau_df, prior_predictive = prior_predictive,
+    chains = chains, iter_warmup = iter_warmup,
+    iter_sampling = iter_sampling, seed = seed
+  )
+  if (length(sample_args)) refit_args[names(sample_args)] <- sample_args
+
   structure(
     list(fit = fit, components = comp_tbl, C.matrix = C, comps = comps,
          family = family, effect_modifiers = effect_modifiers,
@@ -611,7 +686,22 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
          joint_design = joint_design, joint_design_ipd = joint_design_ipd,
          reference = reference, sm = switch(family, binomial = "OR",
            gaussian = "MD", poisson = "IRR", survival = "HR"),
-         method = "cML-NMR"),
+         method = "cML-NMR", trt_effects = trt_effects,
+         re_parameterization = re_parameterization,
+         priors = list(
+           intercept = list(distribution = "normal", location = 0,
+                            scale = prior_intercept_sd),
+           beta = list(distribution = "normal", location = 0,
+                       scale = prior_beta_sd),
+           regression = list(distribution = "normal", location = 0,
+                             scale = prior_reg_sd),
+           gamma = list(distribution = prior_gamma_dist, location = 0,
+                        scale = prior_gamma_scale, df = prior_gamma_df),
+           tau = list(distribution = prior_tau_dist, location = 0,
+                      scale = prior_tau_scale, df = prior_tau_df)),
+         prior_predictive = prior_predictive, observed = observed,
+         rep_variables = rep_variables, diagnostics = diagnostics,
+         refit_args = refit_args),
     class = c("cpaic_mlnmr", "cpaic_fit"))
 }
 
@@ -620,6 +710,8 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
 .cpaic_check_diagnostics <- function(fit) {
   diag <- tryCatch(fit$diagnostic_summary(quiet = TRUE),
                    error = function(e) NULL)
+  nd <- 0L
+  ntd <- 0L
   if (!is.null(diag)) {
     nd <- sum(diag$num_divergent %||% 0)
     if (nd > 0) {
@@ -640,7 +732,8 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
             "have converged. Increase `iter_warmup`/`iter_sampling`.",
             call. = FALSE)
   }
-  invisible(NULL)
+  invisible(list(divergences = as.integer(nd),
+                 max_treedepth = as.integer(ntd), max_rhat = rh))
 }
 
 #' Compile (and cache) a cpaic Stan model with cmdstanr
@@ -666,7 +759,6 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
 
 #' @export
 component_effects.cpaic_mlnmr <- function(object, newdata = NULL, ...) {
-  K <- ncol(object$C.matrix)
   Q <- length(object$effect_modifiers)
   x <- if (is.null(newdata)) rep(0, Q) else
     .cpaic_target_x(newdata, object$effect_modifiers)
@@ -678,15 +770,13 @@ component_effects.cpaic_mlnmr <- function(object, newdata = NULL, ...) {
     lower = apply(Beff, 2, stats::quantile, 0.025),
     upper = apply(Beff, 2, stats::quantile, 0.975),
     row.names = NULL, stringsAsFactors = FALSE)
-
   # A component effect IN A TARGET POPULATION is beta_c + Gamma_c' x, so its
   # estimability must be judged against the JOINT design at that x, not against
-  # the component-main-effect design. Judging it on beta alone would report a
-  # confident number for a component whose interaction is not identified.
-  Id <- diag(K)
-  V <- do.call(rbind, lapply(seq_len(K),
-                             function(i) .cpaic_target_vec(Id[i, ], x)))
-  bad <- !.cpaic_in_rowspace(V, .cpaic_null_space(object$joint_design))
+  # the component-main-effect design alone.
+  Id <- diag(ncol(object$C.matrix))
+  Vv <- do.call(rbind, lapply(seq_len(nrow(Id)),
+                              function(i) .cpaic_target_vec(Id[i, ], x)))
+  bad <- !.cpaic_in_rowspace(Vv, .cpaic_null_space(object$joint_design))
   if (any(bad)) out[bad, -1L] <- NA_real_
   attr(out, "target") <- x
   out
@@ -696,6 +786,13 @@ component_effects.cpaic_mlnmr <- function(object, newdata = NULL, ...) {
 print.cpaic_mlnmr <- function(x, ...) {
   cat("cpaic: component-additive ML-NMR (Bayesian, ", x$family, ")\n",
       sep = "")
+  cat("  Treatment effects: ", x$trt_effects,
+      if (x$trt_effects == "random") {
+        paste0(" (", x$re_parameterization, ")")
+      } else "", "\n", sep = "")
+  if (isTRUE(x$prior_predictive)) {
+    cat("  Prior-predictive fit: observed likelihood omitted.\n")
+  }
   cat("  Effect modifiers: ",
       paste(names(x$margins), " [", x$margins, "]", sep = "",
             collapse = ", "), "\n", sep = "")

@@ -17,6 +17,8 @@ cmlnmr(
   outcome = ".y",
   time = ".time",
   exposure = ".exposure",
+  start = ".start",
+  entry = ".entry",
   r = "r",
   n = "n",
   E = "E",
@@ -27,9 +29,18 @@ cmlnmr(
   n_basis = 6L,
   cor = NULL,
   n_int = 64L,
-  prior_intercept_sd = 10,
-  prior_beta_sd = 10,
-  prior_reg_sd = 2.5,
+  trt_effects = c("fixed", "random"),
+  re_parameterization = c("noncentered", "centered"),
+  prior_intercept_sd = 2.5,
+  prior_beta_sd = 2.5,
+  prior_reg_sd = 1,
+  prior_gamma_dist = c("normal", "student_t"),
+  prior_gamma_scale = 1,
+  prior_gamma_df = 4,
+  prior_tau_dist = c("half-normal", "half-student-t"),
+  prior_tau_scale = 1,
+  prior_tau_df = 4,
+  prior_predictive = FALSE,
   chains = 4L,
   iter_warmup = 500L,
   iter_sampling = 500L,
@@ -62,25 +73,29 @@ Bernoulli for 0/1 covariates and normal otherwise.}
 \item{outcome}{IPD outcome column: 0/1 (binomial), numeric (gaussian),
 count (poisson), or the event indicator for survival.}
 
-\item{time, exposure}{IPD time / exposure column (survival, poisson).}
+\item{time, exposure}{Outcome-time column for survival in both IPD and AgD;
+IPD exposure column for Poisson outcomes.}
+
+\item{start, entry}{Survival columns giving the lower endpoint for
+interval-censored outcomes and the delayed-entry time. Missing columns
+imply zero.}
 
 \item{r, n, E, se}{Aggregate columns: events \code{r}, sample size \code{n}
-(binomial), exposure \code{E} (poisson/survival), mean \code{outcome} and its
-standard error \code{se} (gaussian).}
+(binomial), exposure \code{E} (poisson), mean \code{outcome} and its standard error
+\code{se} (gaussian).}
 
-\item{cut_points}{Survival only: interior interval boundaries for the
-piecewise-constant baseline. \code{NULL} (default) gives the exponential
-model; e.g. \code{c(6, 12)} gives three intervals.}
+\item{cut_points}{Survival only: interior interval boundaries for a
+piecewise baseline. \code{NULL} gives the exponential model. This argument is
+ignored for a continuous M-spline baseline.}
 
-\item{interval}{Survival only: name of the aggregate interval-index
-column (values \verb{1..K}) required when \code{cut_points} are supplied.}
+\item{interval}{Retained for source compatibility; exact survival data do
+not use interval-indexed event counts.}
 
 \item{baseline}{Survival baseline hazard: \code{"piecewise"} (default, free
-step heights) or \code{"mspline"} (step heights smoothed by an M-spline
-evaluated at interval midpoints; see the Survival section).}
+step heights) or \code{"mspline"} (a continuous cubic M-spline with its exact
+integrated basis).}
 
-\item{n_basis}{Number of M-spline basis functions when
-\code{baseline = "mspline"} (must be \code{<=} the number of intervals).}
+\item{n_basis}{Number of cubic M-spline basis functions. Must be at least 4.}
 
 \item{cor}{Optional covariate correlation matrix for the Gaussian-copula
 integration. Must be a positive-definite correlation matrix (unit
@@ -89,7 +104,25 @@ diagonal). Defaults to the within-study IPD correlation.}
 \item{n_int}{Integration points per aggregate arm (ignored for
 \code{gaussian}, which is exact at the covariate means).}
 
-\item{prior_intercept_sd, prior_beta_sd, prior_reg_sd}{Prior SDs.}
+\item{trt_effects}{Treatment-effect model: \code{"fixed"} or \code{"random"}.}
+
+\item{re_parameterization}{Random-effects parameterization. The default
+\code{"noncentered"} should be used for inference; \code{"centered"} is provided for
+sampling diagnostics.}
+
+\item{prior_intercept_sd, prior_beta_sd, prior_reg_sd}{Standard deviations for
+study-intercept, component-effect, and prognostic-regression normal priors.}
+
+\item{prior_gamma_dist, prior_gamma_scale, prior_gamma_df}{Distribution, scale,
+and degrees of freedom for interaction priors. The Student t option uses
+the stated degrees of freedom.}
+
+\item{prior_tau_dist, prior_tau_scale, prior_tau_df}{Distribution, scale, and
+degrees of freedom for the positive heterogeneity prior.}
+
+\item{prior_predictive}{If \code{TRUE}, sample from the prior and omit the
+observed likelihood. Replicated outcomes remain available for
+\code{\link[=prior_predictive_check]{prior_predictive_check()}}.}
 
 \item{chains, iter_warmup, iter_sampling, seed}{Passed to \code{cmdstanr}.}
 
@@ -132,27 +165,44 @@ IPD and normal otherwise; a normal margin on a binary covariate would
 integrate over a population that cannot occur.
 }
 
-\section{Survival (approximations, read before use)}{
+\section{Random effects}{
 
-Survival uses a proportional-hazards model with a piecewise-constant
-baseline log-hazard on the \code{cut_points} grid (\code{cut_points = NULL} gives the
-exponential model). With \code{baseline = "mspline"} the interval heights are
-\emph{smoothed} by an M-spline basis evaluated at the interval midpoints. This is
-a piecewise-exponential model with a smoothed step baseline; it is \strong{not}
-the continuous-time integrated M-spline survival likelihood of \code{multinma},
-which uses both the M-spline hazard basis and its integrated (I-spline)
-cumulative hazard and supports left-, interval-censoring and delayed entry.
-cpaic handles right-censoring only.
+\code{trt_effects = "random"} adds study-arm deviations around the
+component-implied relative effects. Deviations use a non-centered
+parameterization by default. Within a multi-arm study, deviations relative
+to the study baseline have the standard NMA correlation of 0.5. The
+heterogeneity standard deviation \code{tau} has a half-normal(0, 1) prior by
+default. The centered parameterization is available only to reproduce
+sampling comparisons.
+}
 
-Aggregate survival data are supplied as events and person-time per arm and
-per interval, and the expected events are approximated by
-\verb{person-time x mean hazard}. This is an approximation even without
-censoring, because higher-hazard individuals leave the risk set earlier, so
-the \emph{baseline} covariate distribution does not describe the covariate
-distribution of the accumulated person-time. In a two-group example
-(hazards 0.1 and 0.4, 50:50, follow-up to t = 10) it overstates expected
-events by about 36\%. Narrow intervals reduce the bias; supply IPD, or
-interval-specific risk-set covariate summaries, where accuracy matters.
+\section{Priors}{
+
+Defaults follow the Stan prior-choice recommendations. Component effects
+use normal(0, 2.5), component by effect-modifier interactions use
+normal(0, 1), study intercepts use normal(0, 2.5), and \code{tau} uses
+half-normal(0, 1). Interaction priors do real regularization when Gamma is
+weakly identified, so every fitted object records the complete prior
+specification. Use \code{\link[=prior_sensitivity]{prior_sensitivity()}} to quantify contrast movement and
+\code{prior_predictive = TRUE} with \code{\link[=prior_predictive_check]{prior_predictive_check()}} to inspect prior
+implications before fitting the likelihood.
+}
+
+\section{Survival}{
+
+Survival uses the exact individual likelihood ported from \code{multinma}
+(Phillippo et al. 2020). The model evaluates a hazard basis and its
+integrated cumulative-hazard basis at every outcome, interval start, and
+delayed-entry time. It supports observed events, right censoring, left
+censoring, interval censoring, and delayed entry. \code{baseline = "piecewise"}
+gives a piecewise-exponential baseline; \code{baseline = "mspline"} gives a
+continuous cubic M-spline baseline.
+
+Aggregate survival input must contain reconstructed event and censoring rows
+with the same outcome-time columns as IPD, plus repeated arm-level covariate
+summaries. The likelihood of every aggregate row is averaged over its
+covariate integration points with \code{log_sum_exp}. Aggregate event counts and
+person-time alone cannot recover this likelihood and are rejected explicitly.
 }
 
 \section{Identifiability}{
@@ -163,7 +213,7 @@ in the row space of the within-study component design (Wigle et al. 2026);
 number. Note this checks identification of \code{beta}; a component x
 effect-modifier interaction is additionally identified only by covariate
 variation on the contrasts that involve it, and interactions informed only
-by aggregate arms are weakly identified (\code{prior_reg_sd} regularizes).
+by aggregate arms are weakly identified (\code{prior_gamma_scale} regularizes).
 }
 
 \examples{

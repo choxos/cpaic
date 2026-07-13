@@ -18,3 +18,10 @@
 ^pkgdown$
 ^inst/stan/[^.]+$
 ^scratch$
+^vignettes/precompile\.R$
+^vignettes/.*\.Rmd\.orig$
+^vignettes/binary-outcomes\.Rmd$
+^vignettes/continuous-outcomes\.Rmd$
+^vignettes/count-outcomes\.Rmd$
+^vignettes/survival-outcomes\.Rmd$
+^vignettes/figure$

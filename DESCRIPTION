@@ -32,8 +32,10 @@ Imports:
     graphics,
     grDevices,
     igraph,
+    loo,
     maicplus,
     Matrix,
+    multinma,
     netmeta,
     stats,
     survival,
@@ -41,13 +43,12 @@ Imports:
     utils
 Suggests:
     bayesplot,
+    R.rsp,
     cmdstanr,
     dplyr,
     ggplot2,
     knitr,
-    loo,
     mlumr,
-    multinma,
     posterior,
     randtoolbox,
     rmarkdown,
@@ -61,5 +62,7 @@ Additional_repositories:
     https://stan-dev.r-universe.dev
 Config/testthat/edition: 3
 Config/Needs/website: pkgdown
-VignetteBuilder: knitr
+VignetteBuilder:
+    knitr,
+    R.rsp
 Language: en-US

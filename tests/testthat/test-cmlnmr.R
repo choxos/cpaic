@@ -111,7 +111,12 @@ test_that("cmlnmr runs for gaussian, poisson, and survival families", {
                iter_sampling = 250, seed = 1)
   expect_true(all(is.finite(component_effects(fP)$estimate)))
 
-  # survival (exponential): event indicator + time
+  # survival (exponential). The exact likelihood needs individual event and
+  # censoring times, so an aggregate survival arm is supplied as RECONSTRUCTED
+  # pseudo-individual rows (as multinma::set_agd_surv expects from a digitized
+  # Kaplan-Meier curve). Event counts plus person-time cannot identify the
+  # individual likelihood, which is precisely what made the old approximation
+  # biased upward.
   genS <- function(study, trt, n, mu0) {
     x1 <- rnorm(n); tc <- Cmat[trt, ]
     rate <- exp(mu0 - 1 + 0.2 * x1 + sum(tc * c(A = 0.4, B = 0.3)))
@@ -119,9 +124,10 @@ test_that("cmlnmr runs for gaussian, poisson, and survival families", {
     data.frame(.study = study, .trt = trt, .y = 1L, .time = t, x1 = x1)
   }
   ipdS <- rbind(genS("S1", "Placebo", 300, 0), genS("S1", "A", 300, 0))
-  agdS <- data.frame(.study = "S2", .trt = c("A", "A+B"),
-                     r = c(280, 290), E = c(900, 850),
-                     x1_mean = c(0, 0), x1_sd = c(1, 1))
+  recS <- rbind(genS("S2", "A", 250, 0), genS("S2", "A+B", 250, 0))
+  agdS <- recS
+  agdS$x1_mean <- 0
+  agdS$x1_sd <- 1
   fS <- cmlnmr(ipdS, agdS, effect_modifiers = "x1", inactive = "Placebo",
                family = "survival", chains = 1, iter_warmup = 250,
                iter_sampling = 250, seed = 1)
@@ -149,13 +155,15 @@ test_that("cmlnmr fits a piecewise-exponential (flexible) survival baseline", {
   ipd <- rbind(gen("S1", "Placebo", 400, 0), gen("S1", "A", 400, 0),
                gen("S2", "A", 400, 0.3), gen("S2", "A+B", 400, 0.3))
   cuts <- c(6, 12)
+  # Reconstructed pseudo-individual survival rows, as multinma::set_agd_surv
+  # expects from a digitized Kaplan-Meier curve. Event counts plus person-time
+  # cannot identify the exact individual likelihood; that approximation was
+  # biased upward by about 36%.
   mk <- function(study, trt, n, mux1) {
     d <- gen(study, trt, n, mux1)
-    dl <- .cpaic_lexis(d, ".time", ".y", cuts)
-    agg <- aggregate(cbind(r = dl$.event, E = dl$.texp),
-                     by = list(.interval = dl$.interval), sum)
-    data.frame(.study = study, .trt = trt, .interval = agg$.interval,
-               r = agg$r, E = agg$E, x1_mean = mean(d$x1), x1_sd = sd(d$x1))
+    d$x1_mean <- 0
+    d$x1_sd <- 1
+    d
   }
   agd <- rbind(mk("S3", "Placebo", 600, -0.2), mk("S3", "A+B", 600, 0.4))
 
@@ -205,13 +213,15 @@ test_that("cmlnmr fits an M-spline survival baseline", {
   ipd <- rbind(gen("S1", "Placebo", 400, 0), gen("S1", "A", 400, 0),
                gen("S2", "A", 400, 0.3), gen("S2", "A+B", 400, 0.3))
   cuts <- c(4, 8, 12, 16)
+  # Reconstructed pseudo-individual survival rows, as multinma::set_agd_surv
+  # expects from a digitized Kaplan-Meier curve. Event counts plus person-time
+  # cannot identify the exact individual likelihood; that approximation was
+  # biased upward by about 36%.
   mk <- function(study, trt, n, mux1) {
     d <- gen(study, trt, n, mux1)
-    dl <- .cpaic_lexis(d, ".time", ".y", cuts)
-    agg <- aggregate(cbind(r = dl$.event, E = dl$.texp),
-                     by = list(.interval = dl$.interval), sum)
-    data.frame(.study = study, .trt = trt, .interval = agg$.interval,
-               r = agg$r, E = agg$E, x1_mean = mean(d$x1), x1_sd = sd(d$x1))
+    d$x1_mean <- 0
+    d$x1_sd <- 1
+    d
   }
   agd <- rbind(mk("S3", "Placebo", 600, -0.2), mk("S3", "A+B", 600, 0.4))
 

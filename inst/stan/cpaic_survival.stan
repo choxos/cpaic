@@ -1,85 +1,171 @@
-// Component-additive ML-NMR, survival outcome, piecewise-exponential (PWE)
-// baseline hazard. The baseline log-hazard is a step function with K
-// interval-specific levels (bshape), so K = 1 recovers the exponential
-// model and larger K gives an arbitrarily flexible baseline. The hazard is
-// h(t | x) = exp(mu_study + bshape[interval(t)] + x'breg + Tc'beta + ...),
-// proportional across treatments (component-additive log hazard ratios).
-//
-// IPD are supplied Lexis-expanded: one row per individual-interval at risk,
-// with the time at risk in that interval and a 0/1 event indicator. The
-// exponential likelihood contribution then equals a Poisson log-likelihood
-// for the event indicator with log(time-at-risk) offset. Aggregate arms are
-// supplied per interval (events and person-time) and fitted by integrating
-// the hazard over the covariate distribution.
+// Component-additive ML-NMR for exact survival outcomes with a piecewise
+// exponential baseline. The hazard basis, integrated basis, censoring and
+// delayed-entry likelihoods, and likelihood-level AgD integration are ported
+// from multinma (Phillippo et al. 2020). Both packages are GPL-3.
+
+functions {
+  real cpaic_survival_loglik(
+      row_vector time_basis,
+      row_vector itime_basis,
+      row_vector start_basis,
+      row_vector entry_basis,
+      int delayed,
+      int status,
+      real eta,
+      vector coefficients) {
+    real log_survival = -dot_product(itime_basis, coefficients) * exp(eta);
+    real out;
+
+    if (status == 0) {
+      out = log_survival;
+    } else if (status == 1) {
+      out = log_survival + log(dot_product(time_basis, coefficients)) + eta;
+    } else if (status == 2) {
+      out = log1m_exp(log_survival);
+    } else {
+      real log_survival_start =
+        -dot_product(start_basis, coefficients) * exp(eta);
+      out = log_diff_exp(log_survival_start, log_survival);
+    }
+
+    if (delayed) {
+      out += dot_product(entry_basis, coefficients) * exp(eta);
+    }
+    return out;
+  }
+
+  real cpaic_event_probability(
+      row_vector itime_basis,
+      row_vector entry_basis,
+      real eta,
+      vector coefficients) {
+    real cumulative = (dot_product(itime_basis, coefficients)
+                       - dot_product(entry_basis, coefficients)) * exp(eta);
+    return -expm1(-fmax(cumulative, 0));
+  }
+}
 
 data {
   int<lower=0> N_ipd;
   int<lower=0> N_agd;
   int<lower=1> N_studies;
   int<lower=1> C;
-  int<lower=0> P;
-  int<lower=0> Q;
+  int<lower=1> P;
+  int<lower=1> Q;
   int<lower=1> n_int;
-  int<lower=1> K;                              // number of baseline intervals
+  int<lower=1> N_base;
 
-  array[N_ipd] int<lower=0, upper=1> y_ipd;    // event in this interval-row
-  vector<lower=0>[N_ipd] time_ipd;             // time at risk in interval
-  array[N_ipd] int<lower=1, upper=K> interval_ipd;
+  matrix[N_ipd, N_base] time_basis_ipd;
+  matrix[N_ipd, N_base] itime_basis_ipd;
+  matrix[N_ipd, N_base] start_basis_ipd;
+  matrix[N_ipd, N_base] entry_basis_ipd;
+  array[N_ipd] int<lower=0, upper=1> delayed_ipd;
+  array[N_ipd] int<lower=0, upper=3> status_ipd;
   array[N_ipd] int<lower=1, upper=N_studies> study_ipd;
   matrix[N_ipd, C] Tc_ipd;
   matrix[N_ipd, P] X_ipd;
   array[N_ipd, Q] int em_idx;
 
-  array[N_agd] int<lower=0> r_agd;             // events in arm-interval
-  vector<lower=0>[N_agd] E_agd;                // person-time in arm-interval
-  array[N_agd] int<lower=1, upper=K> interval_agd;
+  matrix[N_agd, N_base] time_basis_agd;
+  matrix[N_agd, N_base] itime_basis_agd;
+  matrix[N_agd, N_base] start_basis_agd;
+  matrix[N_agd, N_base] entry_basis_agd;
+  array[N_agd] int<lower=0, upper=1> delayed_agd;
+  array[N_agd] int<lower=0, upper=3> status_agd;
   array[N_agd] int<lower=1, upper=N_studies> study_agd;
   matrix[N_agd, C] Tc_agd;
   matrix[N_agd * n_int, P] X_agd_int;
 
-  real prior_intercept_sd;
-  real prior_beta_sd;
-  real prior_reg_sd;
+  int<lower=0, upper=1> RE;
+  int<lower=0, upper=1> noncentered;
+  int<lower=1> N_delta;
+  matrix[N_delta, N_delta] L_delta;
+  array[N_ipd] int<lower=0, upper=N_delta> re_idx_ipd;
+  array[N_agd] int<lower=0, upper=N_delta> re_idx_agd;
+
+  int<lower=0, upper=1> prior_only;
+  real<lower=0> prior_intercept_sd;
+  real<lower=0> prior_beta_sd;
+  real<lower=0> prior_reg_sd;
+  int<lower=1, upper=2> prior_gamma_dist;
+  real<lower=0> prior_gamma_scale;
+  real<lower=0> prior_gamma_df;
+  int<lower=1, upper=2> prior_tau_dist;
+  real<lower=0> prior_tau_scale;
+  real<lower=0> prior_tau_df;
 }
 
 transformed data {
   array[Q] int emc;
-  vector[N_ipd] log_time;
   for (q in 1:Q) emc[q] = em_idx[1, q];
-  for (i in 1:N_ipd) log_time[i] = log(time_ipd[i]);
 }
 
 parameters {
   vector[N_studies] mu;
-  vector[K - 1] bshape_raw;       // baseline shape; interval 1 fixed at 0
+  vector[N_base - 1] bshape_raw;
   vector[C] beta;
   vector[P] breg;
   matrix[C, Q] gamma;
+  vector[RE ? N_delta : 0] delta_aux;
+  vector<lower=0>[RE] tau;
 }
 
 transformed parameters {
-  vector[K] bshape = append_row(rep_vector(0, 1), bshape_raw);
+  vector[N_base] coefficients;
+  vector[RE ? N_delta : 0] delta;
   vector[N_ipd] eta_ipd;
-  vector[N_agd] lambda_agd;
+  vector[N_ipd] log_L_ipd;
+  vector[N_agd] log_L_agd;
+  vector[N_ipd] p_event_ipd;
+  vector[N_agd] p_event_agd;
+
+  coefficients = exp(append_row(rep_vector(0, 1), bshape_raw));
+  delta = delta_aux;
+  if (RE) {
+    if (noncentered) delta = tau[1] * L_delta * delta_aux;
+  }
 
   for (i in 1:N_ipd) {
-    real lp = mu[study_ipd[i]] + bshape[interval_ipd[i]] + X_ipd[i] * breg
-              + Tc_ipd[i] * beta;
-    for (q in 1:Q)
+    real lp = mu[study_ipd[i]] + X_ipd[i] * breg + Tc_ipd[i] * beta;
+    for (q in 1:Q) {
       lp += dot_product(Tc_ipd[i], gamma[, q]) * X_ipd[i, emc[q]];
-    eta_ipd[i] = lp + log_time[i];
+    }
+    if (RE) {
+      if (re_idx_ipd[i] > 0) lp += delta[re_idx_ipd[i]];
+    }
+    eta_ipd[i] = lp;
+    log_L_ipd[i] = cpaic_survival_loglik(
+      time_basis_ipd[i], itime_basis_ipd[i], start_basis_ipd[i],
+      entry_basis_ipd[i], delayed_ipd[i], status_ipd[i], lp, coefficients
+    );
+    p_event_ipd[i] = cpaic_event_probability(
+      itime_basis_ipd[i], entry_basis_ipd[i], lp, coefficients
+    );
   }
+
   for (a in 1:N_agd) {
-    real acc = 0;
+    vector[n_int] log_L_ii;
+    real event_acc = 0;
     for (k in 1:n_int) {
       int row = (a - 1) * n_int + k;
-      real lp = mu[study_agd[a]] + bshape[interval_agd[a]]
-                + X_agd_int[row] * breg + Tc_agd[a] * beta;
-      for (q in 1:Q)
+      real lp = mu[study_agd[a]] + X_agd_int[row] * breg
+                + Tc_agd[a] * beta;
+      for (q in 1:Q) {
         lp += dot_product(Tc_agd[a], gamma[, q]) * X_agd_int[row, emc[q]];
-      acc += exp(lp);
+      }
+      if (RE) {
+        if (re_idx_agd[a] > 0) lp += delta[re_idx_agd[a]];
+      }
+      log_L_ii[k] = cpaic_survival_loglik(
+        time_basis_agd[a], itime_basis_agd[a], start_basis_agd[a],
+        entry_basis_agd[a], delayed_agd[a], status_agd[a], lp, coefficients
+      );
+      event_acc += cpaic_event_probability(
+        itime_basis_agd[a], entry_basis_agd[a], lp, coefficients
+      );
     }
-    lambda_agd[a] = E_agd[a] * acc / n_int;
+    log_L_agd[a] = log_sum_exp(log_L_ii) - log(n_int);
+    p_event_agd[a] = event_acc / n_int;
   }
 }
 
@@ -88,8 +174,41 @@ model {
   bshape_raw ~ normal(0, prior_intercept_sd);
   beta ~ normal(0, prior_beta_sd);
   breg ~ normal(0, prior_reg_sd);
-  to_vector(gamma) ~ normal(0, prior_reg_sd);
+  if (prior_gamma_dist == 1) {
+    to_vector(gamma) ~ normal(0, prior_gamma_scale);
+  } else {
+    to_vector(gamma) ~ student_t(prior_gamma_df, 0, prior_gamma_scale);
+  }
 
-  if (N_ipd > 0) y_ipd ~ poisson_log(eta_ipd);
-  if (N_agd > 0) r_agd ~ poisson(lambda_agd);
+  if (RE) {
+    if (prior_tau_dist == 1) tau ~ normal(0, prior_tau_scale);
+    else tau ~ student_t(prior_tau_df, 0, prior_tau_scale);
+    if (noncentered) {
+      delta_aux ~ std_normal();
+    } else {
+      delta_aux ~ multi_normal_cholesky(
+        rep_vector(0, N_delta), tau[1] * L_delta
+      );
+    }
+  }
+
+  if (!prior_only) {
+    target += sum(log_L_ipd);
+    target += sum(log_L_agd);
+  }
+}
+
+generated quantities {
+  vector[N_ipd + N_agd] log_lik;
+  array[N_ipd] int event_rep_ipd;
+  array[N_agd] int event_rep_agd;
+
+  for (i in 1:N_ipd) {
+    log_lik[i] = log_L_ipd[i];
+    event_rep_ipd[i] = bernoulli_rng(fmin(fmax(p_event_ipd[i], 0), 1));
+  }
+  for (a in 1:N_agd) {
+    log_lik[N_ipd + a] = log_L_agd[a];
+    event_rep_agd[a] = bernoulli_rng(fmin(fmax(p_event_agd[a], 0), 1));
+  }
 }
