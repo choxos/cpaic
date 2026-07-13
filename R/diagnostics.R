@@ -61,6 +61,19 @@ additivity_test.cpaic_bridge <- function(object, ...) {
 #' @export
 print.cpaic_additivity <- function(x, ...) {
   cat("Additive component model: fit statistics\n")
+  if (isTRUE(x$df == 0)) {
+    # A saturated model has no residual degrees of freedom, so Q is identically
+    # zero by arithmetic. Printing "Q = 0" invites the reader to see a perfect
+    # fit, when in truth the statistic has NO power and cannot detect anything.
+    # In simulation, cSTC coverage fell to 0.50 under a large additivity
+    # violation while this statistic reported Q = 0 with df = 0.
+    cat("  !! SATURATED MODEL: 0 residual degrees of freedom.\n")
+    cat("     Q = 0 here is arithmetic, NOT evidence of fit. This statistic has\n")
+    cat("     no power and cannot detect a violation of additivity, however\n")
+    cat("     large. Do not read it as reassurance.\n")
+    invisible(x)
+    return(invisible(x))
+  }
   cat("  Total lack of fit (Q.additive): Q = ", round(x$Q, 3), ", df = ",
       x$df, ", p = ", format.pval(x$pval, digits = 3), "\n", sep = "")
   if (is.finite(x$Q.diff)) {
@@ -81,11 +94,116 @@ print.cpaic_additivity <- function(x, ...) {
   invisible(x)
 }
 
+#' Does the individual patient data actually inform this contrast?
+#'
+#' Population adjustment only helps if the adjusted edges actually *carry* the
+#' contrast you care about. They need not. In a component bridge the estimate of
+#' a contrast `m' beta` is a weighted combination of the observed edges,
+#'
+#' \deqn{m'\hat\beta = \underbrace{m' (X'WX)^{+} X'W}_{w} \, d ,}
+#'
+#' so edge `j` influences the answer only through its weight `w_j`. An IPD edge
+#' with `w_j` of zero contributes nothing to that contrast, and adjusting it
+#' changes nothing.
+#'
+#' This matters because the usual diagnostic cannot detect the problem. In
+#' simulation, putting the IPD on an edge that does not bridge the gap left
+#' cMAIC numerically identical to the unadjusted analysis (bias +0.374, coverage
+#' 0.676) while [effective_sample_size()] happily reported an ESS of 999 out of
+#' 1000. A healthy ESS says the *weights* are well behaved; it says nothing about
+#' whether the reweighted edge is relevant to your estimand.
+#'
+#' @param object A `cpaic_bridge`, `cpaic_maic` or `cpaic_stc` object.
+#' @param treatment,comparator The contrast of interest. `comparator` defaults
+#'   to the network reference.
+#' @param tol Influence weights below this (relative to the largest) are treated
+#'   as zero.
+#' @param ... Unused.
+#'
+#' @return A data frame with one row per edge: `studlab`, `treat1`, `treat2`,
+#'   `has_ipd`, and `influence` (the weight `w_j`). Edges are ordered by
+#'   absolute influence. A warning is issued if any IPD edge has no influence on
+#'   the requested contrast.
+#' @seealso [effective_sample_size()], [estimable_effects()]
+#' @examples
+#' net <- cpaic_network(cpaic_bin_agd, sm = "OR", inactive = "Placebo")
+#' br <- cnma_bridge(net)
+#' edge_influence(br, treatment = "A+B+C")
+#' @export
+edge_influence <- function(object, treatment, comparator = NULL, tol = 1e-8,
+                           ...) {
+  if (inherits(object, "cpaic_fit")) object <- object$bridge
+  if (!inherits(object, "cpaic_bridge")) {
+    stop("edge_influence() needs a cpaic_bridge (or a cMAIC / cSTC fit).",
+         call. = FALSE)
+  }
+  conn <- object$connectivity
+  net <- object$network
+  cols <- net$cols
+  C <- conn$C
+  trts <- rownames(C)
+  if (is.null(comparator)) comparator <- object$reference
+  if (!treatment %in% trts || !comparator %in% trts) {
+    stop("`treatment` and `comparator` must be network treatments.",
+         call. = FALSE)
+  }
+
+  X <- conn$X                                  # edges x components
+  seTE <- net$agd[[cols$seTE]]
+  tau2 <- if (identical(object$effect, "random")) {
+    t2 <- object$fit$tau2
+    if (is.null(t2) || !is.finite(t2)) 0 else t2
+  } else 0
+  w <- 1 / (seTE^2 + tau2)                     # inverse-variance weights
+  XtWX <- t(X) %*% (w * X)
+  m <- C[treatment, ] - C[comparator, ]
+  infl <- as.numeric(m %*% MASS_ginv(XtWX) %*% t(X) %*% diag(w, length(w)))
+
+  ipd_studies <- if (is.null(net$ipd_info)) character(0) else
+    net$ipd_info$studies
+  out <- data.frame(
+    studlab = as.character(net$agd[[cols$studlab]]),
+    treat1 = as.character(net$agd[[cols$treat1]]),
+    treat2 = as.character(net$agd[[cols$treat2]]),
+    has_ipd = as.character(net$agd[[cols$studlab]]) %in% ipd_studies,
+    influence = infl,
+    row.names = NULL, stringsAsFactors = FALSE
+  )
+  scale <- max(abs(out$influence), 1)
+  dead <- out$has_ipd & abs(out$influence) < tol * scale
+  if (any(dead)) {
+    warning("Individual patient data on ",
+            paste(unique(out$studlab[dead]), collapse = ", "),
+            " have NO influence on ", treatment, " versus ", comparator,
+            ". Adjusting those edges cannot change this contrast, whatever the ",
+            "effective sample size says. See ?edge_influence.", call. = FALSE)
+  }
+  out <- out[order(-abs(out$influence)), ]
+  rownames(out) <- NULL
+  out
+}
+
+#' Moore-Penrose pseudo-inverse (avoids a MASS dependency)
+#' @noRd
+MASS_ginv <- function(A, tol = sqrt(.Machine$double.eps)) {
+  s <- svd(A)
+  keep <- s$d > max(tol * s$d[1], 0)
+  if (!any(keep)) return(matrix(0, ncol(A), nrow(A)))
+  s$v[, keep, drop = FALSE] %*%
+    ((1 / s$d[keep]) * t(s$u[, keep, drop = FALSE]))
+}
+
 #' Effective sample sizes from a cMAIC fit
+#'
+#' The effective sample size summarizes the precision lost to reweighting. It is
+#' **not** a validity diagnostic: a healthy ESS says the weights are well
+#' behaved, not that the reweighted edge is relevant to your estimand. Use
+#' [edge_influence()] to ask whether the IPD informs the contrast at all.
 #'
 #' @param object A `cpaic_maic` object.
 #' @param ... Unused.
 #' @return A named numeric vector of effective sample sizes per IPD study.
+#' @seealso [edge_influence()]
 #' @export
 effective_sample_size <- function(object, ...) {
   if (!inherits(object, "cpaic_maic")) {

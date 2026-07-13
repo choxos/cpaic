@@ -1,0 +1,656 @@
+---
+title: "Count outcomes: a disconnected COPD exacerbation network"
+output: rmarkdown::html_vignette
+bibliography: cpaic.bib
+link-citations: yes
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE, comment = "#>", message = FALSE, warning = FALSE,
+  fig.width = 7, fig.height = 4, fig.align = "center", dpi = 110
+)
+options(width = 100, mc.cores = parallel::detectCores(),
+        rmarkdown.html_vignette.check_title = FALSE)
+```
+
+```{r packages}
+library(cpaic)
+library(ggplot2)
+set.seed(2027)
+```
+
+This vignette is a complete worked example for a **count** endpoint with an
+**exposure offset**: exacerbation *rates*, in a treatment network that is
+**disconnected** and whose trials enrolled **different patients**. As in
+`vignette("binary-outcomes")` we run both routes, the frequentist two-stage
+route (`cstc()` / `cmaic()` into `cnma_bridge()`) and the one-stage Bayesian
+route (`cmlnmr()`); but three things are new here and they are the reason to read
+this one as well:
+
+* the **log link with an offset**, so the estimand is a **rate ratio**;
+* **two** effect modifiers, one continuous and one binary, which turns out to
+  make the aggregate-only components *harder*, not easier, to identify;
+* the rate ratio is **collapsible**, unlike the odds ratio, so `cstc()` and
+  `cmaic()` converge here where in the binary vignette they did not.
+
+> **The data here are entirely simulated.** The clinical setting (maintenance
+> inhaler therapy in COPD) supplies only the vocabulary, because inhaled regimens
+> are genuinely multi-component: bronchodilators and steroids are combined in one
+> device. No number below is taken from any trial or publication. We set the true
+> parameter values ourselves, which is exactly what lets us check whether each
+> method recovers them.
+
+## The clinical question
+
+Write `PBO` for placebo (the inactive comparator) and use four active components:
+
+* `LABA` -- a long-acting beta-agonist,
+* `LAMA` -- a long-acting muscarinic antagonist,
+* `ICS` -- an inhaled corticosteroid,
+* `ROF` -- roflumilast, an oral add-on.
+
+The outcome is the **number of moderate-to-severe exacerbations** a patient has
+during follow-up. Follow-up length differs between patients (people drop out), so
+the outcome is a count *per person-year*: a rate. **Lower is better**, so a rate
+ratio below 1 favors the active arm.
+
+The trials split into two groups that share **no treatment**:
+
+* **Sub-network 1**, older placebo-controlled monotherapy trials: `PBO` vs `LABA`
+  (three times), `PBO` vs `LAMA` (once).
+* **Sub-network 2**, newer trials on a `LABA` backbone: `LABA+ICS` vs `LABA+LAMA`
+  (twice), and `LABA+LAMA` vs `LABA+LAMA+ROF` (once).
+
+No trial links the two groups. A formulary committee nevertheless has to ask:
+**how does the ICS-containing dual inhaler (`LABA+ICS`) compare with `LAMA`
+monotherapy?** That contrast crosses the gap.
+
+The two groups also enrolled different patients, on two axes that matter:
+
+* `eos` -- the **blood eosinophil count**, coded as
+  `(cells per microlitre - 200) / 100`, so `eos = 0` is 200 cells and `eos = 1.5`
+  is 350 cells. It is continuous, and it modifies the steroid effect.
+* `freqex` -- a **frequent exacerbator** indicator (two or more exacerbations in
+  the year before enrolment). It is binary, it is strongly *prognostic*, and it
+  modifies the `LAMA` effect.
+
+A binary covariate and a continuous one need different integration margins, and
+cpaic picks them automatically: a 0/1 covariate gets a **Bernoulli** margin, so
+that integration points land on `{0, 1}` and not somewhere in between, and
+anything else gets a **normal** margin. Integrating a binary covariate as though
+it were normal would average the model over patients who cannot exist.
+
+## The model
+
+`cmlnmr()` fits an individual-level Poisson regression with a log link and a
+**log-exposure offset** to every patient, whether that patient's data arrive as
+IPD or are integrated out of an aggregate arm:
+$$
+\log \mathbb{E}[y_{ijk} \mid x_i]
+  \;=\; \log T_i \;+\; \mu_j + x_i^\top b \;+\; C_k^\top(\beta + \Gamma x_i),
+$$
+where $T_i$ is patient $i$'s person-time, $j$ indexes the study, $k$ the
+treatment, and $C_k$ says which components treatment $k$ contains. The offset has
+coefficient fixed at 1, which is what turns a model for *counts* into a model for
+*rates*.
+
+The relative effect is again population-specific,
+$$
+\theta_t(x) - \theta_u(x) \;=\; (C_t - C_u)^\top(\beta + \Gamma x),
+$$
+now a **log rate ratio** rather than a log odds ratio. There is no
+population-free answer, so `relative_effects()` requires `newdata`.
+
+### The log link is nonlinear, so you cannot plug in the mean
+
+An aggregate arm reports a total event count and total person-time, plus the
+*mean* of each covariate. It is tempting to evaluate the model at that mean. It
+is also wrong. By Jensen's inequality,
+$$
+\mathbb{E}\big[\exp(\eta(x))\big] \;\neq\; \exp\big(\eta(\mathbb{E}[x])\big),
+$$
+and for a convex function the plug-in *understates* the average rate. The gap is
+the classic **aggregation bias** of study-level meta-regression
+[@berlin2002ecological]. `cmlnmr()` therefore does not plug in: it evaluates the
+individual model at quasi-Monte-Carlo points drawn from each study's own
+covariate distribution (coupled by a Gaussian copula whose correlation is
+estimated *within* the IPD studies) and averages the **rate**, on its natural
+scale, before comparing it with the observed count [@phillippo2020mlnmr].
+
+### The rate ratio is collapsible, and the odds ratio is not
+
+This is the sharpest contrast with `vignette("binary-outcomes")`. Under a log
+link with no treatment-by-covariate interaction, the population-average
+(marginal) rate ratio *equals* the individual (conditional) one:
+$$
+\frac{\mathbb{E}_x[\exp(\eta_t(x))]}{\mathbb{E}_x[\exp(\eta_u(x))]}
+ \;=\; \exp(\theta_t - \theta_u)
+ \qquad\text{when } \Gamma = 0 .
+$$
+The rate ratio is **collapsible**; the odds ratio is not [@greenland1999]. So the
+estimand gap between `cstc()` (conditional) and `cmaic()` (marginal) that we saw
+on the odds-ratio scale largely closes here [@remiro2022]. What survives is a
+second-order Jensen term whenever $\Gamma \neq 0$, because then the two arms'
+rates are averaged over the covariate distribution with different exponents. The
+two methods should agree closely, and disagree a little, and both statements are
+informative.
+
+## Setting up the data
+
+We set the truth ourselves. The component effects `beta_true` are log rate ratios
+at the covariate origin, and `Gamma_true` is a components-by-modifiers matrix: the
+steroid works much better in eosinophilic patients, and `LAMA` works much better
+in frequent exacerbators.
+
+```{r truth}
+treatments <- c("PBO", "LABA", "LAMA", "LABA+ICS", "LABA+LAMA", "LABA+LAMA+ROF")
+Cmat <- build_C_matrix(treatments, inactive = "PBO")
+Cmat
+
+beta_true <- c(ICS = -0.25, LABA = -0.15, LAMA = -0.22, ROF = -0.12)
+Gamma_true <- rbind(                       # rows: components; columns: modifiers
+  ICS  = c(eos = -0.18, freqex = -0.10),   # steroid: much better if eosinophilic
+  LABA = c(eos =  0.02, freqex = -0.02),
+  LAMA = c(eos =  0.01, freqex = -0.20),   # LAMA: much better if a frequent exacerbator
+  ROF  = c(eos =  0.00, freqex = -0.05))
+b_prog <- c(eos = 0.05, freqex = 0.55)     # frequent exacerbators exacerbate more, whatever the arm
+
+# theta_t(x) = C_t' (beta + Gamma x): the TRUE conditional log rate ratio vs PBO.
+theta <- function(trt, x) {
+  ct <- Cmat[trt, ]
+  comps <- names(ct)
+  sum(ct * beta_true[comps]) + sum(ct * (Gamma_true[comps, , drop = FALSE] %*% x))
+}
+knitr::kable(Gamma_true, caption = "Gamma: component x effect-modifier interactions (the truth)")
+```
+
+The headline contrast, `LABA+ICS` versus `LAMA`, has component vector
+$C_{\texttt{LABA+ICS}} - C_{\texttt{LAMA}} = e_{\texttt{LABA}} + e_{\texttt{ICS}} - e_{\texttt{LAMA}}$,
+so its true value is exactly
+$$
+\theta(x) = -0.18 \;-\; 0.17\,\texttt{eos} \;+\; 0.08\,\texttt{freqex},
+$$
+which is a rate ratio near 1 in a low-eosinophil population and around 0.68 in a
+high-eosinophil one. One number cannot serve both.
+
+Seven trials. Two are ours (IPD); five are published (aggregate only).
+
+```{r design}
+design <- data.frame(
+  study  = c("MONO-1", "MONO-2", "MONO-3", "MONO-4", "ADD-1", "ADD-2", "ADD-3"),
+  arm1   = c("PBO", "PBO", "PBO", "PBO",
+             "LABA+ICS", "LABA+LAMA", "LABA+ICS"),
+  arm2   = c("LABA", "LAMA", "LABA", "LABA",
+             "LABA+LAMA", "LABA+LAMA+ROF", "LABA+LAMA"),
+  n      = c(600, 600, 400, 350, 600, 550, 450),   # per arm
+  mu     = c(0.10, 0.05, 0.15, 0.12, 0.20, 0.25, 0.18),
+  eos_m  = c(0.2, -0.3, 0.0, 0.4, 0.8, 1.0, 0.6),  # covariate means
+  eos_s  = c(1.0,  0.9, 1.0, 1.0, 1.1, 1.0, 1.0),
+  fx_p   = c(0.35, 0.30, 0.40, 0.45, 0.55, 0.65, 0.50),
+  ipd    = c(TRUE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE),
+  stringsAsFactors = FALSE
+)
+knitr::kable(design, caption = "Trial design. MONO-* are older; ADD-* newer.")
+```
+
+Note which edges are aggregate-only, because it will matter later: **`LAMA`
+versus `PBO` is measured by exactly one trial (`MONO-2`, aggregate), and
+roflumilast by exactly one (`ADD-2`, aggregate).**
+
+```{r simulate}
+gen_arm <- function(study, trt, n, mu, em, es, fp) {
+  freqex <- rbinom(n, 1, fp)
+  # eosinophils and exacerbation history are correlated within a trial
+  eos    <- rnorm(n, em + 0.25 * (freqex - fp), es)
+  expo   <- pmin(rexp(n, rate = 0.25), 1)     # person-years, censored at 1
+  x      <- cbind(eos, freqex)
+  lograte <- mu + as.vector(x %*% b_prog) +
+    vapply(seq_len(n), function(i) theta(trt, x[i, ]), numeric(1))
+  data.frame(.study = study, .trt = trt,
+             .y = rpois(n, expo * exp(lograte)), .exposure = expo,
+             eos = eos, freqex = freqex, stringsAsFactors = FALSE)
+}
+patients <- do.call(rbind, lapply(seq_len(nrow(design)), function(i) {
+  d <- design[i, ]
+  rbind(gen_arm(d$study, d$arm1, d$n, d$mu, d$eos_m, d$eos_s, d$fx_p),
+        gen_arm(d$study, d$arm2, d$n, d$mu, d$eos_m, d$eos_s, d$fx_p))
+}))
+is_ipd <- patients$.study %in% design$study[design$ipd]
+```
+
+The two routes want different data shapes. `cmlnmr()` takes patient rows (with an
+`.exposure` column) plus **arm-level** aggregate rows: total events `r`, total
+person-time `E`, and each modifier's summary. The continuous modifier needs a
+`_mean` and an `_sd`; the binary one needs only a `_mean`, which *is* its
+prevalence, because a Bernoulli's mean determines its variance.
+
+```{r shape-bayes}
+ipd <- patients[is_ipd, ]
+agd <- do.call(rbind, lapply(
+  split(patients[!is_ipd, ], ~ .study + .trt, drop = TRUE),
+  function(d) data.frame(
+    .study = d$.study[1], .trt = d$.trt[1],
+    r = sum(d$.y), E = sum(d$.exposure),
+    eos_mean = mean(d$eos), eos_sd = sd(d$eos),
+    freqex_mean = mean(d$freqex), stringsAsFactors = FALSE)))
+agd <- agd[order(agd$.study, agd$.trt), ]
+rownames(agd) <- NULL
+knitr::kable(agd, digits = 3, caption = "Aggregate arms: events, person-time, covariate summaries")
+```
+
+`cpaic_network()` takes **contrast-level** aggregate data, one row per comparison,
+on the log-rate scale (`sm = "IRR"`). The two IPD studies appear here too, with
+their *unadjusted* contrasts, which `cstc()` and `cmaic()` will replace:
+
+```{r shape-freq}
+contrast_of <- function(d, a1, a2) {
+  cell <- function(a) {
+    s <- d[d$.trt == a, ]; c(r = sum(s$.y), E = sum(s$.exposure))
+  }
+  x2 <- cell(a2); x1 <- cell(a1)
+  data.frame(
+    studlab = d$.study[1], treat1 = a2, treat2 = a1,
+    TE   = unname(log(x2["r"] / x2["E"]) - log(x1["r"] / x1["E"])),
+    seTE = unname(sqrt(1 / x2["r"] + 1 / x1["r"])),
+    stringsAsFactors = FALSE)
+}
+agd_contr <- do.call(rbind, lapply(seq_len(nrow(design)), function(i) {
+  d <- design[i, ]
+  contrast_of(patients[patients$.study == d$study, ], d$arm1, d$arm2)
+}))
+knitr::kable(agd_contr, digits = 3, caption = "Unadjusted log rate ratios")
+```
+
+```{r network}
+net <- cpaic_network(agd_contr, ipd = ipd, sm = "IRR", family = "poisson",
+                     inactive = "PBO", ipd_covariates = c("eos", "freqex"),
+                     ipd_exposure = ".exposure")
+cpaic_connectivity(net)
+```
+
+Two sub-networks, bridged by `LABA` and `LAMA`, and the component design matrix
+$X = BC$ has **full column rank**: an aggregate-data component NMA would identify
+every component effect and every relative effect [@rucker2020cnma; @Wigle2026].
+Hold that thought.
+
+## Covariate balance
+
+```{r balance}
+balance <- do.call(rbind, lapply(split(patients, patients$.study), function(d)
+  data.frame(Study = d$.study[1],
+             Eosinophils = 200 + 100 * mean(d$eos),
+             eos_mean = mean(d$eos), eos_sd = sd(d$eos),
+             freqex = mean(d$freqex),
+             Rate_per_year = sum(d$.y) / sum(d$.exposure))))
+knitr::kable(balance, digits = 2, row.names = FALSE,
+             caption = "Effect-modifier balance across the seven trials")
+```
+
+The older monotherapy trials enrolled patients around 220 eosinophils with a
+third being frequent exacerbators; the newer add-on trials enrolled patients
+around 280-300 eosinophils with two thirds frequent exacerbators. The two
+sub-networks are not comparing the same people, and both covariates move together.
+
+We must name a **target population**. Take the patients a formulary committee is
+actually deciding for: an eosinophilic, frequently exacerbating group
+(350 cells, 55% frequent exacerbators). We will also ask for a low-eosinophil,
+infrequently exacerbating population, where the answer is quite different.
+
+```{r target}
+target     <- data.frame(eos =  1.5, freqex = 0.55)   # 350 cells, 55% frequent
+target_low <- data.frame(eos = -0.5, freqex = 0.20)   # 150 cells, 20% frequent
+```
+
+## Fitting
+
+### Route 1: two stages, frequentist
+
+`cstc()` regresses the count on treatment, the covariate main effects, and
+treatment-by-modifier interactions, with a `log(exposure)` offset and the
+modifiers centered at the target; its treatment coefficient is then the
+population-adjusted **conditional** log rate ratio in the target population.
+`cmaic()` reweights each IPD trial so its modifier distribution matches the target
+[@signorovitch2010] and refits a weighted Poisson model with the same offset,
+giving a **marginal** log rate ratio. Both hand their adjusted contrasts to
+`cnma_bridge()`.
+
+```{r freq}
+ems <- c("eos", "freqex")
+
+fit_stc <- cstc(net, target = c(eos = 1.5, freqex = 0.55), effect_modifiers = ems)
+
+fit_maic <- cmaic(net, target = c(eos = 1.5, freqex = 0.55),
+                  target_sd = c(eos = 1.0),      # only the continuous one needs an SD
+                  effect_modifiers = ems, n_boot = 200, seed = 9)
+effective_sample_size(fit_maic)
+```
+
+`target_sd` names only `eos`. A Bernoulli variable's mean fixes its variance, so
+matching `freqex`'s prevalence already matches its second moment; there is nothing
+extra to ask for.
+
+### Route 2: one stage, Bayesian
+
+```{r fit}
+fit <- cmlnmr(ipd, agd,
+              effect_modifiers = ems,
+              inactive = "PBO", family = "poisson",
+              exposure = ".exposure",
+              trt_effects = "random",
+              chains = 4, iter_warmup = 500, iter_sampling = 500,
+              n_int = 64, seed = 3, show_exceptions = FALSE)
+fit
+```
+
+The `[bernoulli]` and `[normal]` tags in the print output are the integration
+margins cpaic chose. It guessed them from the IPD (`freqex` is 0/1, `eos` is not);
+`margins = c(freqex = "bernoulli", eos = "normal")` would set them explicitly.
+
+### Priors
+
+```{r priors}
+knitr::kable(do.call(rbind, lapply(names(fit$priors), function(p) {
+  s <- fit$priors[[p]]
+  data.frame(parameter = p, distribution = s$distribution,
+             location = s$location, scale = s$scale)
+})), caption = "The complete prior specification, as passed to Stan")
+```
+
+The interaction prior, normal(0, 1), deserves a second look on this scale.
+Exacerbation log rate ratios are small numbers: the component main effects here
+are all between $-0.25$ and $-0.12$. A normal(0, 1) prior on an interaction is
+therefore very permissive relative to the effects we are estimating, and it does
+real regularizing work only where $\Gamma$ is weakly identified. That is exactly
+where we will need `prior_sensitivity()` below.
+
+### Convergence
+
+```{r convergence}
+data.frame(
+  divergences   = fit$diagnostics$divergences,
+  max_treedepth = fit$diagnostics$max_treedepth,
+  max_rhat      = round(fit$diagnostics$max_rhat, 4),
+  min_ess_bulk  = round(min(fit$fit$summary(c("beta", "gamma", "mu",
+                                              "tau"))$ess_bulk, na.rm = TRUE))
+)
+```
+
+## Estimability: more effect modifiers, fewer estimable effects
+
+Here is the count-specific twist, and it is not intuitive.
+
+An aggregate two-arm trial contributes **one** number per contrast: it pins down
+$m^\top(\beta + \Gamma \bar x_j)$ at its own covariate mean $\bar x_j$, and no
+more. But the population-adjusted estimand $m^\top(\beta + \Gamma x)$ has
+$1 + Q$ unknowns in the direction $m$: one main effect and $Q$ interactions. So an
+aggregate-only component needs $1 + Q$ independent aggregate equations to be
+identified at a general target.
+
+With one effect modifier that is two equations. **With two effect modifiers it is
+three.** Adding a modifier to the model makes the *aggregate-only* components
+strictly harder to identify, even though it makes the model more nearly correct.
+An IPD trial escapes this, because within a trial you can regress on arm and on
+arm-by-covariate directly, and so recover all $1 + Q$ at once.
+
+```{r estimable}
+estimable_effects_at(fit, newdata = target, reference = "LAMA")
+```
+
+`LABA+ICS` (the headline) and `LABA+LAMA` are identified, from **IPD**. The other
+three are not identified at all, because each needs `LAMA` or `ROF` on its own,
+and each of those is seen in exactly one aggregate contrast: one equation, three
+unknowns.
+
+Estimability depends on the target. `MONO-2` is the aggregate trial that measured
+`LAMA`; ask for *its* population and `LAMA` comes back:
+
+```{r estimable-own}
+mono2 <- agd[agd$.study == "MONO-2", ]
+own   <- data.frame(eos = mean(mono2$eos_mean), freqex = mean(mono2$freqex_mean))
+own
+estimable_effects_at(fit, newdata = own, reference = "LAMA")
+```
+
+That is the whole of what an aggregate two-arm trial can tell you: its own
+contrast, in its own population. Everything else is extrapolation through $\Gamma$,
+and $\Gamma$ has to come from somewhere.
+
+The same algebra reaches the component effects:
+
+```{r comp-effects}
+component_effects(fit, newdata = target)
+```
+
+`LABA` is identified. `ICS`, `LAMA` and `ROF` individually are not; but the
+*combination* the headline needs, `LABA` plus `ICS` minus `LAMA`, is, because
+`ADD-1` measured `LAMA` against `ICS` with IPD. cpaic returns `NA` for what it
+cannot identify rather than a prior-driven number, which is the behavior you want
+from a tool that would otherwise hand you the prior with a straight face
+[@Wigle2026].
+
+## Results
+
+### Recovered against the truth
+
+```{r effects-target}
+relative_effects(fit, reference = "LAMA", newdata = target)
+```
+
+```{r effects-low}
+relative_effects(fit, reference = "LAMA", newdata = target_low)
+```
+
+The headline rate ratio moves from roughly 0.7 in the eosinophilic target to
+roughly 0.9 in the low-eosinophil one: the steroid earns its place in one
+population and barely in the other. Now put every method beside the planted truth.
+
+```{r recovery}
+truth <- function(t1, t2, x) theta(t1, x) - theta(t2, x)
+x_tgt <- c(eos = 1.5, freqex = 0.55)
+
+grab <- function(tab, t1, ref, what = "estimate") {
+  as.numeric(tab[[what]][tab$treatment == t1 & tab$comparator == ref])
+}
+re_bayes <- relative_effects(fit, reference = "LAMA", newdata = target)
+re_stc   <- relative_effects(fit_stc,  reference = "LAMA")
+re_maic  <- relative_effects(fit_maic, reference = "LAMA")
+
+recovery <- do.call(rbind, lapply(c("LABA+ICS", "LABA+LAMA"), function(t1) {
+  data.frame(
+    Contrast          = paste(t1, "vs LAMA"),
+    True_RR           = exp(truth(t1, "LAMA", x_tgt)),
+    cSTC              = grab(re_stc,   t1, "LAMA"),
+    cMAIC             = grab(re_maic,  t1, "LAMA"),
+    `cML-NMR`         = grab(re_bayes, t1, "LAMA"),
+    `cML-NMR 95% CrI` = sprintf("(%.2f, %.2f)",
+                                grab(re_bayes, t1, "LAMA", "lower"),
+                                grab(re_bayes, t1, "LAMA", "upper")),
+    check.names = FALSE)
+}))
+knitr::kable(recovery, digits = 3, row.names = FALSE,
+  caption = "Rate ratios in the target population, against the truth")
+```
+
+Two things to notice.
+
+First, all three methods recover the planted truth for the contrasts that are
+estimable. Second, and unlike the binary vignette, **`cstc()` and `cmaic()` agree
+closely**. That is collapsibility doing its work: on the rate-ratio scale the
+marginal and conditional effects coincide when there is no effect modification,
+and differ only by a Jensen term when there is. On the odds-ratio scale they part
+company even under pure prognostic imbalance. Same two functions, same network
+structure, different link, and the estimand gap opens or closes accordingly.
+
+```{r pop-curve, fig.height = 4}
+grid <- seq(-1, 3, by = 0.2)
+curve <- do.call(rbind, lapply(grid, function(e) {
+  re <- relative_effects(fit, reference = "LAMA",
+                         newdata = data.frame(eos = e, freqex = 0.55))
+  r <- re[re$treatment == "LABA+ICS", ]
+  data.frame(eos = e, est = r$estimate, lo = r$lower, hi = r$upper,
+             truth = exp(truth("LABA+ICS", "LAMA", c(eos = e, freqex = 0.55))))
+}))
+ggplot(curve, aes(200 + 100 * eos)) +
+  geom_ribbon(aes(ymin = lo, ymax = hi), alpha = 0.15) +
+  geom_line(aes(y = est, colour = "cML-NMR posterior mean"), linewidth = 1) +
+  geom_line(aes(y = truth, colour = "Truth"), linetype = "dashed",
+            linewidth = 1) +
+  geom_hline(yintercept = 1, colour = "grey50") +
+  scale_y_log10() +
+  scale_colour_manual(values = c("cML-NMR posterior mean" = "#2c7fb8",
+                                 "Truth" = "#d95f0e")) +
+  labs(x = expression("Blood eosinophils in the target population (cells /" ~ mu * "L)"),
+       y = "Rate ratio, LABA+ICS vs LAMA (log scale)", colour = NULL,
+       title = "The steroid earns its place only in eosinophilic patients",
+       subtitle = "Frequent-exacerbator prevalence held at 55%; the contrast no trial measured") +
+  theme_minimal() + theme(legend.position = "top")
+```
+
+### What the frequentist bridge does with the effects it cannot identify
+
+`cstc()` and `cmaic()` adjust only the edges where you hold IPD. Every aggregate
+edge enters `cnma_bridge()` **in its own trial's population**, and the additive
+model then propagates that into any contrast that leans on it -- with no warning.
+Look at the contrasts `cmlnmr()` refused to report:
+
+```{r wrong}
+cmp <- do.call(rbind, lapply(c("PBO", "LABA", "LABA+LAMA+ROF"), function(t1) {
+  data.frame(
+    Contrast  = paste(t1, "vs LAMA"),
+    True_RR   = exp(truth(t1, "LAMA", x_tgt)),
+    cSTC      = grab(re_stc,   t1, "LAMA"),
+    cMAIC     = grab(re_maic,  t1, "LAMA"),
+    `cML-NMR` = grab(re_bayes, t1, "LAMA"),
+    check.names = FALSE)
+}))
+knitr::kable(cmp, digits = 3, row.names = FALSE,
+  caption = "Rate ratios cML-NMR declines to report, and what the bridge prints anyway")
+```
+
+The frequentist bridge prints a confident number for each of these, and here those
+numbers are *not far off*. That is worth being honest about, and it is worth
+understanding, because it is luck rather than method: in this network the
+aggregate-only components happen to be weakly effect-modified in the directions
+that matter (`Gamma_true["LAMA", "eos"] = 0.01`, and roflumilast barely interacts
+with anything), so evaluating their contrasts in the wrong population costs little.
+
+Change `Gamma_true["LAMA", "eos"]` to something substantial and those cells would
+be badly wrong, with intervals that exclude the truth -- which is exactly what
+happens in `vignette("binary-outcomes")`, where the aggregate-only component
+*is* strongly effect-modified. **You cannot know which case you are in without
+fitting a model that can tell you.** The `NA` is not the tool being unhelpful; it
+is the tool declining to pretend.
+
+### Random effects and model comparison
+
+`tau` is the study-arm heterogeneity around the component-implied effects. With
+seven contrasts and four components there are three degrees of freedom for it, so
+it is informed, but not richly.
+
+```{r tau}
+knitr::kable(fit$fit$summary("tau")[, c("variable", "mean", "sd", "q5", "q95",
+                                        "rhat", "ess_bulk")], digits = 3)
+```
+
+Compare against a fixed-effect fit by leave-one-out cross-validation
+[@vehtari2017] and DIC [@spiegelhalter2002dic]:
+
+```{r compare}
+fit_fixed <- cmlnmr(ipd, agd, effect_modifiers = ems, inactive = "PBO",
+                    family = "poisson", exposure = ".exposure",
+                    trt_effects = "fixed",
+                    chains = 4, iter_warmup = 500, iter_sampling = 500,
+                    n_int = 64, seed = 3, show_exceptions = FALSE)
+
+loo::loo_compare(list(random = loo::loo(fit), fixed = loo::loo(fit_fixed)))
+
+knitr::kable(data.frame(
+  model = c("random", "fixed"),
+  DIC   = c(dic(fit)$dic, dic(fit_fixed)$dic),
+  p_eff = c(dic(fit)$p_eff, dic(fit_fixed)$p_eff)),
+  digits = 1, caption = "Deviance information criterion")
+```
+
+The frequentist bridge reports the same question as a Cochran $Q$. Read
+`Q.diff`, not `Q`: only the former tests the additivity restrictions, and on a
+disconnected network it does not exist at all, because there is no standard NMA
+to nest the additive model inside.
+
+```{r additivity}
+additivity_test(fit_stc)
+```
+
+### Prior sensitivity
+
+A contrast that moves when you change a prior it should not depend on was never
+data-driven. `prior_sensitivity()` refits under a tighter and a looser interaction
+prior. It deliberately reports movement for the **non-estimable** contrasts too,
+bypassing the `NA` mask, so that you can see the mechanism instead of taking it on
+trust.
+
+```{r prior-sens}
+ps <- prior_sensitivity(fit, newdata = target, reference = "LAMA",
+                        prior = "gamma", tighter = 0.5, looser = 2,
+                        chains = 2, iter_warmup = 250, iter_sampling = 250)
+ps
+```
+
+The estimable contrasts barely move. The non-estimable ones move with the prior,
+which is what "not identified" *means*: no likelihood ridge holds them in place.
+Notice that this is true even though those same contrasts came out close to the
+truth in the table above. Being right by luck and being identified are different
+properties, and only one of them is a reason to believe a number.
+
+## What to take away
+
+| | Adjusts the population | Bridges the gap | Reports non-identified effects |
+|---|---|---|---|
+| Standard NMA | no | no | -- (cannot estimate them at all) |
+| ML-NMR | yes | no | yes, as prior-driven numbers |
+| `cstc()` / `cmaic()` + `cnma_bridge()` | IPD edges only | yes | **yes, silently** |
+| `cmlnmr()` | yes, all edges | yes | no: returns `NA` |
+
+* **Rates need an offset, and the log link needs integration.** Person-time enters
+  as `log(exposure)`; the aggregate likelihood is the individual model averaged
+  over the study's covariate distribution on the **rate** scale, never evaluated
+  at the covariate mean.
+* **Collapsibility is a property of the link.** On the rate-ratio scale `cstc()`
+  and `cmaic()` target nearly the same thing and land nearly together. On the
+  odds-ratio scale they do not. Do not carry an intuition from one to the other.
+* **More effect modifiers means fewer estimable effects, for aggregate-only
+  components.** Each aggregate two-arm trial gives one equation; the estimand has
+  $1 + Q$ unknowns per contrast direction. IPD is what breaks the tie, which is
+  the whole reason population adjustment needs it.
+
+Three honest limitations.
+
+1. **The bridging assumption is untestable.** Reconnecting through shared
+   components requires the component effects *and their interactions with the
+   effect modifiers* to be equal in both sub-networks. There is, by construction,
+   no cross-gap evidence with which to test that: neither `Q`, nor `Q.diff`, nor
+   LOO can see it. It must be defended clinically [@Veroniki2026].
+2. **A component effect identified only by aggregate data is identified
+   ecologically.** Where the estimability table says `identified_by =
+   "aggregate"`, the interaction is being read off a gradient *across* study
+   means. Randomization holds within a trial; it does not randomize covariate
+   means across trials, so that gradient is confounded in a way a within-trial
+   slope is not [@berlin2002ecological]. cpaic reports the distinction rather
+   than burying it.
+3. **The Poisson likelihood assumes the mean equals the variance.** Exacerbation
+   counts are routinely **overdispersed** (they cluster within patients), and a
+   Poisson model then reports intervals that are too narrow. cpaic's count family
+   is Poisson; if the IPD show clear overdispersion, treat the intervals as a
+   lower bound on uncertainty, and add prognostic covariates that absorb the extra
+   variation. The point estimates of the rate ratio remain consistent under
+   overdispersion; the uncertainty does not.
+
+```{r overdispersion}
+od <- do.call(rbind, lapply(split(ipd, ipd$.study), function(d) data.frame(
+  Study = d$.study[1], mean_count = mean(d$.y), var_count = var(d$.y),
+  ratio = var(d$.y) / mean(d$.y))))
+knitr::kable(od, digits = 2, row.names = FALSE,
+  caption = "A crude overdispersion check on the IPD (ratio near 1 is Poisson-like)")
+```
+
+## References

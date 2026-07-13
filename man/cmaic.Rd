@@ -51,6 +51,25 @@ contrasts. Finally \code{\link[=cnma_bridge]{cnma_bridge()}} combines all contra
 additive component model, yielding relative effects that are both
 connected across sub-networks and adjusted to the target population.
 }
+\section{A caveat that does not go away}{
+
+cMAIC returns a \strong{marginal} effect in the target population, and the additive
+component model assumes effects add. On a non-collapsible scale (the odds
+ratio, the hazard ratio) \strong{marginal effects do not add}, even when every
+conditional effect does. In one simulated target population the marginal
+log-odds ratios satisfied
+\code{marginal(A) + marginal(B) = 0.6615} while \code{marginal(A+B) = 0.6411}; the
+additive model is simply false on that scale. cMAIC therefore carries a small
+\strong{irreducible bias} (about +0.02 log-OR there) that survives perfect matching
+and infinite sample size. It is small relative to a typical standard error
+(about 0.25) but it does not vanish with more data.
+
+The conditional log-odds scale is the only one on which the additive component
+model is coherent, so if this matters for your analysis prefer \code{\link[=cstc]{cstc()}} or
+\code{\link[=cmlnmr]{cmlnmr()}}, which target a conditional effect. See
+\code{documentation/validation/VALIDATION.md}.
+}
+
 \examples{
 net <- cpaic_network(cpaic_bin_agd, ipd = cpaic_bin_ipd, sm = "OR",
                      family = "binomial", ipd_covariates = "x1",

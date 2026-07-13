@@ -1,0 +1,678 @@
+---
+title: "Continuous outcomes: bridging a disconnected network with a mean difference"
+output: rmarkdown::html_vignette
+bibliography: cpaic.bib
+link-citations: yes
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7,
+                      fig.height = 4.2, fig.align = "center",
+                      dpi = 120, out.width = "100%")
+options(width = 90)
+```
+
+```{r setup, message = FALSE}
+library(cpaic)
+library(ggplot2)
+set.seed(2026)
+```
+
+This vignette is a complete worked example for a **continuous** outcome: a
+treatment network that is **disconnected** *and* whose trials enrolled
+**different populations**. We reconnect it through shared treatment components
+(additive cNMA) and adjust it for effect-modifier imbalance, by two routes:
+the frequentist two-stage route (`cstc()` / `cmaic()` feeding `cnma_bridge()`)
+and the one-stage Bayesian route (`cmlnmr()`). For the disconnection story in
+the abstract see `vignette("cpaic-disconnected-myeloma")`; for the survival
+analogue see `vignette("survival-outcomes")`.
+
+> **The data here are entirely simulated.** The clinical setting (glucose
+> lowering in type 2 diabetes) is used only for its vocabulary, because
+> antidiabetic regimens are genuinely multi-component: they are built by adding
+> agents onto a backbone. No data, effect estimate, or result below is taken
+> from any publication. We set the true parameter values ourselves, which is
+> exactly what lets us check whether each method recovers them.
+
+## The clinical question
+
+The outcome is the **change in HbA1c from baseline at 26 weeks** (percentage
+points, lower is better), so the summary measure is a **mean difference** (MD)
+on an identity link.
+
+Write `Diet` for lifestyle advice alone (the inactive comparator) and use four
+active components: `Met` (metformin), `SU` (a sulfonylurea), `SGLT2` (an SGLT2
+inhibitor), and `DPP4` (a DPP-4 inhibitor). The evidence splits into two groups
+of trials that share **no treatment at all**:
+
+* **Sub-network 1**, older monotherapy trials against lifestyle advice:
+  `Diet` vs `Met`, `Diet` vs `SU`.
+* **Sub-network 2**, newer add-on trials on a metformin backbone:
+  `Met+SU` vs `Met+SGLT2`, `Met+SU` vs `Met+DPP4`.
+
+No trial links the two groups. A guideline committee nevertheless has to ask:
+**how much extra HbA1c lowering do you get by adding an SGLT2 inhibitor to
+metformin, compared with metformin alone?** That is `Met+SGLT2` versus `Met`,
+and it crosses the gap. No trial measured it.
+
+The two groups of trials also enrolled different patients. **Baseline HbA1c**
+is the effect modifier: agents that act through insulin secretion lower HbA1c
+much more in patients who start higher, while the SGLT2 inhibitor's effect is
+comparatively flat. The newer add-on trials enrolled patients with worse
+glycemic control than the older monotherapy trials, so the imbalance is real
+and it matters.
+
+## The model
+
+Component-additive ML-NMR marries two ideas. From additive cNMA
+[@rucker2020cnma; @rucker2021disconnected] it takes the treatment-by-component
+decomposition, which is what lets shared components carry information across a
+gap that no comparator spans. From ML-NMR [@phillippo2020mlnmr] it takes the
+integration of an individual-level model over each aggregate study's covariate
+distribution, which is what makes the adjustment correct rather than ecological.
+The closest prior art for the combination is the Bayesian aggregate-plus-IPD cNMA
+of @efthimiou2022, which allows component by covariate interactions in a
+connected network.
+
+Every treatment's relative effect is the sum of its component effects, and every
+component effect has an interaction with the effect modifier. The estimand is
+therefore **population-specific**:
+
+$$
+\theta_t(x) \;=\; C_t' \left( \beta + \Gamma x \right),
+$$
+
+where $C_t$ is the row of the treatment-by-component matrix for treatment $t$,
+$\beta$ holds the component main effects, $\Gamma$ holds the component by
+effect-modifier interactions, and $x$ is the effect-modifier value of the
+**target** population. There is no population-free relative effect here, and
+cpaic will not let you ask for one: `relative_effects()` requires `newdata`.
+
+Because $\beta$ is the vector of effects at $x = 0$, the covariate origin has
+to be somewhere meaningful. We therefore center baseline HbA1c at **8.0%** and
+work with `bhba1c_c` = baseline HbA1c minus 8. An uncentered covariate would
+make $\beta$ the effect "at a baseline HbA1c of zero", which is not a patient.
+
+```{r truth}
+treatments <- c("Diet", "Met", "SU", "Met+SU", "Met+SGLT2", "Met+DPP4")
+Cmat <- build_C_matrix(treatments, inactive = "Diet")
+Cmat
+
+# TRUTH (mean difference in HbA1c change, percentage points; lower is better).
+beta_true  <- c(DPP4 = -0.65, Met = -1.10, SGLT2 = -0.60, SU = -0.70)
+# Baseline dependence: strong for the insulin-secretion agents, flat for SGLT2.
+gamma_true <- c(DPP4 = -0.20, Met = -0.30, SGLT2 = -0.08, SU = -0.40)
+stopifnot(identical(names(beta_true), colnames(Cmat)))
+```
+
+Note already that `SU` and `SGLT2` must **cross**. Their component effects are
+$\theta_{SU}(x) = -0.70 - 0.40x$ and $\theta_{SGLT2}(x) = -0.60 - 0.08x$, equal
+at $x = -0.3125$, that is, at a baseline HbA1c of **7.69%**. Below that the
+SGLT2 inhibitor lowers HbA1c more; above it the sulfonylurea does. A single
+population-free number would be wrong for one side or the other.
+
+## Simulating the evidence
+
+We hold individual patient data (IPD) for three trials and only published
+aggregate data (AgD) for three others. The IPD trials matter disproportionately:
+a component by effect-modifier interaction is identified from the covariate
+variation **within** a trial, so a trial with IPD and a decent spread of
+baseline HbA1c is worth far more than its sample size suggests.
+
+```{r simulate}
+gen_arm <- function(study, trt, n, mu0, hba1c_mean, hba1c_sd = 1.2,
+                    sigma = 0.9, prognostic = -0.45) {
+  x  <- rnorm(n, hba1c_mean, hba1c_sd) - 8.0        # centered baseline HbA1c
+  tc <- Cmat[trt, ]
+  mu <- mu0 + prognostic * x +
+    sum(tc * beta_true) + sum(tc * gamma_true) * x
+  data.frame(.study = study, .trt = trt,
+             .y = rnorm(n, mu, sigma), bhba1c_c = x)
+}
+
+# What a publication reports for a continuous outcome: an arm mean, its
+# standard error, and a baseline-characteristics table.
+agg <- function(d) data.frame(
+  .study = d$.study[1], .trt = d$.trt[1],
+  .y = mean(d$.y), se = sd(d$.y) / sqrt(nrow(d)), n = nrow(d),
+  bhba1c_c_mean = mean(d$bhba1c_c), bhba1c_c_sd = sd(d$bhba1c_c))
+
+ipd <- rbind(
+  gen_arm("MONO-3", "Diet",      200, 0.05, 8.2),   # sub-network 1
+  gen_arm("MONO-3", "SU",        200, 0.05, 8.2),
+  gen_arm("ADD-1",  "Met+SU",    200, 0.10, 8.6),   # sub-network 2
+  gen_arm("ADD-1",  "Met+SGLT2", 200, 0.10, 8.6),
+  gen_arm("ADD-2",  "Met+SU",    200, 0.00, 8.5),
+  gen_arm("ADD-2",  "Met+SGLT2", 200, 0.00, 8.5))
+
+agd <- rbind(
+  agg(gen_arm("MONO-1", "Diet",     220, 0.00, 7.6)),
+  agg(gen_arm("MONO-1", "Met",      220, 0.00, 7.6)),
+  agg(gen_arm("MONO-2", "Diet",     200, 0.15, 8.4)),
+  agg(gen_arm("MONO-2", "Met",      200, 0.15, 8.4)),
+  agg(gen_arm("ADD-3",  "Met+SU",   240, 0.05, 8.7)),
+  agg(gen_arm("ADD-3",  "Met+DPP4", 240, 0.05, 8.7)))
+knitr::kable(agd, digits = 3, caption = "Aggregate arms: exactly what a paper prints")
+```
+
+The network really is in two pieces:
+
+```{r disconnected}
+edges <- data.frame(
+  treat1 = c("Met", "Met", "SU", "Met+SGLT2", "Met+SGLT2", "Met+DPP4"),
+  treat2 = c("Diet", "Diet", "Diet", "Met+SU", "Met+SU", "Met+SU"))
+g <- igraph::graph_from_data_frame(unique(edges), directed = FALSE)
+igraph::components(g)$no     # number of connected components
+```
+
+Two components, so a standard network meta-analysis cannot estimate
+`Met+SGLT2` versus `Met` at all. The estimate does not exist; it is not merely
+imprecise. What reconnects the network is that the regimens are not indivisible:
+`Met+SGLT2` and `Met` **share the component `Met`**, and `Met+SU` shares `Met`
+and `SU` with the old monotherapy trials. Shared components become shared
+parameters.
+
+## Covariate balance
+
+Population adjustment exists because the trial populations differ. Here they
+differ exactly along the effect modifier:
+
+```{r balance}
+ipd_bal <- aggregate(bhba1c_c ~ .study, data = ipd, FUN = mean)
+agd_bal <- aggregate(bhba1c_c_mean ~ .study, data = agd, FUN = mean)
+balance <- rbind(
+  data.frame(study = ipd_bal$.study, source = "IPD",
+             baseline_HbA1c = 8 + ipd_bal$bhba1c_c),
+  data.frame(study = agd_bal$.study, source = "AgD",
+             baseline_HbA1c = 8 + agd_bal$bhba1c_c_mean))
+balance$subnetwork <- ifelse(grepl("^MONO", balance$study), 1, 2)
+knitr::kable(balance[order(balance$subnetwork, balance$study), ], digits = 2,
+             row.names = FALSE,
+             caption = "Mean baseline HbA1c (%) by trial: the imbalance to adjust for")
+```
+
+The add-on trials run about half a percentage point higher than the monotherapy
+trials. Since the sulfonylurea effect changes by $-0.40$ per point of baseline
+HbA1c, that gap alone shifts the `SU` component by roughly $0.2$ points, which is
+*twice* the difference between the two add-on agents at the covariate origin
+($-0.70$ versus $-0.60$). The imbalance is bigger than the thing we are trying to
+measure. Ignoring it is not an option.
+
+## Setting up the data
+
+The two routes want the data in two different shapes, and this is not an
+accident: it is the difference between the methods.
+
+The **one-stage Bayesian model** takes the IPD as patient rows and the
+aggregate arms as arm rows carrying their covariate summaries. It fits the
+individual-level model to the IPD and integrates that same model over each
+aggregate study's covariate distribution.
+
+The **two-stage frequentist route** takes contrast-level aggregate data, one
+row per pairwise comparison, exactly as `netmeta::discomb()` does. The IPD
+studies appear here as ordinary (unadjusted) contrasts; `cstc()` and `cmaic()`
+then overwrite them with population-adjusted ones before bridging.
+
+```{r network}
+ipd_arms <- do.call(rbind, lapply(split(ipd, ipd$.study), function(d)
+  do.call(rbind, lapply(split(d, d$.trt), agg))))
+arms <- rbind(agd, ipd_arms)
+
+contrast_of <- function(s, t1, t2) {
+  a <- arms[arms$.study == s & arms$.trt == t1, ]
+  b <- arms[arms$.study == s & arms$.trt == t2, ]
+  data.frame(studlab = s, treat1 = t1, treat2 = t2,
+             TE = a$.y - b$.y, seTE = sqrt(a$se^2 + b$se^2))
+}
+contrasts <- rbind(
+  contrast_of("MONO-1", "Met",       "Diet"),
+  contrast_of("MONO-2", "Met",       "Diet"),
+  contrast_of("MONO-3", "SU",        "Diet"),
+  contrast_of("ADD-1",  "Met+SGLT2", "Met+SU"),
+  contrast_of("ADD-2",  "Met+SGLT2", "Met+SU"),
+  contrast_of("ADD-3",  "Met+DPP4",  "Met+SU"))
+
+net <- cpaic_network(contrasts, ipd = ipd, sm = "MD", family = "gaussian",
+                     ipd_covariates = "bhba1c_c", inactive = "Diet")
+net
+cpaic_connectivity(net)
+```
+
+`cpaic_connectivity()` makes the bridge explicit: the network is disconnected,
+but `Met` and `SU` appear on both sides of the gap, the component design matrix
+$X = BC$ has full rank, and so every *component main effect* is identified.
+Hold on to the phrase "component main effect"; it is not the same as the
+population-adjusted effect, and the difference is the subject of the Results
+section.
+
+### Two target populations
+
+Everything below is reported in a **named target population**. We use two,
+chosen to straddle the crossover point:
+
+```{r targets}
+target_early <- c(bhba1c_c = -0.5)   # baseline HbA1c 7.5%: early intensification
+target_late  <- c(bhba1c_c =  1.0)   # baseline HbA1c 9.0%: late intensification
+
+theta <- function(trt, x) sum(Cmat[trt, ] * (beta_true + gamma_true * x))
+truth <- function(t1, t2, x) theta(t1, x) - theta(t2, x)
+data.frame(
+  target = c("HbA1c 7.5%", "HbA1c 9.0%"),
+  `Met+SGLT2 vs Met` = c(truth("Met+SGLT2", "Met", -0.5),
+                         truth("Met+SGLT2", "Met",  1.0)),
+  `Met+SU vs Met`    = c(truth("Met+SU", "Met", -0.5),
+                         truth("Met+SU", "Met",  1.0)),
+  check.names = FALSE)
+```
+
+So the truth is that in the *early* population the SGLT2 inhibitor adds slightly
+more than the sulfonylurea, and in the *late* population it adds a good deal
+less. A method that reports one number for both is guaranteed to be wrong once.
+
+## Fitting
+
+### Route 1: the frequentist two-stage bridge
+
+`cstc()` fits, in each IPD study, an outcome regression with treatment main
+effects, prognostic main effects, and treatment-by-effect-modifier interactions,
+with the effect modifier **centered at the target population**. The treatment
+coefficient is then the population-adjusted contrast, and the interaction terms
+vanish at the centered origin. `cmaic()` instead reweights each IPD study with
+`maicplus::estimate_weights()` so that its effect-modifier distribution matches
+the target, and reads the contrast off a weighted model. Both then hand their
+adjusted contrasts to `cnma_bridge()`, which runs `netmeta::discomb()`.
+
+```{r freq}
+stc_early  <- cstc(net,  target = target_early, effect_modifiers = "bhba1c_c")
+maic_early <- cmaic(net, target = target_early, effect_modifiers = "bhba1c_c",
+                    n_boot = 200, seed = 7)
+
+relative_effects(stc_early,  reference = "Met")
+relative_effects(maic_early, reference = "Met")
+```
+
+Two things to read off. First, `cstc()` and `cmaic()` agree closely, which is
+not a coincidence and is discussed under Results. Second, `cmaic()` pays for its
+reweighting in precision, and the price is visible in the effective sample size:
+
+```{r ess}
+effective_sample_size(maic_early)
+```
+
+The add-on trials sit around a baseline HbA1c of 8.5% to 8.6% and the target is
+7.5%, so matching to the target throws away real information. The monotherapy
+IPD trial (`MONO-3`, mean 8.2%) is closer and loses less.
+
+### Route 2: the one-stage Bayesian model
+
+`cmlnmr()` fits everything at once: the individual-level model to the IPD, the
+same model integrated over each aggregate study's covariate distribution, and
+the component-additive structure that ties the two sub-networks together. We fit
+a fixed-effect and a random-effects version.
+
+```{r fit-fixed}
+fit <- cmlnmr(ipd, agd, effect_modifiers = "bhba1c_c", inactive = "Diet",
+              family = "gaussian",
+              chains = 4, iter_warmup = 500, iter_sampling = 500, seed = 2026)
+fit
+```
+
+```{r fit-random}
+fit_re <- cmlnmr(ipd, agd, effect_modifiers = "bhba1c_c", inactive = "Diet",
+                 family = "gaussian", trt_effects = "random",
+                 chains = 4, iter_warmup = 500, iter_sampling = 500,
+                 seed = 2026, adapt_delta = 0.95)
+fit_re$fit$summary("tau")
+```
+
+The random-effects model adds study-arm deviations around the component-implied
+relative effects (non-centered by default), with a half-normal(0, 1) prior on the
+heterogeneity standard deviation `tau`. With six studies and four components
+there are only two degrees of freedom for heterogeneity, so `tau` is weakly
+identified and leans on its prior. That is a real limitation, not a fixable one,
+and we return to it under *Model comparison*. We report the fixed-effect model as
+primary and use the random-effects model as a sensitivity analysis.
+
+#### A quirk of the identity link
+
+For the identity link the aggregate likelihood is **exact at the covariate
+means**. Integrating a linear predictor over a covariate distribution just
+substitutes the mean:
+$\int (\mu + x^\top b)\, f(x)\, dx = \mu + \bar{x}^\top b$. cpaic detects this
+and quietly sets `n_int = 1`; the standard deviation columns (`bhba1c_c_sd`) are
+carried in the aggregate data for completeness but are not used. This is
+collapsibility of the mean difference showing up in the machinery, and it is why
+the continuous family is the easy one. On a logit or a log link the same
+integral is not the mean, aggregation bias appears, and the quasi-Monte-Carlo
+grid earns its keep.
+
+### Priors
+
+Every prior is recorded on the fitted object, because interaction priors do real
+regularization whenever $\Gamma$ is weakly identified:
+
+```{r priors}
+str(fit$priors)
+```
+
+The defaults are weakly informative: normal(0, 2.5) on study intercepts and
+component effects, normal(0, 1) on the component by effect-modifier interactions
+and on the prognostic regression, and half-normal(0, 1) on `tau`. The
+interaction prior is the one to watch, because a component whose interaction is
+informed only by aggregate data has little else holding it up.
+
+### Convergence
+
+```{r convergence}
+data.frame(
+  divergences   = fit_re$diagnostics$divergences,
+  max_treedepth = fit_re$diagnostics$max_treedepth,
+  max_rhat      = round(fit_re$diagnostics$max_rhat, 4),
+  min_ess_bulk  = round(min(fit_re$fit$summary(
+    c("beta", "gamma", "mu", "tau"))$ess_bulk, na.rm = TRUE)))
+```
+
+## Results
+
+### What is actually estimable?
+
+Reconnecting a network does **not** guarantee that the effect you want is
+identified. In an aggregate-data cNMA a relative effect is estimable exactly when
+its contrast lies in the row space of the design $X = BC$ [@Wigle2026].
+Population adjustment is strictly harder, because the component by
+effect-modifier interactions have to be identified too, and the criterion then
+depends on the target population. Always check, and check *at the target*.
+
+```{r estimable}
+estimable_effects_at(fit, newdata = data.frame(bhba1c_c = -0.5),
+                     reference = "Met")
+```
+
+Read the `identified_by` column; it is doing real work.
+
+* `Met+SGLT2` and `Met+SU` are identified from **IPD**. Their contrasts against
+  `Met` are the components `SGLT2` and `SU`, which are pinned down by
+  within-trial covariate variation in `MONO-3`, `ADD-1`, and `ADD-2`. These are
+  the contrasts we came for, and they are honest.
+* `Diet` and `SU` are identified only from **aggregate** data. The `Met`
+  component appears only in `MONO-1` and `MONO-2`, which are aggregate. A single
+  aggregate two-arm study pins its contrast down at **its own covariate mean**
+  and nowhere else; it takes *two* such studies at *different* means to trace out
+  a slope, and that slope is a between-study gradient. This is ecological
+  inference. It is not the same currency as a within-trial interaction, and cpaic
+  refuses to pretend otherwise.
+* `Met+DPP4` is **not estimable at all** and comes back as `NA`. The `DPP4`
+  component enters through one aggregate contrast (`ADD-3`) and is therefore
+  pinned at that study's covariate mean only. A Bayesian model will happily
+  return a healthy-looking posterior for it. That posterior is the prior
+  speaking, and `NA` is the right answer.
+
+```{r estimable-na}
+relative_effects(fit, reference = "Met",
+                 newdata = data.frame(bhba1c_c = -0.5))
+```
+
+### The cross-gap contrast, in two target populations
+
+Now the question we came for, against `Met` as the reference, in each target
+population, next to the truth.
+
+```{r results-table}
+report <- function(fitobj, t1, x, label) {
+  re <- relative_effects(fitobj, reference = "Met",
+                         newdata = data.frame(bhba1c_c = x))
+  r <- re[re$treatment == t1, ]
+  data.frame(target = label, contrast = paste(t1, "vs Met"),
+             estimate = r$estimate, lower = r$lower, upper = r$upper,
+             truth = truth(t1, "Met", x))
+}
+res <- rbind(
+  report(fit, "Met+SGLT2", -0.5, "HbA1c 7.5%"),
+  report(fit, "Met+SU",    -0.5, "HbA1c 7.5%"),
+  report(fit, "Met+SGLT2",  1.0, "HbA1c 9.0%"),
+  report(fit, "Met+SU",     1.0, "HbA1c 9.0%"))
+knitr::kable(res, digits = 3, row.names = FALSE,
+             caption = "cML-NMR: recovered vs true mean differences")
+```
+
+The contrast that no trial measured, across a gap no comparator spans, is
+recovered; and it is recovered *differently* in the two target populations,
+which is the whole point. In the early-intensification population the SGLT2
+inhibitor adds a little more than the sulfonylurea; in the late-intensification
+population it adds substantially less.
+
+### The effect is a function of the target population
+
+Since the estimand is a function of $x$, plot it as one.
+
+```{r curve, fig.height = 4.4}
+grid <- seq(-1.0, 1.4, by = 0.1)
+curve <- do.call(rbind, lapply(grid, function(x) {
+  re <- relative_effects(fit, reference = "Met",
+                         newdata = data.frame(bhba1c_c = x))
+  re <- re[re$treatment %in% c("Met+SGLT2", "Met+SU"), ]
+  data.frame(x = x, treatment = re$treatment, estimate = re$estimate,
+             lower = re$lower, upper = re$upper)
+}))
+curve$truth <- mapply(truth, curve$treatment, "Met", curve$x)
+
+ggplot(curve, aes(8 + x, estimate, colour = treatment, fill = treatment)) +
+  geom_hline(yintercept = 0, linewidth = 0.3) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.15, colour = NA) +
+  geom_line(linewidth = 0.9) +
+  geom_line(aes(y = truth), linetype = "22", linewidth = 0.7) +
+  geom_vline(xintercept = 7.69, linetype = "dotted") +
+  labs(x = "Baseline HbA1c of the target population (%)",
+       y = "Mean difference in HbA1c change (points) vs metformin",
+       colour = NULL, fill = NULL,
+       title = "A population-adjusted effect is a curve, not a number",
+       subtitle = paste("Solid: cML-NMR posterior mean with 95% CrI.",
+                        "Dashed: the truth. Dotted: the true crossover (7.69%).")) +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom")
+```
+
+The two curves cross close to where they should. Report a single mean difference
+for "adding an SGLT2 inhibitor" and you have quietly picked a population without
+saying so.
+
+### Conditional, marginal, and why they agree here
+
+`cstc()` and `cmaic()` do **not** estimate the same thing in general.
+
+* `cstc()` reports the **conditional** effect at the target effect-modifier
+  values: the treatment coefficient of a regression in which the modifiers are
+  centered at the target.
+* `cmaic()` reports the **marginal** effect in the target population: the
+  contrast you would see from an unadjusted analysis of a trial run in that
+  population [@phillippo2018; @remiro2022].
+
+For a **collapsible** measure the two coincide, because averaging a linear
+predictor over a population and evaluating it at the population mean give the
+same answer. The mean difference is collapsible. So here `cstc()` and `cmaic()`
+should agree up to sampling noise, and cpaic's `cmlnmr()` (which targets the
+conditional contrast $m'(\beta + \Gamma x)$) should agree with both.
+
+```{r collapsible}
+pick <- function(x, t1) {
+  r <- x[x$treatment == t1, ]
+  c(estimate = r$estimate, lower = r$lower, upper = r$upper)
+}
+bayes_early <- relative_effects(fit, reference = "Met",
+                                newdata = data.frame(bhba1c_c = -0.5))
+compare <- rbind(
+  data.frame(method = "cSTC (conditional)",
+             t(pick(relative_effects(stc_early,  reference = "Met"), "Met+SGLT2"))),
+  data.frame(method = "cMAIC (marginal)",
+             t(pick(relative_effects(maic_early, reference = "Met"), "Met+SGLT2"))),
+  data.frame(method = "cML-NMR (conditional)",
+             t(pick(bayes_early, "Met+SGLT2"))))
+compare$truth <- truth("Met+SGLT2", "Met", -0.5)
+knitr::kable(compare, digits = 3, row.names = FALSE,
+             caption = "Met+SGLT2 vs Met at baseline HbA1c 7.5%: three routes, one estimand")
+```
+
+All three land on the same value, and it is the right one. Do not carry this
+reassurance into the survival vignette: the hazard ratio is **not** collapsible,
+and there `cstc()` and `cmaic()` genuinely target different quantities.
+
+Notice, though, how much wider the two frequentist intervals are. That is not an
+accident either, and it is the subject of the next section.
+
+### What the two-stage route cannot do
+
+The two-stage route adjusts only the edges where you hold IPD. The aggregate
+edges enter exactly as published, at **their own** populations, and nothing in
+the machinery can move them. The two aggregate metformin trials show what this
+costs, because they enrolled populations 0.8 percentage points apart:
+
+```{r twostage-mono}
+mono <- contrasts[contrasts$studlab %in% c("MONO-1", "MONO-2"), ]
+mono$study_HbA1c <- 8 + agd$bhba1c_c_mean[match(mono$studlab, agd$.study)]
+mono$true_effect_in_own_population <-
+  sapply(mono$study_HbA1c - 8, function(x) truth("Met", "Diet", x))
+knitr::kable(mono[, c("studlab", "study_HbA1c", "TE", "seTE",
+                      "true_effect_in_own_population")],
+             digits = 3, row.names = FALSE,
+             caption = "The two aggregate metformin trials measure different things")
+```
+
+They are not disagreeing by chance. Metformin genuinely lowers HbA1c more in the
+higher-baseline trial, and the two trials are each estimating their own
+population's effect correctly. But the additive bridge has no idea that is what
+is happening: it sees two estimates of "the `Met` component" that do not match,
+calls the mismatch heterogeneity, and pays for it twice.
+
+```{r twostage-limit}
+comp <- component_effects(stc_early)
+comp$truth_at_target <- (beta_true + gamma_true * (-0.5))[comp$component]
+knitr::kable(comp[, c("component", "estimate", "lower", "upper",
+                      "truth_at_target")],
+             digits = 3, row.names = FALSE,
+             caption = "cSTC component effects vs the truth at baseline HbA1c 7.5%")
+```
+
+```{r additivity}
+additivity_test(stc_early)
+```
+
+The bill arrives in two parts. **In bias**: `Met` is pulled toward the value it
+takes in the aggregate trials' own populations (a mean baseline of 8.0%) rather
+than the 7.5% we asked for, and `DPP4` inherits the same problem through
+`ADD-3`. **In precision**: the mismatch inflates the random-effects
+heterogeneity, which widens *every* interval in the bridge, including the two
+that were adjusted properly. That is why the cSTC and cMAIC intervals in the
+table above are roughly twice the width of the cML-NMR one, for the same
+estimand.
+
+And note what `additivity_test()` is careful *not* to claim. The lack of fit is
+real, but it is not evidence against additivity; it is a population difference
+wearing heterogeneity's clothes. No Cochran Q can tell those apart. The one-stage
+model does not need to: it integrates the individual-level model over each
+study's own covariate distribution, so the two metformin trials are *predicted*
+to differ, and the disagreement stops being noise and starts being information.
+
+### Prior sensitivity
+
+Prior movement is an empirical identification diagnostic. A contrast that shifts
+when you halve or double a prior scale is not being driven by the data.
+
+```{r prior-sens}
+ps <- prior_sensitivity(fit, newdata = data.frame(bhba1c_c = -0.5),
+                        prior = "gamma", reference = "Met",
+                        chains = 2, iter_warmup = 300, iter_sampling = 300)
+ps
+```
+
+The IPD-identified contrasts (`Met+SGLT2`, `Met+SU`) barely move when the
+interaction prior scale is halved and doubled. `Met+DPP4` is flagged as not
+estimable, and its raw number moves by an order of magnitude more, which is what
+"prior-driven" looks like from the outside. This is the empirical counterpart of
+the algebraic check in `estimable_effects_at()`, and the two agree.
+
+### Model comparison
+
+```{r loo}
+loo_fixed  <- loo::loo(fit)
+loo_random <- loo::loo(fit_re)
+loo::loo_compare(list(fixed = loo_fixed, random = loo_random))
+dic(fit)
+dic(fit_re)
+```
+
+Two things to say honestly here.
+
+First, the LOO warning is expected and is worth understanding rather than
+suppressing. An aggregate arm contributes **one** observation (an arm mean) that
+stands in for hundreds of patients, so it is enormously influential, and
+Pareto-smoothed importance sampling flags it (high $\hat{k}$) [@vehtari2017].
+That is a property of mixing IPD with aggregate data, not a bug, and it is one
+reason to report DIC alongside.
+
+Second, the fixed and random models are statistically indistinguishable here, and
+that is the expected outcome, not a disappointment: six studies and four
+components leave two degrees of freedom, so the random-effects model buys
+flexibility the data cannot pay for. Its intervals are correspondingly wider:
+
+```{r re-width}
+w <- function(f, label) {
+  r <- relative_effects(f, reference = "Met",
+                        newdata = data.frame(bhba1c_c = -0.5))
+  r <- r[r$treatment == "Met+SGLT2", ]
+  data.frame(model = label, estimate = r$estimate, lower = r$lower,
+             upper = r$upper, width = r$upper - r$lower)
+}
+knitr::kable(rbind(w(fit, "fixed"), w(fit_re, "random")), digits = 3,
+             row.names = FALSE,
+             caption = "Met+SGLT2 vs Met at HbA1c 7.5%: the price of random effects")
+```
+
+Prefer the random-effects model only if you are willing to defend the
+half-normal(0, 1) prior on `tau`, because with two degrees of freedom that prior
+is doing much of the work.
+
+## What to take away
+
+| | Standard NMA | Two-stage (cSTC / cMAIC + bridge) | One-stage cML-NMR |
+|---|---|---|---|
+| Bridges the disconnection | no | yes, via shared components | yes, via shared components |
+| Adjusts the IPD edges | n/a | yes | yes |
+| Adjusts the aggregate edges | n/a | **no** | yes, by integration |
+| Reports NA when not identified | n/a | yes (main effects) | yes (at the target population) |
+| Effect is population-specific | n/a | one target per fit | yes, any target from one fit |
+
+Four things worth keeping.
+
+1. **The mean difference is collapsible, so this is the easy family.** `cstc()`
+   and `cmaic()` target the same estimand and agree; the aggregate likelihood is
+   exact at the covariate means; no aggregation bias arises. Everything gets
+   harder on a nonlinear link, and the survival vignette shows how.
+
+2. **Estimability is not automatic.** `Met+DPP4` versus `Met` is perfectly
+   estimable as a component main effect and still not estimable as a
+   population-adjusted effect, because the `DPP4` interaction is pinned only at
+   one aggregate study's covariate mean. Run `estimable_effects_at()` and believe
+   what it says. `NA` is an answer.
+
+3. **Not all identification is equal.** A contrast identified by within-trial
+   covariate variation (`identified_by == "IPD"`) and one identified by a
+   between-study gradient across aggregate means (`"aggregate"`) are not the same
+   claim. The second is ecological, is confounded by everything that differs
+   between those studies, and cpaic keeps it labeled.
+
+4. **The bridging assumption is untestable.** Reconnecting through shared
+   components requires the component effects *and their interactions with the
+   effect modifiers* to be the same in both sub-networks. There is, by
+   construction, no cross-gap evidence with which to test that; `additivity_test()`
+   cannot do it and says so. It must be defended clinically
+   [@Veroniki2026; @rucker2021disconnected].
+
+An honest limitation to close on. Everything above rests on baseline HbA1c being
+the *only* effect modifier. It is not: duration of diabetes, BMI, and renal
+function all plausibly modify these agents' effects, and two of the three are
+differentially distributed across the gap in any real network. cpaic will adjust
+for whatever you name in `effect_modifiers`, and will silently assume that what
+you did not name does not matter. Reconnecting a disconnected network makes that
+assumption load-bearing in a way it never is inside a connected one.
+
+## References

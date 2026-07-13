@@ -179,3 +179,45 @@ test_that("target_sd matches second moments (no longer a no-op)", {
               effect_modifiers = "x1", n_boot = 10, seed = 1)
   expect_false(isTRUE(all.equal(unname(f1$ess), unname(f2$ess))))
 })
+
+test_that("a saturated additivity test is reported as vacuous, not as a good fit", {
+  # 3 studies, 3 components: zero residual degrees of freedom, so Q = 0 by
+  # arithmetic. In simulation cSTC coverage fell to 0.50 under a large additivity
+  # violation while this statistic reported Q = 0 with df = 0.
+  agd <- data.frame(studlab = c("S1", "S2", "S3"),
+                    treat1 = c("A", "B", "A+B+C"),
+                    treat2 = c("Placebo", "Placebo", "A+B"),
+                    TE = c(0.5, 0.3, 0.2), seTE = c(0.1, 0.1, 0.1))
+  br <- cnma_bridge(cpaic_network(agd, sm = "OR", inactive = "Placebo"),
+                    common = TRUE, random = FALSE)
+  a <- additivity_test(br)
+  expect_equal(a$df, 0)
+  expect_output(print(a), "SATURATED")
+  expect_output(print(a), "NOT evidence of fit")
+})
+
+test_that("edge_influence flags IPD that cannot affect the requested contrast", {
+  # ESS cannot detect this: IPD on an edge that does not carry the contrast
+  # leaves the answer identical to the unadjusted analysis while reporting a
+  # healthy effective sample size.
+  agd <- data.frame(studlab = c("S1", "S2", "S3", "S4"),
+                    treat1 = c("A", "B", "A+B+C", "D"),
+                    treat2 = c("Placebo", "Placebo", "A+B", "Placebo"),
+                    TE = c(0.5, 0.3, 0.2, 0.4), seTE = rep(0.1, 4))
+  set.seed(1)
+  ipd <- data.frame(.study = "S4", .trt = rep(c("D", "Placebo"), each = 30),
+                    .y = rbinom(60, 1, 0.5), x1 = rnorm(60))
+  net <- cpaic_network(agd, ipd = ipd, sm = "OR", family = "binomial",
+                       ipd_covariates = "x1", inactive = "Placebo")
+  br <- cnma_bridge(net)
+
+  expect_warning(edge_influence(br, treatment = "A+B+C"), "NO influence")
+  ei <- suppressWarnings(edge_influence(br, treatment = "A+B+C"))
+  expect_equal(ei$influence[ei$studlab == "S4"], 0, tolerance = 1e-8)
+  # The edges that DO carry the contrast have nonzero influence.
+  expect_true(all(abs(ei$influence[ei$studlab != "S4"]) > 0.1))
+
+  # ... and the IPD edge does influence its OWN contrast, so this is not a
+  # blanket complaint about the IPD.
+  expect_silent(edge_influence(br, treatment = "D"))
+})

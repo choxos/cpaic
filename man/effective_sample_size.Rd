@@ -15,5 +15,11 @@ effective_sample_size(object, ...)
 A named numeric vector of effective sample sizes per IPD study.
 }
 \description{
-Effective sample sizes from a cMAIC fit
+The effective sample size summarizes the precision lost to reweighting. It is
+\strong{not} a validity diagnostic: a healthy ESS says the weights are well
+behaved, not that the reweighted edge is relevant to your estimand. Use
+\code{\link[=edge_influence]{edge_influence()}} to ask whether the IPD informs the contrast at all.
+}
+\seealso{
+\code{\link[=edge_influence]{edge_influence()}}
 }

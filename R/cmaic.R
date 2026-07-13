@@ -140,6 +140,23 @@
 #' additive component model, yielding relative effects that are both
 #' connected across sub-networks and adjusted to the target population.
 #'
+#' @section A caveat that does not go away:
+#' cMAIC returns a **marginal** effect in the target population, and the additive
+#' component model assumes effects add. On a non-collapsible scale (the odds
+#' ratio, the hazard ratio) **marginal effects do not add**, even when every
+#' conditional effect does. In one simulated target population the marginal
+#' log-odds ratios satisfied
+#' `marginal(A) + marginal(B) = 0.6615` while `marginal(A+B) = 0.6411`; the
+#' additive model is simply false on that scale. cMAIC therefore carries a small
+#' **irreducible bias** (about +0.02 log-OR there) that survives perfect matching
+#' and infinite sample size. It is small relative to a typical standard error
+#' (about 0.25) but it does not vanish with more data.
+#'
+#' The conditional log-odds scale is the only one on which the additive component
+#' model is coherent, so if this matters for your analysis prefer [cstc()] or
+#' [cmlnmr()], which target a conditional effect. See
+#' `documentation/validation/VALIDATION.md`.
+#'
 #' @param network A [cpaic_network()] object that includes IPD.
 #' @param target Named numeric vector (or one-row data frame / list) giving
 #'   the target-population means of the effect modifiers.
