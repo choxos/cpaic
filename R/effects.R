@@ -146,10 +146,14 @@ relative_effects.cpaic_mlnmr <- function(object, reference = NULL,
 
   a <- (1 - level) / 2
   logsm <- .is_log_sm(object$sm)
-  N <- object$null_space
+  # Estimability of a POPULATION-ADJUSTED contrast depends on the target
+  # population: it needs the relevant rows of Gamma, not just of beta. Test the
+  # augmented contrast (1, x) %x% m against the joint information design.
+  Njoint <- .cpaic_null_space(object$joint_design)
 
   build <- function(t1, t2) {
-    ok <- .cpaic_in_rowspace(matrix(C[t1, ] - C[t2, ], nrow = 1L), N)
+    v <- .cpaic_target_vec(C[t1, ] - C[t2, ], x)
+    ok <- .cpaic_in_rowspace(matrix(v, nrow = 1L), Njoint)
     if (!ok) {
       return(data.frame(treatment = t1, comparator = t2, estimate = NA_real_,
                         se = NA_real_, lower = NA_real_, upper = NA_real_,

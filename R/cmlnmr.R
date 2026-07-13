@@ -460,6 +460,17 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
   # association with between-study mean shifts).
   cor_mat <- .cpaic_copula_cor(ipd, effect_modifiers, study, cor)
 
+  # First-order information design for the population-adjusted estimand
+  # (beta, vec(Gamma)). This decides which contrasts are estimable AT A GIVEN
+  # TARGET POPULATION, which is a strictly stronger requirement than
+  # estimability of the component main effects. Built from the pre-expansion
+  # IPD, since the Lexis expansion below duplicates rows.
+  joint_design <- .cpaic_joint_design(C, ipd, agd, effect_modifiers,
+                                      study = study, trt = trt)
+  joint_design_ipd <- .cpaic_joint_design(C, ipd, agd[0, , drop = FALSE],
+                                          effect_modifiers, study = study,
+                                          trt = trt)
+
   # Survival: Lexis-expand IPD into interval-at-risk rows and configure the
   # piecewise baseline (K = 1 reduces to the exponential model).
   K <- 1L
@@ -597,6 +608,7 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
          family = family, effect_modifiers = effect_modifiers,
          margins = margins, cor = cor_mat, design = Dmat,
          null_space = null_space, rank = rk,
+         joint_design = joint_design, joint_design_ipd = joint_design_ipd,
          reference = reference, sm = switch(family, binomial = "OR",
            gaussian = "MD", poisson = "IRR", survival = "HR"),
          method = "cML-NMR"),

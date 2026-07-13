@@ -9,10 +9,16 @@ reference:
   contents:
   - cpaic_network
   - build_C_matrix
-- title: Connectivity
-  desc: Detect disconnection and check component-bridge identifiability.
+- title: Connectivity and estimability
+  desc: >
+    Detect disconnection, and check which relative effects the component design
+    can actually identify. Reconnecting a network does not guarantee that the
+    effects you want are estimable, and both engines will otherwise return a
+    confident-looking number for a contrast that carries no information.
   contents:
   - cpaic_connectivity
+  - estimable_effects
+  - estimable_effects_at
 - title: Connection layer
   desc: Reconnect a disconnected network through shared components.
   contents:
