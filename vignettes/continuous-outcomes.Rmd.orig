@@ -93,6 +93,12 @@ to be somewhere meaningful. We therefore center baseline HbA1c at **8.0%** and
 work with `bhba1c_c` = baseline HbA1c minus 8. An uncentered covariate would
 make $\beta$ the effect "at a baseline HbA1c of zero", which is not a patient.
 
+We pass `inactive = "Diet"`, so lifestyle advice is coded as the all-zero row of
+$C$ and the components are read against it. When no treatment in the network is a
+genuine inactive comparator, `inactive = NULL` selects the *unanchored* component
+parameterization of @wigle2022 instead, in which every unit receives its own
+parameter and the anchor is data-driven.
+
 ```{r truth}
 treatments <- c("Diet", "Met", "SU", "Met+SU", "Met+SGLT2", "Met+DPP4")
 Cmat <- build_C_matrix(treatments, inactive = "Diet")
@@ -398,9 +404,11 @@ Read the `identified_by` column; it is doing real work.
   component appears only in `MONO-1` and `MONO-2`, which are aggregate. A single
   aggregate two-arm study pins its contrast down at **its own covariate mean**
   and nowhere else; it takes *two* such studies at *different* means to trace out
-  a slope, and that slope is a between-study gradient. This is ecological
-  inference. It is not the same currency as a within-trial interaction, and cpaic
-  refuses to pretend otherwise.
+  a slope, and that slope is a between-study gradient. Randomization identifies
+  each trial's own effect, but nothing randomizes the covariate *means across*
+  trials, so a between-study gradient is confounded in a way a within-trial slope
+  is not: this is ecological bias [@berlin2002ecological]. It is not the same
+  currency as a within-trial interaction, and cpaic refuses to pretend otherwise.
 * `Met+DPP4` is **not estimable at all** and comes back as `NA`. The `DPP4`
   component enters through one aggregate contrast (`ADD-3`) and is therefore
   pinned at that study's covariate mean only. A Bayesian model will happily
@@ -456,15 +464,15 @@ curve <- do.call(rbind, lapply(grid, function(x) {
 }))
 curve$truth <- mapply(truth, curve$treatment, "Met", curve$x)
 
-ggplot(curve, aes(8 + x, estimate, colour = treatment, fill = treatment)) +
+ggplot(curve, aes(8 + x, estimate, color = treatment, fill = treatment)) +
   geom_hline(yintercept = 0, linewidth = 0.3) +
-  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.15, colour = NA) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.15, color = NA) +
   geom_line(linewidth = 0.9) +
   geom_line(aes(y = truth), linetype = "22", linewidth = 0.7) +
   geom_vline(xintercept = 7.69, linetype = "dotted") +
   labs(x = "Baseline HbA1c of the target population (%)",
        y = "Mean difference in HbA1c change (points) vs metformin",
-       colour = NULL, fill = NULL,
+       color = NULL, fill = NULL,
        title = "A population-adjusted effect is a curve, not a number",
        subtitle = paste("Solid: cML-NMR posterior mean with 95% CrI.",
                         "Dashed: the truth. Dotted: the true crossover (7.69%).")) +
@@ -527,12 +535,15 @@ the machinery can move them. The two aggregate metformin trials show what this
 costs, because they enrolled populations 0.8 percentage points apart:
 
 ```{r twostage-mono}
+study_mean <- tapply(agd$bhba1c_c_mean, agd$.study, mean)
 mono <- contrasts[contrasts$studlab %in% c("MONO-1", "MONO-2"), ]
-mono$study_HbA1c <- 8 + agd$bhba1c_c_mean[match(mono$studlab, agd$.study)]
+mono$study_HbA1c <- 8 + study_mean[mono$studlab]
 mono$true_effect_in_own_population <-
-  sapply(mono$study_HbA1c - 8, function(x) truth("Met", "Diet", x))
+  vapply(study_mean[mono$studlab], function(x) truth("Met", "Diet", x),
+         numeric(1))
+mono$true_effect_at_target <- truth("Met", "Diet", -0.5)
 knitr::kable(mono[, c("studlab", "study_HbA1c", "TE", "seTE",
-                      "true_effect_in_own_population")],
+                      "true_effect_in_own_population", "true_effect_at_target")],
              digits = 3, row.names = FALSE,
              caption = "The two aggregate metformin trials measure different things")
 ```
@@ -607,7 +618,7 @@ suppressing. An aggregate arm contributes **one** observation (an arm mean) that
 stands in for hundreds of patients, so it is enormously influential, and
 Pareto-smoothed importance sampling flags it (high $\hat{k}$) [@vehtari2017].
 That is a property of mixing IPD with aggregate data, not a bug, and it is one
-reason to report DIC alongside.
+reason to report DIC [@spiegelhalter2002dic] alongside.
 
 Second, the fixed and random models are statistically indistinguishable here, and
 that is the expected outcome, not a disappointment: six studies and four

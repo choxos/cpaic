@@ -2,19 +2,75 @@
 % Please edit documentation in R/plot.R
 \name{forest}
 \alias{forest}
-\title{Forest plot of relative effects}
+\alias{plot.cpaic_effects}
+\alias{plot.cpaic_bridge}
+\alias{plot.cpaic_fit}
+\title{Forest plot of relative or component effects}
 \usage{
-forest(x, ...)
+forest(
+  x,
+  ...,
+  what = c("relative", "component"),
+  order = c("estimate", "alphabetical", "none"),
+  ref_line = NULL,
+  fatten = 2,
+  show_na = TRUE
+)
+
+\method{plot}{cpaic_effects}(x, y, ...)
+
+\method{plot}{cpaic_bridge}(x, y, ...)
+
+\method{plot}{cpaic_fit}(x, y, ...)
 }
 \arguments{
-\item{x}{A \code{cpaic_effects} data frame from \code{\link[=relative_effects]{relative_effects()}}, or a
-fit object (then \code{\link[=relative_effects]{relative_effects()}} is called on it).}
+\item{x}{A \code{cpaic_effects} data frame (from \code{\link[=relative_effects]{relative_effects()}}), a fitted
+cpaic object (\code{cpaic_bridge}, \code{cpaic_maic}, \code{cpaic_stc}, \code{cpaic_mlnmr}),
+or a component-effect data frame from \code{\link[=component_effects]{component_effects()}}.}
 
-\item{...}{Passed to \code{\link[=relative_effects]{relative_effects()}} when \code{x} is a fit.}
+\item{...}{Passed to \code{\link[=relative_effects]{relative_effects()}} / \code{\link[=component_effects]{component_effects()}} when \code{x} is
+a fit (for example \code{newdata} for a \code{\link[=cmlnmr]{cmlnmr()}} fit).}
+
+\item{what}{\code{"relative"} (default) for relative effects, or \code{"component"} for
+the incremental effect of each component.}
+
+\item{order}{Row ordering: \code{"estimate"} (default, most to least favorable),
+\code{"alphabetical"}, or \code{"none"} (the order in the input).}
+
+\item{ref_line}{Position of the vertical reference line. Defaults to the null
+value of the summary measure (\code{1} on a back-transformed ratio scale, \code{0}
+otherwise); \code{NA} draws none.}
+
+\item{fatten}{Relative size of the point estimate marker. Default \code{2}.}
+
+\item{show_na}{Show non-estimable contrasts as labelled empty rows? Default
+\code{TRUE}. Setting this to \code{FALSE} hides evidence that the network cannot
+answer part of your question, so leave it on unless you have a reason.}
+
+\item{y}{Unused, for compatibility with the \code{\link[=plot]{plot()}} generic.}
 }
 \value{
-\code{x}, invisibly.
+A \code{ggplot} object.
 }
 \description{
-Forest plot of relative effects
+A ggplot2 forest plot of the estimates in a cpaic fit. Ported from
+\code{multinma::plot.nma_summary()} (Phillippo et al. 2020) and re-implemented on
+ggplot2 alone.
+}
+\details{
+Contrasts that the component design cannot identify are \strong{shown}, labelled
+\verb{not estimable}, rather than silently dropped. Dropping them would leave the
+reader with a plot that looks complete when it is not; see
+\code{\link[=estimable_effects]{estimable_effects()}} and \code{\link[=estimable_effects_at]{estimable_effects_at()}}.
+}
+\examples{
+\dontshow{if (requireNamespace("ggplot2", quietly = TRUE)) withAutoprint(\{ # examplesIf}
+net <- cpaic_network(cpaic_bin_agd, sm = "OR", inactive = "Placebo")
+br <- cnma_bridge(net)
+forest(br)
+forest(br, what = "component")
+\dontshow{\}) # examplesIf}
+}
+\seealso{
+\code{\link[=relative_effects]{relative_effects()}}, \code{\link[=component_effects]{component_effects()}}, \code{\link[=league_table]{league_table()}}
 }

@@ -140,7 +140,7 @@
 #' additive component model, yielding relative effects that are both
 #' connected across sub-networks and adjusted to the target population.
 #'
-#' @section A caveat that does not go away:
+#' @section Non-collapsibility and the additive model:
 #' cMAIC returns a **marginal** effect in the target population, and the additive
 #' component model assumes effects add. On a non-collapsible scale (the odds
 #' ratio, the hazard ratio) **marginal effects do not add**, even when every
@@ -152,9 +152,9 @@
 #' and infinite sample size. It is small relative to a typical standard error
 #' (about 0.25) but it does not vanish with more data.
 #'
-#' The conditional log-odds scale is the only one on which the additive component
-#' model is coherent, so if this matters for your analysis prefer [cstc()] or
-#' [cmlnmr()], which target a conditional effect. See
+#' The additive component model is coherent only on the conditional log-odds
+#' scale. Where this bias is material, [cstc()] or [cmlnmr()], which target a
+#' conditional effect, are preferable. See
 #' `documentation/validation/VALIDATION.md`.
 #'
 #' @param network A [cpaic_network()] object that includes IPD.

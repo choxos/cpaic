@@ -91,7 +91,8 @@ exact integral $\int_0^t B_k(u)\,du$. Two choices:
 Because the *integrated* basis is available in closed form, the cumulative
 hazard $H_i(t) = \exp(\eta_i)\int_0^t h_0(u)\,du$ is exact, and so is every
 likelihood contribution. There is no numerical quadrature over time anywhere in
-the model.
+the model. The construction follows the general-likelihood ML-NMR of
+@phillippo2025surv, specialized to a component-additive treatment effect.
 
 Writing $H(t) = \exp(\eta)\int_0^t h_0(u)\,du$ for the cumulative hazard, the
 four status codes contribute
@@ -261,8 +262,10 @@ knitr::kable(balance[order(balance$subnetwork, balance$study), ], digits = 1,
 ```
 
 The legacy trials run around 66 to 72 mL/min and the contemporary ones around 54
-to 62. Since the MRA's log hazard ratio moves by $+0.15$ per 10 mL/min, that gap
-is worth roughly 0.15 on the log scale, which is half of the MRA effect itself.
+to 62, a gap of roughly 10 mL/min. Since the MRA's log hazard ratio moves by
+$+0.18$ per 10 mL/min, that gap on its own is worth about 0.18 on the log scale,
+against an MRA effect of $-0.30$. The imbalance is more than half the size of the
+effect we are trying to measure.
 
 ## The observed evidence
 
@@ -282,11 +285,11 @@ km$subnetwork <- ifelse(km$.study %in% c("HF-1", "HF-2", "HF-6"),
                         "1: legacy (Std backbone)",
                         "2: contemporary (B+M backbone)")
 
-ggplot(km, aes(time, surv, colour = .trt)) +
+ggplot(km, aes(time, surv, color = .trt)) +
   geom_step(linewidth = 0.8) +
   facet_wrap(~ subnetwork + .study, nrow = 2) +
   scale_y_continuous(limits = c(0, 1)) +
-  labs(x = "Months", y = "Event-free survival", colour = NULL,
+  labs(x = "Months", y = "Event-free survival", color = NULL,
        title = "Observed Kaplan-Meier curves",
        subtitle = paste("HF-2, HF-3, HF-4 are IPD; HF-1, HF-5, HF-6 are",
                         "reconstructed from published KM curves.",
@@ -322,6 +325,17 @@ contrasts <- rbind(
   study_loghr("HF-6", "Std+M", "Std"))
 knitr::kable(contrasts, digits = 3, row.names = FALSE,
              caption = "Unadjusted within-trial log hazard ratios, as published")
+```
+
+`HF-2` and `HF-6` both compare `Std+M` with `Std`, and they do not agree. They
+also enrolled populations 6 mL/min apart in mean eGFR, which under our simulated
+truth is worth about 0.11 on the log hazard scale. The two-stage bridge will call
+that disagreement heterogeneity; the one-stage model will call it effect
+modification and use it. (With only 50 pseudo-patients per arm, `HF-6` is also
+just noisy, and it would be dishonest to pretend the raw numbers separate those
+two explanations. Nothing below leans on them.)
+
+```{r network2}
 
 net <- cpaic_network(contrasts, ipd = ipd, sm = "HR", family = "survival",
                      ipd_time = ".time", ipd_status = ".y",
@@ -377,7 +391,7 @@ summaries. Nothing else.
 fit_pw <- cmlnmr(ipd, agd, effect_modifiers = "egfr_c", inactive = "Std",
                  family = "survival", baseline = "piecewise",
                  cut_points = c(9, 18, 27), n_int = 8,
-                 chains = 4, iter_warmup = 300, iter_sampling = 300,
+                 chains = 4, iter_warmup = 400, iter_sampling = 400,
                  seed = 2026)
 fit_pw
 ```
@@ -386,7 +400,7 @@ fit_pw
 fit_ms <- cmlnmr(ipd, agd, effect_modifiers = "egfr_c", inactive = "Std",
                  family = "survival", baseline = "mspline", n_basis = 5,
                  n_int = 8,
-                 chains = 4, iter_warmup = 300, iter_sampling = 300,
+                 chains = 4, iter_warmup = 400, iter_sampling = 400,
                  seed = 2026)
 ```
 
@@ -402,7 +416,7 @@ integration error is cheap to check by refitting with more points.
 fit_re <- cmlnmr(ipd, agd, effect_modifiers = "egfr_c", inactive = "Std",
                  family = "survival", baseline = "mspline", n_basis = 5,
                  n_int = 8, trt_effects = "random",
-                 chains = 4, iter_warmup = 300, iter_sampling = 300,
+                 chains = 4, iter_warmup = 400, iter_sampling = 400,
                  seed = 2026, adapt_delta = 0.95)
 fit_re$fit$summary("tau")
 ```
@@ -503,14 +517,14 @@ curve <- do.call(rbind, lapply(grid, function(x) {
 }))
 curve$truth <- exp(mapply(truth, curve$treatment, "Std+B", curve$x))
 
-ggplot(curve, aes(60 + 10 * x, HR, colour = treatment, fill = treatment)) +
+ggplot(curve, aes(60 + 10 * x, HR, color = treatment, fill = treatment)) +
   geom_hline(yintercept = 1, linewidth = 0.3) +
-  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.15, colour = NA) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.15, color = NA) +
   geom_line(linewidth = 0.9) +
   geom_line(aes(y = truth), linetype = "22", linewidth = 0.7) +
   scale_y_log10(breaks = c(0.3, 0.4, 0.5, 0.6, 0.8, 1.0, 1.2)) +
   labs(x = "eGFR of the target population (mL/min/1.73 m2)",
-       y = "Hazard ratio vs Std+B (log scale)", colour = NULL, fill = NULL,
+       y = "Hazard ratio vs Std+B (log scale)", color = NULL, fill = NULL,
        title = "A population-adjusted hazard ratio is a curve, not a number",
        subtitle = "Solid: cML-NMR posterior mean with 95% CrI. Dashed: the truth.") +
   theme_minimal(base_size = 11) +
@@ -535,23 +549,28 @@ We can check this without argument, because we know the truth. Simulate an
 enormous trial in the target population and read off both quantities:
 
 ```{r oracle}
-oracle <- function(t1, t2, egfr_mean, egfr_sd = 18, n = 40000) {
-  d <- rbind(gen_arm("O", t1, n, 0, egfr_mean, egfr_sd),
-             gen_arm("O", t2, n, 0, egfr_mean, egfr_sd))
+oracle <- function(t1, t2, x_target, egfr_sd = 18, n = 150000) {
+  d <- rbind(gen_arm("O", t1, n, 0, 60 + 10 * x_target, egfr_sd),
+             gen_arm("O", t2, n, 0, 60 + 10 * x_target, egfr_sd))
   d$arm <- as.integer(d$.trt == t1)
-  c(conditional = unname(coef(coxph(Surv(.time, .y) ~ arm + egfr_c,
-                                    data = d))[1]),
-    marginal    = unname(coef(coxph(Surv(.time, .y) ~ arm, data = d))[1]))
+  d$xc  <- d$egfr_c - x_target     # center the modifier at the target
+  c(  # conditional AT x_target: arm coefficient with the interaction in the model
+    conditional = coef(coxph(Surv(.time, .y) ~ arm * xc, data = d))[["arm"]],
+      # marginal IN the target population: the unadjusted contrast
+    marginal    = coef(coxph(Surv(.time, .y) ~ arm, data = d))[["arm"]])
 }
 set.seed(99)
-orc <- oracle("B+M+S", "B+M", 50)     # the SGLT2 edge, in the eGFR-50 population
-round(c(orc, simulated_truth = beta_true[["S"]] + gamma_true[["S"]] * -1), 3)
+orc <- oracle("B+M+S", "B+M", -1)     # the SGLT2 edge, in the eGFR-50 population
+round(c(orc, simulated_truth = beta_true[["S"]] + gamma_true[["S"]] * -1,
+        attenuation_pct = 100 * (1 - abs(orc[["marginal"]]) /
+                                   abs(orc[["conditional"]]))), 3)
 ```
 
-The conditional log hazard ratio recovers the value we simulated; the marginal
-one is smaller in magnitude, and it is smaller *by construction*, not by mistake.
-That gap is non-collapsibility. It would still be there in an infinitely large,
-perfectly randomized, perfectly specified trial.
+The conditional log hazard ratio recovers the value we simulated. The marginal
+one is about a tenth smaller in magnitude, and it is smaller *by construction*,
+not by mistake: this is a randomized comparison with 150,000 patients per arm and
+a correctly specified model. The gap is non-collapsibility, and no amount of data
+will close it.
 
 ```{r cond-marg}
 pick <- function(x, t1) {
@@ -604,14 +623,18 @@ loo_ms <- loo::loo(fit_ms)
 loo::loo_compare(list(piecewise = loo_pw, mspline = loo_ms))
 dic(fit_pw)
 dic(fit_ms)
+loo::loo_compare(list(mspline_fixed = loo_ms, mspline_random = loo::loo(fit_re)))
 ```
 
 The truth here is Weibull, whose hazard is smooth and monotone. A cubic M-spline
-can represent that; a step function with three interior cut points can only
-approximate it. Whether LOO can *see* the difference at this sample size is a
-separate question, and the answer is usually "barely". Choose the M-spline when
-you have no reason to believe the hazard is piecewise constant, and report the
-comparison rather than the winner.
+can represent that exactly enough; a step function with three interior cut points
+can only approximate it. Whether leave-one-out cross-validation can *see* the
+difference at this sample size is a separate question, and the answer is usually
+"barely" [@vehtari2017]. Choose the M-spline when you have no positive reason to
+believe the hazard is piecewise constant, and report the comparison rather than
+the winner. DIC [@spiegelhalter2002dic] is reported alongside because an
+aggregate arm contributes highly influential observations, which is exactly the
+situation in which PSIS-LOO's Pareto $\hat{k}$ diagnostic complains.
 
 ## What to take away
 

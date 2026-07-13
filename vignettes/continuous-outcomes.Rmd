@@ -89,6 +89,12 @@ to be somewhere meaningful. We therefore center baseline HbA1c at **8.0%** and
 work with `bhba1c_c` = baseline HbA1c minus 8. An uncentered covariate would
 make $\beta$ the effect "at a baseline HbA1c of zero", which is not a patient.
 
+We pass `inactive = "Diet"`, so lifestyle advice is coded as the all-zero row of
+$C$ and the components are read against it. When no treatment in the network is a
+genuine inactive comparator, `inactive = NULL` selects the *unanchored* component
+parameterization of @wigle2022 instead, in which every unit receives its own
+parameter and the anchor is data-driven.
+
 
 ``` r
 treatments <- c("Diet", "Met", "SU", "Met+SU", "Met+SGLT2", "Met+DPP4")
@@ -546,9 +552,11 @@ Read the `identified_by` column; it is doing real work.
   component appears only in `MONO-1` and `MONO-2`, which are aggregate. A single
   aggregate two-arm study pins its contrast down at **its own covariate mean**
   and nowhere else; it takes *two* such studies at *different* means to trace out
-  a slope, and that slope is a between-study gradient. This is ecological
-  inference. It is not the same currency as a within-trial interaction, and cpaic
-  refuses to pretend otherwise.
+  a slope, and that slope is a between-study gradient. Randomization identifies
+  each trial's own effect, but nothing randomizes the covariate *means across*
+  trials, so a between-study gradient is confounded in a way a within-trial slope
+  is not: this is ecological bias [@berlin2002ecological]. It is not the same
+  currency as a within-trial interaction, and cpaic refuses to pretend otherwise.
 * `Met+DPP4` is **not estimable at all** and comes back as `NA`. The `DPP4`
   component enters through one aggregate contrast (`ADD-3`) and is therefore
   pinned at that study's covariate mean only. A Bayesian model will happily
@@ -629,15 +637,15 @@ curve <- do.call(rbind, lapply(grid, function(x) {
 }))
 curve$truth <- mapply(truth, curve$treatment, "Met", curve$x)
 
-ggplot(curve, aes(8 + x, estimate, colour = treatment, fill = treatment)) +
+ggplot(curve, aes(8 + x, estimate, color = treatment, fill = treatment)) +
   geom_hline(yintercept = 0, linewidth = 0.3) +
-  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.15, colour = NA) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.15, color = NA) +
   geom_line(linewidth = 0.9) +
   geom_line(aes(y = truth), linetype = "22", linewidth = 0.7) +
   geom_vline(xintercept = 7.69, linetype = "dotted") +
   labs(x = "Baseline HbA1c of the target population (%)",
        y = "Mean difference in HbA1c change (points) vs metformin",
-       colour = NULL, fill = NULL,
+       color = NULL, fill = NULL,
        title = "A population-adjusted effect is a curve, not a number",
        subtitle = paste("Solid: cML-NMR posterior mean with 95% CrI.",
                         "Dashed: the truth. Dotted: the true crossover (7.69%).")) +
@@ -707,12 +715,47 @@ All three land on the same value, and it is the right one. Do not carry this
 reassurance into the survival vignette: the hazard ratio is **not** collapsible,
 and there `cstc()` and `cmaic()` genuinely target different quantities.
 
+Notice, though, how much wider the two frequentist intervals are. That is not an
+accident either, and it is the subject of the next section.
+
 ### What the two-stage route cannot do
 
 The two-stage route adjusts only the edges where you hold IPD. The aggregate
-edges enter exactly as published, at **their own** populations. Look at what
-that does to the `Met` component, which is informed only by the two aggregate
-monotherapy trials:
+edges enter exactly as published, at **their own** populations, and nothing in
+the machinery can move them. The two aggregate metformin trials show what this
+costs, because they enrolled populations 0.8 percentage points apart:
+
+
+``` r
+study_mean <- tapply(agd$bhba1c_c_mean, agd$.study, mean)
+mono <- contrasts[contrasts$studlab %in% c("MONO-1", "MONO-2"), ]
+mono$study_HbA1c <- 8 + study_mean[mono$studlab]
+mono$true_effect_in_own_population <-
+  vapply(study_mean[mono$studlab], function(x) truth("Met", "Diet", x),
+         numeric(1))
+mono$true_effect_at_target <- truth("Met", "Diet", -0.5)
+knitr::kable(mono[, c("studlab", "study_HbA1c", "TE", "seTE",
+                      "true_effect_in_own_population", "true_effect_at_target")],
+             digits = 3, row.names = FALSE,
+             caption = "The two aggregate metformin trials measure different things")
+```
+
+
+
+Table: The two aggregate metformin trials measure different things
+
+|studlab | study_HbA1c|     TE|  seTE| true_effect_in_own_population| true_effect_at_target|
+|:-------|-----------:|------:|-----:|-----------------------------:|---------------------:|
+|MONO-1  |    7.575756| -0.805| 0.113|                        -0.973|                 -0.95|
+|MONO-2  |    8.435552| -1.278| 0.116|                        -1.231|                 -0.95|
+
+
+
+They are not disagreeing by chance. Metformin genuinely lowers HbA1c more in the
+higher-baseline trial, and the two trials are each estimating their own
+population's effect correctly. But the additive bridge has no idea that is what
+is happening: it sees two estimates of "the `Met` component" that do not match,
+calls the mismatch heterogeneity, and pays for it twice.
 
 
 ``` r
@@ -737,12 +780,6 @@ Table: cSTC component effects vs the truth at baseline HbA1c 7.5%
 
 
 
-`SGLT2` and `SU` are close to the truth: they ride on adjusted IPD contrasts.
-`Met` and `DPP4` are not: they ride on unadjusted aggregate contrasts estimated
-in populations with a different baseline HbA1c, and nothing in the two-stage
-route can move them. The additive model even notices that something is wrong,
-though it cannot say what:
-
 
 ``` r
 additivity_test(stc_early)
@@ -756,12 +793,21 @@ additivity_test(stc_early)
 #>   clinically.
 ```
 
-That lack of fit is not evidence against additivity. It is the two aggregate
-metformin trials disagreeing with each other, because they enrolled populations
-half a percentage point apart in baseline HbA1c and metformin's effect depends
-on baseline HbA1c. The one-stage model reconciles them by integrating the
-individual-level model over each study's own covariate distribution. The
-two-stage model has no mechanism to do so.
+The bill arrives in two parts. **In bias**: `Met` is pulled toward the value it
+takes in the aggregate trials' own populations (a mean baseline of 8.0%) rather
+than the 7.5% we asked for, and `DPP4` inherits the same problem through
+`ADD-3`. **In precision**: the mismatch inflates the random-effects
+heterogeneity, which widens *every* interval in the bridge, including the two
+that were adjusted properly. That is why the cSTC and cMAIC intervals in the
+table above are roughly twice the width of the cML-NMR one, for the same
+estimand.
+
+And note what `additivity_test()` is careful *not* to claim. The lack of fit is
+real, but it is not evidence against additivity; it is a population difference
+wearing heterogeneity's clothes. No Cochran Q can tell those apart. The one-stage
+model does not need to: it integrates the individual-level model over each
+study's own covariate distribution, so the two metformin trials are *predicted*
+to differ, and the disagreement stops being noise and starts being information.
 
 ### Prior sensitivity
 
@@ -830,7 +876,7 @@ suppressing. An aggregate arm contributes **one** observation (an arm mean) that
 stands in for hundreds of patients, so it is enormously influential, and
 Pareto-smoothed importance sampling flags it (high $\hat{k}$) [@vehtari2017].
 That is a property of mixing IPD with aggregate data, not a bug, and it is one
-reason to report DIC alongside.
+reason to report DIC [@spiegelhalter2002dic] alongside.
 
 Second, the fixed and random models are statistically indistinguishable here, and
 that is the expected outcome, not a disappointment: six studies and four

@@ -4,18 +4,48 @@
 \alias{plot.cpaic_network}
 \title{Plot the component network}
 \usage{
-\method{plot}{cpaic_network}(x, ...)
+\method{plot}{cpaic_network}(x, ..., weight_edges = TRUE, show_bridges = TRUE, nudge = 0.25)
 }
 \arguments{
 \item{x}{A \code{\link[=cpaic_network]{cpaic_network()}} object.}
 
-\item{...}{Passed to \code{\link[igraph:plot.igraph]{igraph::plot.igraph()}}.}
+\item{...}{Unused.}
+
+\item{weight_edges}{Scale edge width by the number of studies contributing
+to a comparison? Default \code{TRUE}.}
+
+\item{show_bridges}{Outline treatments that contain a bridging component,
+and name the bridging components in the subtitle? Default \code{TRUE}.}
+
+\item{nudge}{Distance by which treatment labels are pushed away from their
+node. Default \code{0.25}.}
 }
 \value{
-The \code{igraph} object, invisibly.
+A \code{ggplot} object, so it can be modified with the usual ggplot2
+verbs.
 }
 \description{
-Draws the treatment network, coloring nodes by sub-network so that
-disconnection is visible at a glance. Edges with population-adjusted IPD
-evidence are not distinguished here (see the vignettes).
+Draws the treatment network with the disconnection made explicit: nodes are
+colored by sub-network, edges are colored by whether the study carries
+individual patient data (IPD) or aggregate data (AgD) only, and the
+components that bridge the sub-networks are named in the subtitle. Treatments
+that contain a bridging component are outlined, because those are the nodes
+through which the additive component model reconnects the network.
+}
+\details{
+Each sub-network is laid out on its own circle, so a disconnected network
+looks disconnected. Ported in spirit from \code{multinma::plot.nma_data()}
+(Phillippo et al. 2020), re-implemented on ggplot2 without a \code{ggraph}
+dependency.
+}
+\examples{
+\dontshow{if (requireNamespace("ggplot2", quietly = TRUE)) withAutoprint(\{ # examplesIf}
+net <- cpaic_network(cpaic_bin_agd, ipd = cpaic_bin_ipd, sm = "OR",
+                     family = "binomial", ipd_covariates = "x1",
+                     inactive = "Placebo")
+plot(net)
+\dontshow{\}) # examplesIf}
+}
+\seealso{
+\code{\link[=cpaic_connectivity]{cpaic_connectivity()}}, \code{\link[=forest]{forest()}}
 }

@@ -178,7 +178,7 @@ design <- data.frame(
             "COMBO-1", "COMBO-2", "COMBO-3"),
   arm1  = c("UC", "UC", "UC", "UC", "CBT+NRT", "CBT+NRT", "CBT+NRT"),
   arm2  = c("NRT", "CBT", "CBT", "CBT", "CBT+VAR", "CBT+BUP", "CBT+VAR"),
-  n     = c(900, 700, 700, 500, 700, 800, 600),          # per arm
+  n     = c(1200, 700, 1200, 1000, 700, 1100, 1200),     # per arm
   mu    = c(-1.9, -1.9, -1.8, -2.0, -1.9, -1.9, -1.8),   # study intercept
   cpd_m = c(-0.7, 0.0, 0.0, 0.2, 0.6, 0.9, 0.5),         # covariate mean
   cpd_s = c(0.55, 0.85, 0.60, 0.60, 0.85, 0.55, 0.60),   # covariate SD
@@ -192,15 +192,15 @@ knitr::kable(design, caption = "Trial design. BRIEF-* are older; COMBO-* newer."
 
 Table: Trial design. BRIEF-* are older; COMBO-* newer.
 
-|study   |arm1    |arm2    |   n|   mu| cpd_m| cpd_s|ipd   |
-|:-------|:-------|:-------|---:|----:|-----:|-----:|:-----|
-|BRIEF-1 |UC      |NRT     | 900| -1.9|  -0.7|  0.55|FALSE |
-|BRIEF-2 |UC      |CBT     | 700| -1.9|   0.0|  0.85|TRUE  |
-|BRIEF-3 |UC      |CBT     | 700| -1.8|   0.0|  0.60|FALSE |
-|BRIEF-4 |UC      |CBT     | 500| -2.0|   0.2|  0.60|FALSE |
-|COMBO-1 |CBT+NRT |CBT+VAR | 700| -1.9|   0.6|  0.85|TRUE  |
-|COMBO-2 |CBT+NRT |CBT+BUP | 800| -1.9|   0.9|  0.55|FALSE |
-|COMBO-3 |CBT+NRT |CBT+VAR | 600| -1.8|   0.5|  0.60|FALSE |
+|study   |arm1    |arm2    |    n|   mu| cpd_m| cpd_s|ipd   |
+|:-------|:-------|:-------|----:|----:|-----:|-----:|:-----|
+|BRIEF-1 |UC      |NRT     | 1200| -1.9|  -0.7|  0.55|FALSE |
+|BRIEF-2 |UC      |CBT     |  700| -1.9|   0.0|  0.85|TRUE  |
+|BRIEF-3 |UC      |CBT     | 1200| -1.8|   0.0|  0.60|FALSE |
+|BRIEF-4 |UC      |CBT     | 1000| -2.0|   0.2|  0.60|FALSE |
+|COMBO-1 |CBT+NRT |CBT+VAR |  700| -1.9|   0.6|  0.85|TRUE  |
+|COMBO-2 |CBT+NRT |CBT+BUP | 1100| -1.9|   0.9|  0.55|FALSE |
+|COMBO-3 |CBT+NRT |CBT+VAR | 1200| -1.8|   0.5|  0.60|FALSE |
 
 
 
@@ -250,18 +250,18 @@ knitr::kable(agd, digits = 3, caption = "Aggregate arms, the shape cmlnmr() want
 
 Table: Aggregate arms, the shape cmlnmr() wants
 
-|.study  |.trt    |   r|   n| cpd_mean| cpd_sd|
-|:-------|:-------|---:|---:|--------:|------:|
-|BRIEF-1 |NRT     | 266| 900|   -0.712|  0.517|
-|BRIEF-1 |UC      | 157| 900|   -0.687|  0.547|
-|BRIEF-3 |CBT     | 155| 700|    0.030|  0.637|
-|BRIEF-3 |UC      |  98| 700|   -0.002|  0.611|
-|BRIEF-4 |CBT     |  90| 500|    0.225|  0.603|
-|BRIEF-4 |UC      |  70| 500|    0.193|  0.597|
-|COMBO-2 |CBT+BUP | 158| 800|    0.904|  0.547|
-|COMBO-2 |CBT+NRT | 140| 800|    0.902|  0.573|
-|COMBO-3 |CBT+NRT | 135| 600|    0.503|  0.596|
-|COMBO-3 |CBT+VAR | 251| 600|    0.508|  0.580|
+|.study  |.trt    |   r|    n| cpd_mean| cpd_sd|
+|:-------|:-------|---:|----:|--------:|------:|
+|BRIEF-1 |NRT     | 355| 1200|   -0.724|  0.535|
+|BRIEF-1 |UC      | 190| 1200|   -0.689|  0.546|
+|BRIEF-3 |CBT     | 283| 1200|    0.011|  0.608|
+|BRIEF-3 |UC      | 171| 1200|    0.024|  0.624|
+|BRIEF-4 |CBT     | 191| 1000|    0.192|  0.602|
+|BRIEF-4 |UC      | 127| 1000|    0.219|  0.586|
+|COMBO-2 |CBT+BUP | 219| 1100|    0.931|  0.559|
+|COMBO-2 |CBT+NRT | 209| 1100|    0.897|  0.570|
+|COMBO-3 |CBT+NRT | 319| 1200|    0.515|  0.596|
+|COMBO-3 |CBT+VAR | 501| 1200|    0.495|  0.586|
 
 
 
@@ -297,13 +297,13 @@ Table: Unadjusted contrasts, the shape cpaic_network() wants
 
 |studlab |treat1  |treat2  |    TE|  seTE|
 |:-------|:-------|:-------|-----:|-----:|
-|BRIEF-1 |NRT     |UC      | 0.686| 0.114|
-|BRIEF-2 |CBT     |UC      | 0.227| 0.138|
-|BRIEF-3 |CBT     |UC      | 0.558| 0.142|
-|BRIEF-4 |CBT     |UC      | 0.299| 0.174|
-|COMBO-1 |CBT+VAR |CBT+NRT | 0.836| 0.121|
-|COMBO-2 |CBT+BUP |CBT+NRT | 0.149| 0.129|
-|COMBO-3 |CBT+VAR |CBT+NRT | 0.907| 0.128|
+|BRIEF-1 |NRT     |UC      | 0.803| 0.101|
+|BRIEF-2 |CBT     |UC      | 0.424| 0.142|
+|BRIEF-3 |CBT     |UC      | 0.619| 0.107|
+|BRIEF-4 |CBT     |UC      | 0.484| 0.124|
+|COMBO-1 |CBT+VAR |CBT+NRT | 0.699| 0.119|
+|COMBO-2 |CBT+BUP |CBT+NRT | 0.058| 0.108|
+|COMBO-3 |CBT+VAR |CBT+NRT | 0.683| 0.088|
 
 
 
@@ -352,13 +352,13 @@ Table: Effect-modifier balance across the five trials
 
 |Study   | Cigarettes_per_day| cpd_mean| cpd_sd| Quit_rate|
 |:-------|------------------:|--------:|------:|---------:|
-|BRIEF-1 |               8.00|    -0.70|   0.53|      0.23|
-|BRIEF-2 |              14.65|    -0.03|   0.84|      0.19|
-|BRIEF-3 |              15.14|     0.01|   0.62|      0.18|
-|BRIEF-4 |              17.09|     0.21|   0.60|      0.16|
-|COMBO-1 |              21.20|     0.62|   0.85|      0.30|
-|COMBO-2 |              24.03|     0.90|   0.56|      0.19|
-|COMBO-3 |              20.06|     0.51|   0.59|      0.32|
+|BRIEF-1 |               7.94|    -0.71|   0.54|      0.23|
+|BRIEF-2 |              15.06|     0.01|   0.85|      0.18|
+|BRIEF-3 |              15.17|     0.02|   0.62|      0.19|
+|BRIEF-4 |              17.05|     0.21|   0.59|      0.16|
+|COMBO-1 |              20.92|     0.59|   0.85|      0.30|
+|COMBO-2 |              24.14|     0.91|   0.56|      0.19|
+|COMBO-3 |              20.05|     0.51|   0.59|      0.34|
 
 
 
@@ -396,8 +396,8 @@ fit_stc <- cstc(net, target = c(cpd = 0.3), effect_modifiers = "cpd")
 fit_maic <- cmaic(net, target = c(cpd = 0.3), target_sd = c(cpd = 0.7),
                   effect_modifiers = "cpd", n_boot = 200, seed = 7)
 effective_sample_size(fit_maic)
-#> BRIEF-2 COMBO-1 
-#> 1178.60 1200.33
+#>  BRIEF-2  COMBO-1 
+#> 1212.364 1208.169
 ```
 
 Matching costs information. The effective sample sizes above are what is left of
@@ -451,10 +451,10 @@ fit
 #>   For a target population use relative_effects(fit, newdata = ...).
 #> 
 #>  component estimate    se  lower upper
-#>        BUP   -0.277 0.894 -2.215 1.299
-#>        CBT    0.337 0.158 -0.036 0.621
-#>        NRT    0.077 0.262 -0.485 0.553
-#>        VAR    0.574 0.331 -0.120 1.201
+#>        BUP    0.365 0.886 -1.418 1.974
+#>        CBT    0.476 0.121  0.206 0.686
+#>        NRT    0.567 0.233  0.079 0.997
+#>        VAR    0.991 0.292  0.378 1.543
 ```
 
 Note what the print method insists on: those component effects are at the
@@ -509,7 +509,7 @@ data.frame(
                                               "tau"))$ess_bulk, na.rm = TRUE))
 )
 #>   divergences max_treedepth max_rhat min_ess_bulk
-#> 1           0             0   1.0095          408
+#> 1           0             0   1.0168          361
 ```
 
 ## Estimability: reconnecting is not identifying
@@ -551,18 +551,29 @@ cigarettes a day is neither of them. An aggregate two-arm trial gives you one
 equation; separating a component's main effect from its interaction takes two.
 
 The dependence on the target is real, not a technicality. `BRIEF-1` enrolled
-8-a-day smokers; ask for that population and `NRT` becomes estimable again:
+8-a-day smokers; ask for **exactly that** population and `NRT` becomes estimable
+again. Note "exactly": the criterion holds at the trial's realized covariate mean,
+so we read that mean off the aggregate data rather than typing in the nominal
+`-0.7` we simulated from.
 
 
 ``` r
-estimable_effects_at(fit, newdata = data.frame(cpd = -0.7), reference = "UC")
+own <- data.frame(cpd = mean(agd$cpd_mean[agd$.study == "BRIEF-1"]))
+own
+#>          cpd
+#> 1 -0.7061574
+estimable_effects_at(fit, newdata = own, reference = "UC")
 #>   treatment comparator estimable identified_by
 #> 1       CBT         UC      TRUE           IPD
 #> 2   CBT+BUP         UC     FALSE          none
-#> 3   CBT+NRT         UC     FALSE          none
-#> 4   CBT+VAR         UC     FALSE          none
-#> 5       NRT         UC     FALSE          none
+#> 3   CBT+NRT         UC      TRUE     aggregate
+#> 4   CBT+VAR         UC      TRUE     aggregate
+#> 5       NRT         UC      TRUE     aggregate
 ```
+
+That is the whole of what an aggregate two-arm trial can tell you: its own
+contrast, in its own population. Everything else is extrapolation through
+$\Gamma$, and $\Gamma$ has to come from somewhere.
 
 The same algebra reaches the component effects. In the target population, only
 `CBT` is separately identified; even `VAR` is not, because varenicline was only
@@ -571,11 +582,11 @@ ever measured *against* nicotine replacement:
 
 ``` r
 component_effects(fit, newdata = target)
-#>   component  estimate        se      lower     upper
-#> 1       BUP        NA        NA         NA        NA
-#> 2       CBT 0.2123009 0.1687804 -0.1716484 0.5236244
-#> 3       NRT        NA        NA         NA        NA
-#> 4       VAR        NA        NA         NA        NA
+#>   component  estimate        se     lower     upper
+#> 1       BUP        NA        NA        NA        NA
+#> 2       CBT 0.4011016 0.1324179 0.1089317 0.6305528
+#> 3       NRT        NA        NA        NA        NA
+#> 4       VAR        NA        NA        NA        NA
 ```
 
 That looks like a defeat and is not. The headline contrast does not need `VAR`
@@ -599,8 +610,8 @@ relative_effects(fit, reference = "NRT", newdata = target)
 #>  treatment comparator estimate    se lower upper pr_gt0
 #>        CBT        NRT       NA    NA    NA    NA     NA
 #>    CBT+BUP        NRT       NA    NA    NA    NA     NA
-#>    CBT+NRT        NRT    1.254 0.169 0.842 1.688  0.922
-#>    CBT+VAR        NRT    2.839 0.243 1.614 4.310  0.996
+#>    CBT+NRT        NRT    1.506 0.132 1.115 1.879  0.994
+#>    CBT+VAR        NRT    2.795 0.202 1.797 3.915  0.998
 #>         UC        NRT       NA    NA    NA    NA     NA
 #>   NA = not uniquely estimable from this component design (see estimable_effects()).
 ```
@@ -615,8 +626,8 @@ relative_effects(fit, reference = "NRT", newdata = target_light)
 #>  treatment comparator estimate    se lower upper pr_gt0
 #>        CBT        NRT       NA    NA    NA    NA     NA
 #>    CBT+BUP        NRT       NA    NA    NA    NA     NA
-#>    CBT+NRT        NRT    1.678 0.167 1.153 2.241  0.990
-#>    CBT+VAR        NRT    1.875 0.276 1.048 3.009  0.981
+#>    CBT+NRT        NRT    1.796 0.136 1.338 2.249  0.998
+#>    CBT+VAR        NRT    2.188 0.234 1.334 3.322  0.994
 #>         UC        NRT       NA    NA    NA    NA     NA
 #>   NA = not uniquely estimable from this component design (see estimable_effects()).
 ```
@@ -660,13 +671,24 @@ Table: Odds ratios in the target population (cpd = 0.3), against the truth
 
 |Contrast       | True_OR| cSTC| cMAIC| cML-NMR|cML-NMR 95% CrI |
 |:--------------|-------:|----:|-----:|-------:|:---------------|
-|CBT+NRT vs NRT |    1.63| 1.37|  1.38|    1.25|(0.84, 1.69)    |
-|CBT+VAR vs NRT |    3.21| 3.19|  2.95|    2.84|(1.61, 4.31)    |
+|CBT+NRT vs NRT |    1.63| 1.66|  1.68|    1.51|(1.12, 1.88)    |
+|CBT+VAR vs NRT |    3.21| 3.23|  3.25|    2.79|(1.80, 3.92)    |
 
 
 
-All three land on the planted truth for the two contrasts that are estimable,
-with `cmaic()` shaded toward the null exactly as non-collapsibility predicts.
+Both estimable contrasts are recovered: the point estimates sit near the planted
+truth and the credible intervals cover it. The `CBT+VAR` row is the one to dwell
+on, because *no trial in the network measured it*.
+
+Look also at `cmaic()` against `cstc()`. For the large `CBT+VAR` effect the
+marginal estimate is visibly pulled toward the null relative to the conditional
+one; for the small `CBT+NRT` effect the two are indistinguishable. That is
+non-collapsibility behaving exactly as advertised: the marginal-conditional gap
+grows with the size of the effect and with the prognostic variance you are not
+conditioning on, and vanishes as either goes to zero. Neither method is wrong;
+they are answering different questions, and the gap between the answers is a
+feature of the logit link.
+
 The population dependence is recovered too:
 
 
@@ -716,11 +738,17 @@ re_bay_uc  <- relative_effects(fit, reference = "UC", newdata = target)
 
 cmp <- do.call(rbind, lapply(setdiff(treatments, "UC"), function(t1) {
   data.frame(
-    Contrast   = paste(t1, "vs UC"),
-    True_OR    = exp(truth(t1, "UC", 0.3)),
-    cSTC       = grab(re_stc_uc,  t1, "UC"),
-    cMAIC      = grab(re_maic_uc, t1, "UC"),
-    `cML-NMR`  = grab(re_bay_uc,  t1, "UC"),
+    Contrast    = paste(t1, "vs UC"),
+    True_OR     = exp(truth(t1, "UC", 0.3)),
+    cSTC        = grab(re_stc_uc,  t1, "UC"),
+    `cSTC 95% CI` = sprintf("(%.2f, %.2f)",
+                            grab(re_stc_uc, t1, "UC", "lower"),
+                            grab(re_stc_uc, t1, "UC", "upper")),
+    covers      = ifelse(exp(truth(t1, "UC", 0.3)) >= grab(re_stc_uc, t1, "UC", "lower") &
+                         exp(truth(t1, "UC", 0.3)) <= grab(re_stc_uc, t1, "UC", "upper"),
+                         "yes", "NO"),
+    cMAIC       = grab(re_maic_uc, t1, "UC"),
+    `cML-NMR`   = grab(re_bay_uc,  t1, "UC"),
     check.names = FALSE)
 }))
 knitr::kable(cmp, digits = 2, row.names = FALSE,
@@ -731,27 +759,29 @@ knitr::kable(cmp, digits = 2, row.names = FALSE,
 
 Table: Odds ratios vs usual care in the target population (cpd = 0.3)
 
-|Contrast      | True_OR| cSTC| cMAIC| cML-NMR|
-|:-------------|-------:|----:|-----:|-------:|
-|NRT vs UC     |    1.46| 1.99|  1.99|      NA|
-|CBT vs UC     |    1.63| 1.37|  1.38|    1.25|
-|CBT+NRT vs UC |    2.39| 2.73|  2.74|      NA|
-|CBT+VAR vs UC |    4.69| 6.33|  5.85|      NA|
-|CBT+BUP vs UC |    2.60| 3.17|  3.18|      NA|
+|Contrast      | True_OR| cSTC|cSTC 95% CI  |covers | cMAIC| cML-NMR|
+|:-------------|-------:|----:|:------------|:------|-----:|-------:|
+|NRT vs UC     |    1.46| 2.23|(1.82, 2.74) |NO     |  2.23|      NA|
+|CBT vs UC     |    1.63| 1.66|(1.43, 1.92) |yes    |  1.68|    1.51|
+|CBT+NRT vs UC |    2.39| 3.70|(2.89, 4.75) |NO     |  3.75|      NA|
+|CBT+VAR vs UC |    4.69| 7.20|(5.40, 9.61) |NO     |  7.26|      NA|
+|CBT+BUP vs UC |    2.60| 3.92|(2.82, 5.46) |NO     |  3.98|      NA|
 
 
 
 The frequentist bridge prints a confident number for every row. For `NRT` versus
 `UC` it prints roughly the odds ratio that held in `BRIEF-1`'s light-smoking
-population, when the truth in the *target* population is materially smaller,
-because nicotine replacement loses ground in heavy smokers
-($\Gamma_{\texttt{NRT}} = -0.40$). Every row that inherits that edge inherits
-the error.
+population, because that is the only `NRT` evidence there is and it entered the
+bridge unadjusted. But nicotine replacement loses ground in heavy smokers
+($\Gamma_{\texttt{NRT}} = -0.40$), so the truth in the *target* population is
+materially smaller. Every row that inherits that edge inherits the error, and the
+`covers` column shows what that costs: the 95% confidence interval misses the
+truth.
 
-`cmlnmr()` returns `NA` for exactly those rows. The set of contrasts it refuses
-to report is precisely the set the two-stage route is quietly getting wrong. That
-correspondence is not a coincidence: it is the same algebra, read once as a
-warning and once as a silent assumption.
+Now read the last column. **`cmlnmr()` returns `NA` for exactly the rows the
+two-stage route is getting wrong, and a number for exactly the row it is getting
+right.** That correspondence is not a coincidence: it is the same piece of linear
+algebra, read once as a warning and once as a silent assumption.
 
 ### Random effects and model comparison
 
@@ -770,7 +800,7 @@ knitr::kable(fit$fit$summary("tau")[, c("variable", "mean", "sd", "q5", "q95",
 
 |variable |  mean|    sd|    q5|   q95|  rhat| ess_bulk|
 |:--------|-----:|-----:|-----:|-----:|-----:|--------:|
-|tau[1]   | 0.166| 0.161| 0.008| 0.491| 1.002|  408.128|
+|tau[1]   | 0.129| 0.138| 0.007| 0.382| 1.015|  361.171|
 
 
 
@@ -786,8 +816,8 @@ fit_fixed <- cmlnmr(ipd, agd, effect_modifiers = "cpd", inactive = "UC",
 
 loo::loo_compare(list(random = loo::loo(fit), fixed = loo::loo(fit_fixed)))
 #>   model elpd_diff se_diff p_worse       diag_diff      diag_elpd
-#>   fixed       0.0     0.0      NA                 5 k_psis > 0.7
-#>  random      -1.1     1.1    0.86 |elpd_diff| < 4 8 k_psis > 0.7
+#>   fixed       0.0     0.0      NA                 7 k_psis > 0.7
+#>  random      -0.9     0.6    0.94 |elpd_diff| < 4 6 k_psis > 0.7
 
 knitr::kable(data.frame(
   model = c("random", "fixed"),
@@ -802,17 +832,38 @@ Table: Deviance information criterion
 
 |model  |    DIC| p_eff|
 |:------|------:|-----:|
-|random | 2983.1|  16.1|
-|fixed  | 2982.7|  15.3|
+|random | 3018.9|  16.1|
+|fixed  | 3018.4|  15.9|
 
 
 
-The two models should sit close together, and here they do: the data really were
-generated by an additive component model with no extra study-arm noise, so the
-random-effects model is paying for flexibility it does not need. It is still the
-safer default, because in a real network you do not get to know that. Note also
-that neither criterion can test the assumption that actually bridges the gap; see
-`additivity_test()` and the limitations below.
+The two models sit essentially on top of each other, which is what should happen:
+the data really were generated by an additive component model with no extra
+study-arm noise, so the random-effects model is paying for flexibility it does not
+need. It remains the safer default, because in a real network you do not get to
+know that.
+
+Two cautions on reading these numbers. First, LOO's Pareto-$k$ diagnostic flags
+several observations. It is right to: **each aggregate arm is a single
+"observation" that carries an entire trial's worth of information**, so leaving it
+out is a large perturbation and the importance-sampling approximation strains.
+Treat the LOO comparison of an IPD-plus-aggregate model as indicative, and read it
+alongside DIC. Second, neither criterion can test the assumption that actually
+bridges the gap; nor can the Cochran $Q$ of the frequentist bridge, which is why
+`additivity_test()` says so out loud:
+
+
+``` r
+additivity_test(fit_stc)
+#> Additive component model: fit statistics
+#>   Total lack of fit (Q.additive): Q = 3.101, df = 3, p = 0.376
+#>   Additivity restrictions (Q.diff): not available -- no standard NMA
+#>     is estimable on a disconnected network.
+#>   Note: neither statistic tests whether component effects are constant
+#>   ACROSS sub-networks, which is the assumption that bridges the gap.
+#>   That assumption is untestable from the data and must be justified
+#>   clinically.
+```
 
 ### Prior sensitivity
 
@@ -831,18 +882,19 @@ ps <- prior_sensitivity(fit, newdata = target, reference = "NRT",
 ps
 #> cML-NMR prior sensitivity: gamma prior
 #>  treatment comparator estimate tighter looser move_tighter move_looser max_movement estimable
-#>        CBT        NRT    0.354   0.311  0.357        0.043       0.003        0.043     FALSE
-#>    CBT+BUP        NRT    0.041   0.055  0.176        0.014       0.135        0.135     FALSE
-#>    CBT+NRT        NRT    0.212   0.226  0.224        0.014       0.011        0.014      TRUE
-#>    CBT+VAR        NRT    1.016   1.022  1.033        0.007       0.017        0.017      TRUE
-#>         UC        NRT    0.142   0.085  0.133        0.057       0.009        0.057     FALSE
+#>        CBT        NRT   -0.096  -0.047 -0.043        0.049       0.052        0.052     FALSE
+#>    CBT+BUP        NRT    0.273   0.293  0.268        0.020       0.005        0.020     FALSE
+#>    CBT+NRT        NRT    0.401   0.412  0.398        0.011       0.003        0.011      TRUE
+#>    CBT+VAR        NRT    1.008   1.019  1.008        0.011       0.000        0.011      TRUE
+#>         UC        NRT   -0.497  -0.459 -0.442        0.038       0.055        0.055     FALSE
 ```
 
-The estimable contrasts barely move. The non-estimable ones move with the prior,
-which is what "not identified" *means*: there is no likelihood ridge holding them
-in place. This is the same diagnostic the package's own validation script uses to
-check the estimability criterion against the ground truth of Bayesian
-identification.
+Read the `max_movement` column against `estimable`. Every contrast the criterion
+calls estimable is prior-insensitive; every contrast it rejects moves with the
+prior. That is what "not identified" *means*: there is no likelihood ridge holding
+the posterior in place, so the prior fills the vacuum, and the posterior looks
+perfectly healthy while doing it. The criterion and the sampler agree, which is
+the check the package's own validation script performs.
 
 ## What to take away
 
@@ -876,10 +928,12 @@ Three honest limitations.
 2. **The two-stage route leaves the aggregate edges unadjusted.** `cstc()` and
    `cmaic()` adjust only the edges where you hold IPD. Every aggregate edge
    enters the bridge in its own trial's population, and the additive model then
-   propagates that mismatch into any contrast that leans on it -- with no
-   warning, and with a confidence interval that does not cover the truth. Use the
-   two-stage route when the aggregate edges are close to the target or their
-   components are not effect-modified; otherwise prefer `cmlnmr()`.
+   propagates that mismatch into any contrast that leans on it -- with no warning,
+   and, as the `covers` column showed, with an interval that can exclude the
+   truth. Use the two-stage route when the aggregate edges sit close to the target
+   or their components are not effect-modified; otherwise prefer `cmlnmr()`, which
+   integrates each aggregate study over its own covariate distribution and tells
+   you when it cannot answer.
 3. **cMAIC's marginal contrasts are not additive.** The additive component model
    is a model for *conditional*, link-scale effects. Marginal log odds ratios do
    not add across components, so feeding `cmaic()` contrasts to `cnma_bridge()`
