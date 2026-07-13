@@ -25,3 +25,4 @@
 ^vignettes/count-outcomes\.Rmd$
 ^vignettes/survival-outcomes\.Rmd$
 ^vignettes/figure$
+^AGENTS\.md$

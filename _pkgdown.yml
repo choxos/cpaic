@@ -40,13 +40,41 @@ reference:
   contents:
   - cpaic_ranks
   - rank_curve
-- title: Reporting and visualization
+  - rank_probs
+- title: Reporting
   contents:
   - relative_effects
   - league_table
   - component_effects
-  - forest
+- title: Plots
+  desc: >
+    Every plot returns a ggplot object, so it can be modified with the usual
+    ggplot2 verbs. The network, forest, rankogram, deviance, prior-posterior,
+    integration-error, MCMC, and survival plots are ported from multinma
+    (Phillippo et al. 2020). The rank curve, the estimability map, and the
+    edge-influence plot are specific to cpaic: under population adjustment the
+    hierarchy, and the estimable set itself, are functions of the target
+    population.
+  contents:
   - plot.cpaic_network
+  - forest
+  - plot_rank_curve
+  - plot_estimability
+  - plot_edge_influence
+  - plot.cpaic_rank_probs
+  - plot.cpaic_ranks
+  - plot.cpaic_dic
+  - plot_leverage
+  - plot_prior_posterior
+  - plot_integration_error
+  - plot.cpaic_mlnmr
+  - plot_survival
+  - geom_km
+- title: Bayesian diagnostics
+  contents:
+  - dic
+  - prior_sensitivity
+  - prior_predictive_check
 - title: Data
   contents:
   - cpaic_bin_agd

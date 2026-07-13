@@ -203,6 +203,27 @@ with the same outcome-time columns as IPD, plus repeated arm-level covariate
 summaries. The likelihood of every aggregate row is averaged over its
 covariate integration points with \code{log_sum_exp}. Aggregate event counts and
 person-time alone cannot recover this likelihood and are rejected explicitly.
+
+Two qualifications, so that "exact" is not read more broadly than it should
+be.
+\itemize{
+\item \strong{The likelihood is exact; the covariate integration is not.} Every
+individual contribution (event, right, left and interval censoring, delayed
+entry) is the exact analytic expression, verified against closed form to
+machine precision. The \emph{aggregate} likelihood, however, averages that exact
+contribution over a finite quasi-Monte-Carlo grid of \code{n_int} covariate
+points, so it carries an integration error that shrinks with \code{n_int} but is
+not zero. Increase \code{n_int} and confirm that the estimates are stable before
+relying on them. The earlier person-time approximation was biased by 36\% in
+a two-group example; that particular bias is removed, but a finite
+integration error remains.
+\item \strong{The baseline hazard SHAPE is shared across studies.} Each study has its
+own baseline level through its intercept, but a single set of spline (or
+step) coefficients is shared, so the studies are assumed to have
+proportional baseline hazards. \code{multinma} permits study-specific baseline
+shapes. If the studies plausibly have differently shaped baselines, this
+model is misspecified and the shared shape should not be used.
+}
 }
 
 \section{Identifiability}{

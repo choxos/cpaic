@@ -15,13 +15,11 @@
 # ggplot2 is a Suggests dependency; every plot guards on it. Bare column names
 # used inside aes() are declared here so R CMD check sees them bound.
 utils::globalVariables(c(
-  ".angle", ".hjust", ".label", ".x", ".xend", ".y", ".yend",
-  "bridges", "comparator", "contrast", "cumulative", "deviance_x",
-  "deviance_y", "edge_type", "element", "estimable", "estimate", "has_ipd",
-  "identified_by", "influence", "is_ipd", "leverage", "lower", "n_int",
-  "n_studies", "parameter", "probability", "rank_position", "resdev",
-  "source", "ssrd", "subnetwork", "surv", "target", "time", "treatment",
-  "upper", "value", "zero_influence"
+  ".angle", ".label", ".nx", ".ny", ".x", ".xend", ".y", ".yend",
+  "bridges", "contrast", "deviance_x", "deviance_y", "edge_type", "element",
+  "estimate", "identified_by", "influence", "leverage", "lower", "n_int",
+  "n_studies", "probability", "rank_position", "ssrd", "subnetwork", "surv",
+  "target", "time", "type", "upper", "value", "zero_influence"
 ))
 
 #' Is ggplot2 available?
@@ -78,17 +76,18 @@ utils::globalVariables(c(
     centres[i] <- running + radius[i]
     running <- running + 2 * radius[i] + gap
   }
-  out <- data.frame(name = treatments, x = NA_real_, y = NA_real_,
+  out <- data.frame(name = treatments, .nx = NA_real_, .ny = NA_real_,
                     subnetwork = NA_character_, stringsAsFactors = FALSE)
   for (i in seq_along(ks)) {
     idx <- which(memb == ks[i])
     n <- length(idx)
     ang <- if (n == 1L) 0 else seq(pi / 2, by = 2 * pi / n, length.out = n)
-    out$x[idx] <- centres[i] + if (n == 1L) 0 else radius[i] * cos(ang)
-    out$y[idx] <- if (n == 1L) 0 else radius[i] * sin(ang)
+    out$.nx[idx] <- centres[i] + if (n == 1L) 0 else radius[i] * cos(ang)
+    out$.ny[idx] <- if (n == 1L) 0 else radius[i] * sin(ang)
     out$subnetwork[idx] <- paste("Sub-network", ks[i])
   }
-  out$.angle <- atan2(out$y, out$x)
+  # Label direction: outward from the centre of the node's own circle.
+  out$.angle <- atan2(out$.ny, out$.nx - centres[match(memb, ks)])
   out
 }
 
@@ -181,12 +180,12 @@ plot.cpaic_network <- function(x, ..., weight_edges = TRUE,
   }
   pos <- match(agg$from, nodes$name)
   pos2 <- match(agg$to, nodes$name)
-  agg$.x <- nodes$x[pos]; agg$.y <- nodes$y[pos]
-  agg$.xend <- nodes$x[pos2]; agg$.yend <- nodes$y[pos2]
+  agg$.x <- nodes$.nx[pos]; agg$.y <- nodes$.ny[pos]
+  agg$.xend <- nodes$.nx[pos2]; agg$.yend <- nodes$.ny[pos2]
 
   nodes$.label <- nodes$name
-  nodes$.x <- nodes$x + nudge * cos(nodes$.angle)
-  nodes$.y <- nodes$y + nudge * sin(nodes$.angle)
+  nodes$.x <- nodes$.nx + nudge * cos(nodes$.angle)
+  nodes$.y <- nodes$.ny + nudge * sin(nodes$.angle)
 
   p <- ggplot2::ggplot()
   if (weight_edges) {
@@ -212,14 +211,14 @@ plot.cpaic_network <- function(x, ..., weight_edges = TRUE,
   if (show_bridges && length(bridges)) {
     p <- p + ggplot2::geom_point(
       data = nodes,
-      ggplot2::aes(x = x, y = y, fill = subnetwork, shape = bridges),
+      ggplot2::aes(x = .nx, y = .ny, fill = subnetwork, shape = bridges),
       size = 5, colour = "grey20", stroke = 1) +
       ggplot2::scale_shape_manual(
         "Contains a bridging component",
         values = c(`FALSE` = 21, `TRUE` = 24))
   } else {
     p <- p + ggplot2::geom_point(
-      data = nodes, ggplot2::aes(x = x, y = y, fill = subnetwork),
+      data = nodes, ggplot2::aes(x = .nx, y = .ny, fill = subnetwork),
       size = 5, shape = 21, colour = "grey20", stroke = 0.6)
   }
 
@@ -369,23 +368,23 @@ forest <- function(x, ..., what = c("relative", "component"),
     bad$estimate <- if (backtransf) exp(mean(log(xr))) else mean(xr)
   }
 
-  p <- ggplot2::ggplot()
+  # The full table is the plot's default data, so a caller can add layers with
+  # ggplot2::aes() and see the non-estimable rows too.
+  p <- ggplot2::ggplot(
+    tab, ggplot2::aes(x = estimate, y = .label, xmin = lower, xmax = upper))
   if (is.finite(ref_line)) {
     p <- p + ggplot2::geom_vline(xintercept = ref_line, colour = "grey60",
                                  linetype = 2)
   }
   if (nrow(ok)) {
     p <- p + ggplot2::geom_pointrange(
-      data = ok,
-      ggplot2::aes(x = estimate, y = .label, xmin = lower, xmax = upper),
-      orientation = "y", fatten = fatten)
+      data = ok, orientation = "y", fatten = fatten)
   }
   if (nrow(bad)) {
     p <- p + ggplot2::geom_text(
-      data = bad,
-      ggplot2::aes(x = estimate, y = .label),
+      data = bad, ggplot2::aes(x = estimate, y = .label),
       label = "not estimable", colour = "grey45", fontface = "italic",
-      size = 3)
+      size = 3, inherit.aes = FALSE)
   }
 
   caption <- if (nrow(bad)) {

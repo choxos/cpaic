@@ -64,9 +64,14 @@ additive model is simply false on that scale. cMAIC therefore carries a small
 and infinite sample size. It is small relative to a typical standard error
 (about 0.25) but it does not vanish with more data.
 
-The additive component model is coherent only on the conditional log-odds
-scale. Where this bias is material, \code{\link[=cstc]{cstc()}} or \code{\link[=cmlnmr]{cmlnmr()}}, which target a
-conditional effect, are preferable. See
+Marginal component effects are not \emph{generally} additive; they add exactly when
+the standardized treatment effects remain affine in the component design.
+Additivity is therefore a property of the conditional link scale that the
+marginal scale inherits only approximately, and the error does not vanish with
+sample size. Where it is material, \code{\link[=cstc]{cstc()}} or \code{\link[=cmlnmr]{cmlnmr()}}, which target a
+conditional effect and inherit additivity exactly, are preferable. Note also
+that the two-stage route combines a conditional adjusted edge with aggregate
+edges reported on a marginal scale, so it should be regarded as approximate. See
 \code{documentation/validation/VALIDATION.md}.
 }
 

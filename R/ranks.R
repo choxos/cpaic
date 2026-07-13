@@ -79,13 +79,18 @@ cpaic_ranks <- function(object, newdata = NULL,
 
   N <- .cpaic_null_space(object$joint_design)
   if (what == "treatment") {
+    # The reference treatment must itself be RANKED. Excluding it would make it
+    # impossible to say whether the reference (placebo, say) beats a treatment,
+    # which is usually the question. Its relative effect is 0 by definition and
+    # its contrast vector is the zero vector, which lies in every row space, so
+    # it is trivially estimable.
     ref <- object$reference
-    elems <- setdiff(rownames(C), ref)
-    Draws <- Beff %*% t(C)
-    colnames(Draws) <- rownames(C)
-    Draws <- Draws[, elems, drop = FALSE] - Draws[, ref]   # vs the reference
-    Lmat <- C[elems, , drop = FALSE] -
-      matrix(C[ref, ], nrow = length(elems), ncol = ncol(C), byrow = TRUE)
+    elems <- rownames(C)
+    Theta <- Beff %*% t(C)
+    colnames(Theta) <- rownames(C)
+    Draws <- Theta - Theta[, ref]                    # reference column is 0
+    Lmat <- C - matrix(C[ref, ], nrow = nrow(C), ncol = ncol(C), byrow = TRUE)
+    rownames(Lmat) <- rownames(C)
   } else {
     elems <- object$comps
     Draws <- Beff                       # incremental effect of each component

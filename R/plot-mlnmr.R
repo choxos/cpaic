@@ -13,16 +13,34 @@
 # counterpart in multinma: under population adjustment both the hierarchy and
 # the estimable set are functions of the target population.
 
-utils::globalVariables(c("dens", "density", "group", "point", "status",
+utils::globalVariables(c("dens", "density", "group", "parameter", "point",
                          "study_arm", "xseq"))
 
-#' Posterior draws of every model parameter as a plain matrix
+#' Posterior draws of one or more model parameters, as a plain matrix
+#'
+#' The result is a base matrix, not a `posterior::draws_matrix`. That matters:
+#' `[.draws_matrix` defaults to `drop = FALSE`, so `m[i, j]` on a draws matrix
+#' silently stays two-dimensional and downstream arithmetic goes wrong.
+#'
+#' Errors are not swallowed: a missing variable or an unreadable draws file is a
+#' real problem, and reporting it as "nothing to plot" would hide it.
 #' @noRd
 .cpaic_draws <- function(object, variables) {
-  out <- try(object$fit$draws(variables, format = "draws_matrix"),
-             silent = TRUE)
-  if (inherits(out, "try-error")) return(NULL)
-  as.matrix(out)
+  out <- tryCatch(
+    object$fit$draws(variables, format = "draws_matrix"),
+    error = function(e) {
+      stop("Could not read posterior draws for '",
+           paste(variables, collapse = ", "), "' from the fit: ",
+           conditionMessage(e),
+           "\nA cmdstanr fit keeps its draws in temporary CSV files. If the fit ",
+           "was saved and reloaded, save it with fit$fit$save_object() (or call ",
+           "fit$fit$draws() before saving) so the draws travel with it.",
+           call. = FALSE)
+    })
+  out <- as.matrix(out)
+  res <- matrix(as.numeric(out), nrow = nrow(out), ncol = ncol(out))
+  colnames(res) <- colnames(out)
+  res
 }
 
 #' Check that we were handed a cmlnmr() fit
@@ -433,7 +451,7 @@ plot_estimability <- function(object, em, values, at = NULL, reference = NULL,
          call. = FALSE)
   }
   ll <- .cpaic_draws(object, "log_lik")
-  if (is.null(ll) || !ncol(ll)) {
+  if (!ncol(ll)) {
     stop("The fit does not contain pointwise `log_lik` draws.", call. = FALSE)
   }
   ipd <- args$ipd
@@ -495,10 +513,7 @@ plot_estimability <- function(object, em, values, at = NULL, reference = NULL,
   agd <- args$agd
   n_ipd <- nrow(ipd); n_agd <- nrow(agd)
   fam <- object$family
-  mn <- function(v) {
-    d <- .cpaic_draws(object, v)
-    if (is.null(d)) NULL else colMeans(d)
-  }
+  mn <- function(v) colMeans(.cpaic_draws(object, v))
   switch(
     fam,
     binomial = list(
@@ -742,7 +757,7 @@ plot_prior_posterior <- function(x, ..., prior = NULL, bins = 40) {
   for (nm in prior) {
     spec <- x$priors[[nm]]
     d <- .cpaic_draws(x, par_of[[nm]])
-    if (is.null(d) || !ncol(d)) next
+    if (!ncol(d)) next
     dens <- .cpaic_prior_density(spec)
     for (j in seq_len(ncol(d))) {
       pname <- colnames(d)[j]
@@ -1011,10 +1026,7 @@ plot.cpaic_mlnmr <- function(x, y, ...,
 
 #' Total number of posterior draws in a cmdstanr fit
 #' @noRd
-.cpaic_ndraws <- function(object) {
-  d <- .cpaic_draws(object, "beta")
-  if (is.null(d)) 1L else nrow(d)
-}
+.cpaic_ndraws <- function(object) nrow(.cpaic_draws(object, "beta"))
 
 # Survival curves ----------------------------------------------------------------
 

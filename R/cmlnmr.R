@@ -172,6 +172,26 @@
 #' covariate integration points with `log_sum_exp`. Aggregate event counts and
 #' person-time alone cannot recover this likelihood and are rejected explicitly.
 #'
+#' Two qualifications, so that "exact" is not read more broadly than it should
+#' be.
+#'
+#' * **The likelihood is exact; the covariate integration is not.** Every
+#'   individual contribution (event, right, left and interval censoring, delayed
+#'   entry) is the exact analytic expression, verified against closed form to
+#'   machine precision. The *aggregate* likelihood, however, averages that exact
+#'   contribution over a finite quasi-Monte-Carlo grid of `n_int` covariate
+#'   points, so it carries an integration error that shrinks with `n_int` but is
+#'   not zero. Increase `n_int` and confirm that the estimates are stable before
+#'   relying on them. The earlier person-time approximation was biased by 36% in
+#'   a two-group example; that particular bias is removed, but a finite
+#'   integration error remains.
+#' * **The baseline hazard SHAPE is shared across studies.** Each study has its
+#'   own baseline level through its intercept, but a single set of spline (or
+#'   step) coefficients is shared, so the studies are assumed to have
+#'   proportional baseline hazards. `multinma` permits study-specific baseline
+#'   shapes. If the studies plausibly have differently shaped baselines, this
+#'   model is misspecified and the shared shape should not be used.
+#'
 #' @section Identifiability:
 #' A relative effect is uniquely estimable only if its component contrast lies
 #' in the row space of the within-study component design (Wigle et al. 2026);
@@ -348,6 +368,24 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
   if (!is.null(inactive) && !inactive %in% all_trts) {
     stop("`inactive` (\"", inactive, "\") is not one of the treatments.",
          call. = FALSE)
+  }
+
+  # Every study must be at least two-arm. A single-arm study carries no contrast,
+  # so it can contribute nothing to a relative effect through the linear
+  # predictor; its study intercept absorbs its data entirely. Whatever it appears
+  # to contribute comes only from the curvature of the aggregate integral, which
+  # is precisely the weak, ecological channel that should not be relied on
+  # silently. Reject it rather than let it influence the treatment effects.
+  arms_per_study <- tapply(
+    c(as.character(ipd[[trt]]), as.character(agd[[trt]])),
+    c(as.character(ipd[[study]]), as.character(agd[[study]])),
+    function(z) length(unique(z)))
+  lone <- names(arms_per_study)[arms_per_study < 2L]
+  if (length(lone)) {
+    stop("Single-arm study/studies: ", paste(lone, collapse = ", "),
+         ". A study with one arm carries no treatment contrast and cannot inform ",
+         "a relative effect; its study intercept absorbs it entirely. Remove it, ",
+         "or supply its comparator arm.", call. = FALSE)
   }
   if (length(cut_points) &&
       (is.unsorted(cut_points, strictly = TRUE) || any(cut_points <= 0))) {

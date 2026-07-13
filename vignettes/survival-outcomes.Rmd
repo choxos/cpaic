@@ -5,15 +5,10 @@ bibliography: cpaic.bib
 link-citations: yes
 ---
 
-```{r, include = FALSE}
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7,
-                      fig.height = 4.2, fig.align = "center",
-                      dpi = 120, out.width = "100%",
-                      fig.path = "figure/survival-")
-options(width = 90)
-```
 
-```{r setup, message = FALSE}
+
+
+``` r
 library(cpaic)
 library(ggplot2)
 library(survival)
@@ -149,7 +144,8 @@ with $\mathrm{Cov}(h,T) < 0$.
 
 Two equal groups with hazards 0.1 and 0.4, followed to time 10:
 
-```{r pt-bias}
+
+``` r
 h   <- c(0.1, 0.4)          # constant hazards in the two halves
 w   <- c(0.5, 0.5)          # equal mixing weights
 tau <- 10                   # administrative censoring
@@ -160,6 +156,8 @@ approx      <- person_time * sum(w * h)              # person-time x mean hazard
 
 round(c(exact = exact, approximation = approx,
         inflation = approx / exact), 4)
+#>         exact approximation     inflation 
+#>        0.8069        1.0969        1.3594
 ```
 
 The person-time approximation is biased **upward by 36%**, on a completely
@@ -168,10 +166,18 @@ takes pseudo-IPD and integrates the likelihood row by row.
 
 ## Simulating the evidence
 
-```{r truth}
+
+``` r
 treatments <- c("Std", "Std+B", "Std+M", "B+M", "B+M+S", "B+M+A")
 Cmat <- build_C_matrix(treatments, inactive = "Std")
 Cmat
+#>       A B M S
+#> Std   0 0 0 0
+#> Std+B 0 1 0 0
+#> Std+M 0 0 1 0
+#> B+M   0 1 1 0
+#> B+M+S 0 1 1 1
+#> B+M+A 1 1 1 0
 
 # TRUTH (conditional log hazard ratios at eGFR 60).
 beta_true  <- c(A = -0.20, B = -0.35, M = -0.30, S = -0.26)
@@ -195,7 +201,8 @@ event time from the distribution **conditional on survival past the entry time**
 this is what left truncation is, and it is why a naive analysis that ignores
 `.entry` is biased.
 
-```{r simulate}
+
+``` r
 lambda <- 0.022; kshape <- 1.2; prognostic <- -0.35; maxt <- 36
 
 gen_arm <- function(study, trt, n, mu0, egfr_mean, egfr_sd = 18,
@@ -238,7 +245,8 @@ the **Kaplan-Meier curve** (here, the pseudo-IPD rows that a Guyot
 reconstruction would return) and the **baseline table** (an arm-level mean and
 SD of eGFR). The individual covariate values are discarded.
 
-```{r reconstruct}
+
+``` r
 covs <- do.call(rbind, lapply(
   split(published, list(published$.study, published$.trt), drop = TRUE),
   function(d) data.frame(.study = d$.study[1], .trt = d$.trt[1],
@@ -248,21 +256,35 @@ covs <- do.call(rbind, lapply(
 agd <- merge(published[, c(".study", ".trt", ".time", ".y", ".entry")],
              covs, by = c(".study", ".trt"), sort = FALSE)
 str(agd)
+#> 'data.frame':	300 obs. of  7 variables:
+#>  $ .study     : chr  "HF-1" "HF-1" "HF-1" "HF-1" ...
+#>  $ .trt       : chr  "Std" "Std" "Std" "Std" ...
+#>  $ .time      : num  0.659 1.303 27.633 12.206 19.33 ...
+#>  $ .y         : int  1 1 1 1 1 0 1 1 0 1 ...
+#>  $ .entry     : num  0 0 0 0 0 0 0 0 0 0 ...
+#>  $ egfr_c_mean: num  0.573 0.573 0.573 0.573 0.573 ...
+#>  $ egfr_c_sd  : num  1.83 1.83 1.83 1.83 1.83 ...
 ```
 
 Every aggregate row carries its arm's covariate summary, repeated. That is all
 the model needs: it integrates each row's likelihood over the covariate
 distribution implied by the mean and SD.
 
-```{r datasize}
+
+``` r
 c(IPD_rows = nrow(ipd), AgD_pseudo_IPD_rows = nrow(agd),
   IPD_events = sum(ipd$.y), AgD_events = sum(agd$.y),
   delayed_entry_rows = sum(agd$.entry > 0))
+#>            IPD_rows AgD_pseudo_IPD_rows          IPD_events          AgD_events 
+#>                 900                 300                 485                 156 
+#>  delayed_entry_rows 
+#>                  30
 ```
 
 ## Covariate balance
 
-```{r balance}
+
+``` r
 mean_by_study <- function(d, col) {
   m <- tapply(d[[col]], d$.study, mean)
   data.frame(study = names(m), eGFR = 60 + 10 * as.numeric(m))
@@ -276,6 +298,21 @@ knitr::kable(balance[order(balance$subnetwork, balance$study), ], digits = 1,
              caption = "Mean eGFR by trial: the imbalance across the gap")
 ```
 
+
+
+Table: Mean eGFR by trial: the imbalance across the gap
+
+|study | eGFR|source | subnetwork|
+|:-----|----:|:------|----------:|
+|HF-1  | 66.4|AgD    |          1|
+|HF-2  | 66.5|IPD    |          1|
+|HF-6  | 72.3|AgD    |          1|
+|HF-3  | 59.4|IPD    |          2|
+|HF-4  | 52.3|IPD    |          2|
+|HF-5  | 64.2|AgD    |          2|
+
+
+
 The legacy trials run around 66 to 72 mL/min and the contemporary ones around 54
 to 62, a gap of roughly 10 mL/min. Since the MRA's log hazard ratio moves by
 $+0.18$ per 10 mL/min, that gap on its own is worth about 0.18 on the log scale,
@@ -284,7 +321,8 @@ effect we are trying to measure.
 
 ## The observed evidence
 
-```{r km, fig.height = 5}
+
+``` r
 keep <- c(".study", ".trt", ".time", ".y", ".entry")
 all_dat <- rbind(cbind(ipd[, setdiff(keep, ".entry")], .entry = 0),
                  agd[, keep])
@@ -313,6 +351,11 @@ ggplot(km, aes(time, surv, color = .trt)) +
   theme(legend.position = "bottom")
 ```
 
+<div class="figure" style="text-align: center">
+<img src="figure/survival-km-1.png" alt="plot of chunk km" width="100%" />
+<p class="caption">plot of chunk km</p>
+</div>
+
 Look across the two rows: no treatment label is shared. That is the
 disconnection, and no amount of Kaplan-Meier plotting will fix it.
 
@@ -323,7 +366,8 @@ aggregate data. For a survival outcome the "published" contrast is the trial's
 own log hazard ratio, which we obtain from each aggregate trial's reconstructed
 data (and, for `HF-6`, with its delayed entry handled).
 
-```{r network}
+
+``` r
 study_loghr <- function(s, t1, t2) {
   d <- all_dat[all_dat$.study == s, ]
   d$arm <- as.integer(d$.trt == t1)
@@ -342,6 +386,21 @@ knitr::kable(contrasts, digits = 3, row.names = FALSE,
              caption = "Unadjusted within-trial log hazard ratios, as published")
 ```
 
+
+
+Table: Unadjusted within-trial log hazard ratios, as published
+
+|studlab |treat1 |treat2 |     TE|  seTE|
+|:-------|:------|:------|------:|-----:|
+|HF-1    |Std+B  |Std    | -0.178| 0.249|
+|HF-2    |Std+M  |Std    | -0.208| 0.148|
+|HF-3    |B+M+S  |B+M    | -0.256| 0.173|
+|HF-4    |B+M+S  |B+M    | -0.234| 0.155|
+|HF-5    |B+M+A  |B+M    |  0.104| 0.302|
+|HF-6    |Std+M  |Std    |  0.160| 0.294|
+
+
+
 `HF-2` and `HF-6` both compare `Std+M` with `Std`, and they do not agree. They
 also enrolled populations 6 mL/min apart in mean eGFR, which under our simulated
 truth is worth about 0.11 on the log hazard scale. The two-stage bridge will call
@@ -350,18 +409,37 @@ modification and use it. (With only 50 pseudo-patients per arm, `HF-6` is also
 just noisy, and it would be dishonest to pretend the raw numbers separate those
 two explanations. Nothing below leans on them.)
 
-```{r network2}
+
+``` r
 
 net <- cpaic_network(contrasts, ipd = ipd, sm = "HR", family = "survival",
                      ipd_time = ".time", ipd_status = ".y",
                      ipd_covariates = "egfr_c", inactive = "Std")
 net
+#> cpaic component network
+#>   Summary measure:   HR
+#>   Treatments:        6
+#>   Components:        4 (A, B, M, S)
+#>   AgD comparisons:   6
+#>   Reference:         Std
+#>   Inactive:          Std
+#>   IPD studies:       3 (survival; 900 patients)
+#>   Connected:         FALSE | components bridgeable: TRUE
 cpaic_connectivity(net)
+#> cpaic connectivity
+#>   Connected network: FALSE
+#>   Sub-networks:      2
+#>     [1] 3 treatments
+#>     [2] 3 treatments
+#>   Bridging components: B, M
+#>   Component design:  rank(X) = 4 / 4 components -> all component effects identified
+#>   Estimable effects: 5 / 5 vs Std
 ```
 
 ### The target population
 
-```{r targets}
+
+``` r
 target_ckd  <- c(egfr_c = -1)   # eGFR 50: chronic kidney disease
 target_pres <- c(egfr_c =  1)   # eGFR 70: preserved renal function
 
@@ -374,6 +452,9 @@ data.frame(
   `B+M+S vs Std+B (true HR)` = exp(c(truth("B+M+S", "Std+B", -1),
                                      truth("B+M+S", "Std+B",  1))),
   check.names = FALSE)
+#>    target B+M vs Std+B (true HR) B+M+S vs Std+B (true HR)
+#> 1 eGFR 50              0.6187834                0.5168513
+#> 2 eGFR 70              0.8869204                0.6312836
 ```
 
 ## Fitting
@@ -387,13 +468,30 @@ target covariate values. `cmaic()` reweights each IPD study to the target and
 fits an unadjusted weighted Cox model, so its coefficient is the **marginal**
 log hazard ratio in the target population [@signorovitch2010; @phillippo2018].
 
-```{r freq}
+
+``` r
 stc_ckd  <- cstc(net,  target = target_ckd, effect_modifiers = "egfr_c")
 maic_ckd <- cmaic(net, target = target_ckd, effect_modifiers = "egfr_c",
                   n_boot = 200, seed = 7)
 relative_effects(stc_ckd,  reference = "Std+B")
+#> Relative effects (HR, back-transformed)
+#>  treatment comparator estimate    se lower upper      z     p
+#>        B+M      Std+B    0.818 0.169 0.587 1.140 -1.187 0.235
+#>      B+M+A      Std+B    0.908 0.361 0.448 1.841 -0.268 0.789
+#>      B+M+S      Std+B    0.621 0.219 0.404 0.953 -2.180 0.029
+#>        Std      Std+B    1.195 0.269 0.705 2.023  0.662 0.508
+#>      Std+M      Std+B    0.977 0.318 0.524 1.821 -0.072 0.943
 relative_effects(maic_ckd, reference = "Std+B")
+#> Relative effects (HR, back-transformed)
+#>  treatment comparator estimate    se lower upper      z     p
+#>        B+M      Std+B    0.874 0.138 0.667 1.145 -0.981 0.327
+#>      B+M+A      Std+B    0.969 0.332 0.506 1.858 -0.093 0.926
+#>      B+M+S      Std+B    0.703 0.183 0.490 1.007 -1.924 0.054
+#>        Std      Std+B    1.195 0.249 0.733 1.946  0.714 0.475
+#>      Std+M      Std+B    1.044 0.285 0.597 1.823  0.150 0.881
 effective_sample_size(maic_ckd)
+#>     HF-2     HF-3     HF-4 
+#> 156.3300 231.1447 294.8349
 ```
 
 ### Route 2: the one-stage Bayesian model
@@ -402,16 +500,29 @@ We fit a piecewise-exponential baseline and a cubic M-spline baseline, then
 compare them. Note what `agd` is: pseudo-IPD rows plus arm-level covariate
 summaries. Nothing else.
 
-```{r fit-piecewise}
+
+``` r
 fit_pw <- cmlnmr(ipd, agd, effect_modifiers = "egfr_c", inactive = "Std",
                  family = "survival", baseline = "piecewise",
                  cut_points = c(9, 18, 27), n_int = 8,
                  chains = 4, iter_warmup = 400, iter_sampling = 400,
                  seed = 2026)
 fit_pw
+#> cpaic: component-additive ML-NMR (Bayesian, survival)
+#>   Treatment effects: fixed
+#>   Effect modifiers: egfr_c [normal]
+#>   Component effects below are at the covariate origin (x = 0).
+#>   For a target population use relative_effects(fit, newdata = ...).
+#> 
+#>  component estimate    se  lower  upper
+#>          A   -0.166 0.380 -0.968  0.503
+#>          B   -0.306 0.269 -0.842  0.205
+#>          M   -0.219 0.136 -0.480  0.040
+#>          S   -0.340 0.123 -0.571 -0.088
 ```
 
-```{r fit-mspline}
+
+``` r
 fit_ms <- cmlnmr(ipd, agd, effect_modifiers = "egfr_c", inactive = "Std",
                  family = "survival", baseline = "mspline", n_basis = 5,
                  n_int = 8,
@@ -427,13 +538,22 @@ integrates a smooth function accurately. Do not copy that number into an analysi
 with several correlated covariates; the default of 64 exists for a reason, and
 integration error is cheap to check by refitting with more points.
 
-```{r fit-random}
+
+``` r
 fit_re <- cmlnmr(ipd, agd, effect_modifiers = "egfr_c", inactive = "Std",
                  family = "survival", baseline = "mspline", n_basis = 5,
                  n_int = 8, trt_effects = "random",
                  chains = 4, iter_warmup = 400, iter_sampling = 400,
                  seed = 2026, adapt_delta = 0.95)
+#> Warning: 1 of 1600 (0.0%) transitions ended with a divergence.
+#> See https://mc-stan.org/misc/warnings for details.
+#> Warning: 1 divergent transition(s) in cmlnmr(); results may be unreliable (consider
+#> higher adapt_delta or more iterations).
 fit_re$fit$summary("tau")
+#> # A tibble: 1 × 10
+#>   variable  mean median    sd   mad     q5   q95  rhat ess_bulk ess_tail
+#>   <chr>    <dbl>  <dbl> <dbl> <dbl>  <dbl> <dbl> <dbl>    <dbl>    <dbl>
+#> 1 tau[1]   0.233  0.163 0.226 0.160 0.0136 0.656  1.01     468.     752.
 ```
 
 Six studies and four components leave two degrees of freedom for heterogeneity,
@@ -443,8 +563,32 @@ fixed-effect model as primary.
 
 ### Priors
 
-```{r priors}
+
+``` r
 str(fit_ms$priors)
+#> List of 5
+#>  $ intercept :List of 3
+#>   ..$ distribution: chr "normal"
+#>   ..$ location    : num 0
+#>   ..$ scale       : num 2.5
+#>  $ beta      :List of 3
+#>   ..$ distribution: chr "normal"
+#>   ..$ location    : num 0
+#>   ..$ scale       : num 2.5
+#>  $ regression:List of 3
+#>   ..$ distribution: chr "normal"
+#>   ..$ location    : num 0
+#>   ..$ scale       : num 1
+#>  $ gamma     :List of 4
+#>   ..$ distribution: chr "normal"
+#>   ..$ location    : num 0
+#>   ..$ scale       : num 1
+#>   ..$ df          : num 4
+#>  $ tau       :List of 4
+#>   ..$ distribution: chr "half-normal"
+#>   ..$ location    : num 0
+#>   ..$ scale       : num 1
+#>   ..$ df          : num 4
 ```
 
 The component by effect-modifier prior (`gamma`) is the load-bearing one. A
@@ -454,20 +598,32 @@ and why we check `prior_sensitivity()` below.
 
 ### Convergence
 
-```{r convergence}
+
+``` r
 rbind(
   piecewise = unlist(fit_pw$diagnostics),
   mspline   = unlist(fit_ms$diagnostics),
   random    = unlist(fit_re$diagnostics))
+#>           divergences max_treedepth max_rhat
+#> piecewise           0             0 1.013606
+#> mspline             0             0 1.006113
+#> random              1             0 1.012901
 ```
 
 ## Results
 
 ### What is actually estimable?
 
-```{r estimable}
+
+``` r
 estimable_effects_at(fit_ms, newdata = data.frame(egfr_c = -1),
                      reference = "Std+B")
+#>   treatment comparator estimable identified_by
+#> 1       B+M      Std+B      TRUE           IPD
+#> 2     B+M+A      Std+B     FALSE          none
+#> 3     B+M+S      Std+B      TRUE           IPD
+#> 4       Std      Std+B     FALSE          none
+#> 5     Std+M      Std+B     FALSE          none
 ```
 
 * `B+M` and `B+M+S` against `Std+B` are the components `M` and `M + S`. Both are
@@ -488,14 +644,25 @@ reports `rank(X) = 4` out of 4 components, so every component *main* effect is
 identified. Reconnection is necessary and not sufficient. Population adjustment
 needs the interactions too.
 
-```{r estimable-na}
+
+``` r
 relative_effects(fit_ms, reference = "Std+B",
                  newdata = data.frame(egfr_c = -1))
+#> Relative effects (HR, back-transformed)
+#>   Target population: egfr_c = -1
+#>  treatment comparator estimate    se lower upper pr_gt0
+#>        B+M      Std+B    0.728 0.173 0.513 1.006  0.028
+#>      B+M+A      Std+B       NA    NA    NA    NA     NA
+#>      B+M+S      Std+B    0.555 0.206 0.370 0.828  0.005
+#>        Std      Std+B       NA    NA    NA    NA     NA
+#>      Std+M      Std+B       NA    NA    NA    NA     NA
+#>   NA = not uniquely estimable from this component design (see estimable_effects()).
 ```
 
 ### The cross-gap hazard ratio, in two named populations
 
-```{r results-table}
+
+``` r
 report <- function(fitobj, t1, x, label) {
   re <- relative_effects(fitobj, reference = "Std+B",
                          newdata = data.frame(egfr_c = x))
@@ -512,6 +679,19 @@ res <- rbind(
 knitr::kable(res, digits = 3, row.names = FALSE,
              caption = "cML-NMR: recovered vs true hazard ratios")
 ```
+
+
+
+Table: cML-NMR: recovered vs true hazard ratios
+
+|target  |contrast       |    HR| lower| upper| true_HR|
+|:-------|:--------------|-----:|-----:|-----:|-------:|
+|eGFR 50 |B+M vs Std+B   | 0.728| 0.513| 1.006|   0.619|
+|eGFR 50 |B+M+S vs Std+B | 0.555| 0.370| 0.828|   0.517|
+|eGFR 70 |B+M vs Std+B   | 0.984| 0.745| 1.295|   0.887|
+|eGFR 70 |B+M+S vs Std+B | 0.686| 0.434| 1.030|   0.631|
+
+
 
 All four credible intervals cover the truth, and the pattern the truth encodes is
 the pattern the model recovers. The MRA's contribution collapses as renal function
@@ -531,7 +711,8 @@ variation **within** a trial, which is expensive information, and this is what t
 bill looks like. Reporting the point estimates without the intervals would be a
 lie of omission.
 
-```{r curve, fig.height = 4.4}
+
+``` r
 grid <- seq(-2, 2, by = 0.2)
 curve <- do.call(rbind, lapply(grid, function(x) {
   re <- relative_effects(fit_ms, reference = "Std+B",
@@ -556,6 +737,11 @@ ggplot(curve, aes(60 + 10 * x, HR, color = treatment, fill = treatment)) +
   theme(legend.position = "bottom")
 ```
 
+<div class="figure" style="text-align: center">
+<img src="figure/survival-curve-1.png" alt="plot of chunk curve" width="100%" />
+<p class="caption">plot of chunk curve</p>
+</div>
+
 ### Conditional and marginal are not the same thing here
 
 In the continuous vignette `cstc()` and `cmaic()` agreed, because the mean
@@ -573,7 +759,8 @@ up with `cstc()`.
 We can check this without argument, because we know the truth. Simulate an
 enormous trial in the target population and read off both quantities:
 
-```{r oracle}
+
+``` r
 oracle <- function(t1, t2, x_target, egfr_sd = 18, n = 150000) {
   d <- rbind(gen_arm("O", t1, n, 0, 60 + 10 * x_target, egfr_sd),
              gen_arm("O", t2, n, 0, 60 + 10 * x_target, egfr_sd))
@@ -589,6 +776,8 @@ orc <- oracle("B+M+S", "B+M", -1)     # the SGLT2 edge, in the eGFR-50 populatio
 round(c(orc, simulated_truth = beta_true[["S"]] + gamma_true[["S"]] * -1,
         attenuation_pct = 100 * (1 - abs(orc[["marginal"]]) /
                                    abs(orc[["conditional"]]))), 3)
+#>     conditional        marginal simulated_truth attenuation_pct 
+#>          -0.181          -0.160          -0.180          11.733
 ```
 
 The conditional log hazard ratio recovers the value we simulated. The marginal
@@ -597,7 +786,8 @@ not by mistake: this is a randomized comparison with 150,000 patients per arm an
 a correctly specified model. The gap is non-collapsibility, and no amount of data
 will close it.
 
-```{r cond-marg}
+
+``` r
 pick <- function(x, t1) {
   r <- x[x$treatment == t1, ]
   c(HR = r$estimate, lower = r$lower, upper = r$upper)
@@ -616,6 +806,18 @@ knitr::kable(cm, digits = 3, row.names = FALSE,
              caption = "B+M+S vs Std+B at eGFR 50: two estimands, three routes")
 ```
 
+
+
+Table: B+M+S vs Std+B at eGFR 50: two estimands, three routes
+
+|method                |estimand    |    HR| lower| upper| true_conditional_HR|
+|:---------------------|:-----------|-----:|-----:|-----:|-------------------:|
+|cSTC (conditional)    |conditional | 0.621| 0.404| 0.953|               0.517|
+|cMAIC (marginal)      |marginal    | 0.703| 0.490| 1.007|               0.517|
+|cML-NMR (conditional) |conditional | 0.555| 0.370| 0.828|               0.517|
+
+
+
 There is a second, sharper reason to prefer the conditional route in a
 *component* model. The additive structure $\theta_t = C_t^\top\beta$ lives on
 the **linear predictor**, and conditional log hazard ratios add up there by
@@ -629,11 +831,25 @@ mean difference.
 
 ### Prior sensitivity
 
-```{r prior-sens}
+
+``` r
 ps <- prior_sensitivity(fit_ms, newdata = data.frame(egfr_c = -1),
                         prior = "gamma", reference = "Std+B",
                         chains = 2, iter_warmup = 250, iter_sampling = 250)
 ps
+#> cML-NMR prior sensitivity: gamma prior
+#>  treatment comparator estimate tighter looser move_tighter move_looser max_movement
+#>        B+M      Std+B   -0.332  -0.345 -0.330        0.013       0.002        0.013
+#>      B+M+A      Std+B   -0.543  -0.512 -0.620        0.031       0.077        0.077
+#>      B+M+S      Std+B   -0.610  -0.624 -0.608        0.014       0.002        0.014
+#>        Std      Std+B    0.110   0.155  0.090        0.045       0.020        0.045
+#>      Std+M      Std+B   -0.222  -0.190 -0.240        0.033       0.018        0.033
+#>  estimable
+#>       TRUE
+#>      FALSE
+#>       TRUE
+#>      FALSE
+#>      FALSE
 ```
 
 The two estimable contrasts barely move when the interaction prior is halved and
@@ -642,13 +858,36 @@ which is what "prior-driven" looks like from the outside.
 
 ### Model comparison: which baseline?
 
-```{r loo}
+
+``` r
 loo_pw <- loo::loo(fit_pw)
 loo_ms <- loo::loo(fit_ms)
 loo::loo_compare(list(piecewise = loo_pw, mspline = loo_ms))
+#>      model elpd_diff se_diff p_worse       diag_diff diag_elpd
+#>  piecewise       0.0     0.0      NA                          
+#>    mspline      -0.8     2.4    0.63 |elpd_diff| < 4
+#> 
+#> Diagnostic flags present.
+#> See ?`loo-glossary` (sections `diag_diff` and `diag_elpd`)
+#> or https://mc-stan.org/loo/reference/loo-glossary.html.
 dic(fit_pw)
+#> Deviance information criterion
+#>   DIC: 5922.3
+#>   Mean deviance: 5904.8
+#>   Effective parameters (pV): 17.5
 dic(fit_ms)
+#> Deviance information criterion
+#>   DIC: 5922.8
+#>   Mean deviance: 5905.2
+#>   Effective parameters (pV): 17.6
 loo::loo_compare(list(mspline_fixed = loo_ms, mspline_random = loo::loo(fit_re)))
+#>           model elpd_diff se_diff p_worse       diag_diff diag_elpd
+#>   mspline_fixed       0.0     0.0      NA                          
+#>  mspline_random      -0.9     0.4    0.99 |elpd_diff| < 4
+#> 
+#> Diagnostic flags present.
+#> See ?`loo-glossary` (sections `diag_diff` and `diag_elpd`)
+#> or https://mc-stan.org/loo/reference/loo-glossary.html.
 ```
 
 The truth here is Weibull, whose hazard is smooth and monotone. A cubic M-spline

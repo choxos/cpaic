@@ -347,6 +347,9 @@ edge <- function(fitobj, study) {
 }
 mu_of <- function(s) design$mu[design$study == s]
 
+# the TRUE conditional log-OR: (C_t - C_u)' (beta + Gamma x), in closed form
+truth <- function(t1, t2, x) theta(t1, x) - theta(t2, x)
+
 # true MARGINAL log-OR in the target population, by G-computation
 mc_marginal <- function(mu, t1, t2, m = 0.3, s = 0.7, M = 2e5) {
   x <- rnorm(M, m, s)
@@ -527,8 +530,6 @@ log odds ratio $(C_t - C_u)^\top(\beta + \Gamma x)$, which is what `cstc()` and
 sit closer to the null.
 
 ```{r recovery}
-truth <- function(t1, t2, x) theta(t1, x) - theta(t2, x)
-
 # pull one cell (as plain numbers) out of a relative_effects() table
 grab <- function(tab, t1, ref, what = "estimate") {
   as.numeric(tab[[what]][tab$treatment == t1 & tab$comparator == ref])

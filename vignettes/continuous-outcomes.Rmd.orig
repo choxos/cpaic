@@ -8,7 +8,8 @@ link-citations: yes
 ```{r, include = FALSE}
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7,
                       fig.height = 4.2, fig.align = "center",
-                      dpi = 120, out.width = "100%")
+                      dpi = 120, out.width = "100%",
+                      fig.path = "figure/continuous-")
 options(width = 90)
 ```
 

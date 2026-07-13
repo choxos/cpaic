@@ -123,17 +123,24 @@
   start_cumulative <- as.numeric(basis$start_itime %*% coefficients) * exp(eta)
   entry_cumulative <- as.numeric(basis$entry_itime %*% coefficients) * exp(eta)
   hazard <- as.numeric(basis$time %*% coefficients) * exp(eta)
-  log_survival <- -cumulative
-  out <- log_survival
+
+  # Every contribution is conditioned on survival to the entry time `a` (left
+  # truncation), so each is expressed through the ENTRY-CONDITIONED cumulative
+  # hazard H(t) - H(a). Conditioning must be applied inside the censoring
+  # probabilities, not added afterwards: writing the left-censoring term as
+  # (1 - S(t)) / S(a) instead of 1 - S(t)/S(a) is not a probability at all and
+  # can exceed one (with H(t) = 3 and H(a) = 2 it returns 7.0).
+  cum <- cumulative - entry_cumulative           # H(t) - H(a) >= 0
+  start_cum <- start_cumulative - entry_cumulative
 
   observed <- status == 1L
   left <- status == 2L
   interval <- status == 3L
-  out[observed] <- log_survival[observed] + log(hazard[observed])
-  out[left] <- log1p(-exp(log_survival[left]))
-  out[interval] <- log(exp(-start_cumulative[interval]) -
-                         exp(log_survival[interval]))
-  out <- out + entry_cumulative
+
+  out <- -cum                                    # right-censored: S(t)/S(a)
+  out[observed] <- -cum[observed] + log(hazard[observed])
+  out[left] <- log1p(-exp(-cum[left]))           # 1 - S(t)/S(a)
+  out[interval] <- log(exp(-start_cum[interval]) - exp(-cum[interval]))
   out
 }
 

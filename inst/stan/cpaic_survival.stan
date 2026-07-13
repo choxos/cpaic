@@ -13,23 +13,26 @@ functions {
       int status,
       real eta,
       vector coefficients) {
-    real log_survival = -dot_product(itime_basis, coefficients) * exp(eta);
+    // Every contribution is conditioned on survival to the entry time a (left
+    // truncation), so each is written through the ENTRY-CONDITIONED cumulative
+    // hazard H(t) - H(a). The conditioning must be applied INSIDE the censoring
+    // probability, not added afterwards: (1 - S(t)) / S(a) is not a probability
+    // and can exceed one, whereas 1 - S(t)/S(a) is the correct left-censoring
+    // term.
+    real entry_cum = dot_product(entry_basis, coefficients) * exp(eta);
+    real cum = dot_product(itime_basis, coefficients) * exp(eta) - entry_cum;
     real out;
 
     if (status == 0) {
-      out = log_survival;
+      out = -cum;                                     // S(t) / S(a)
     } else if (status == 1) {
-      out = log_survival + log(dot_product(time_basis, coefficients)) + eta;
+      out = -cum + log(dot_product(time_basis, coefficients)) + eta;
     } else if (status == 2) {
-      out = log1m_exp(log_survival);
+      out = log1m_exp(-cum);                          // 1 - S(t) / S(a)
     } else {
-      real log_survival_start =
-        -dot_product(start_basis, coefficients) * exp(eta);
-      out = log_diff_exp(log_survival_start, log_survival);
-    }
-
-    if (delayed) {
-      out += dot_product(entry_basis, coefficients) * exp(eta);
+      real start_cum =
+        dot_product(start_basis, coefficients) * exp(eta) - entry_cum;
+      out = log_diff_exp(-start_cum, -cum);           // (S(s) - S(t)) / S(a)
     }
     return out;
   }
