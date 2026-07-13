@@ -311,7 +311,9 @@ cmaic <- function(network, target, effect_modifiers = NULL, target_sd = NULL,
 }
 
 #' @export
-component_effects.cpaic_fit <- function(object, ...) object$components
+component_effects.cpaic_fit <- function(object, newdata = NULL, ...) {
+  object$components
+}
 
 #' @export
 print.cpaic_maic <- function(x, ...) {

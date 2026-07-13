@@ -10,6 +10,7 @@ relative_effects(
   all_contrasts = FALSE,
   backtransf = TRUE,
   level = 0.95,
+  newdata = NULL,
   ...
 )
 }
@@ -27,18 +28,33 @@ of versus the reference.}
 
 \item{level}{Confidence level for the intervals. Default \code{0.95}.}
 
+\item{newdata}{For \code{\link[=cmlnmr]{cmlnmr()}} fits: a one-row data frame giving the target
+population's effect-modifier values. Required when the model has effect
+modifiers.}
+
 \item{...}{Unused.}
 }
 \value{
 A data frame with columns \code{treatment}, \code{comparator}, \code{estimate},
 \code{se} (link scale), \code{lower}, \code{upper}, and \code{z}/\code{p} for frequentist fits.
-For \code{cmlnmr()} (Bayesian) fits the intervals are credible intervals and
+For \code{\link[=cmlnmr]{cmlnmr()}} (Bayesian) fits the intervals are credible intervals and
 the final column is \code{pr_gt0}, the posterior probability that the
 effect (on the link scale) exceeds zero, instead of \code{z}/\code{p}.
 }
 \description{
-Tidies the (random- or common-effects) relative effects from the
-component-bridged model: every treatment versus a chosen reference, or
-all pairwise comparisons. Effects are reported on the natural scale of
-the summary measure (e.g. odds ratios) unless \code{backtransf = FALSE}.
+Tidies the relative effects of the fitted model: every treatment versus a
+chosen reference, or all pairwise comparisons. Effects are reported on the
+natural scale of the summary measure (e.g. odds ratios) unless
+\code{backtransf = FALSE}.
+}
+\details{
+Relative effects that the component design cannot uniquely identify (their
+contrast vector lies outside the row space of \verb{X = B C}) are returned as
+\code{NA} rather than as pseudoinverse or prior-driven artefacts. See
+\code{\link[=estimable_effects]{estimable_effects()}}.
+
+For \code{\link[=cmlnmr]{cmlnmr()}} fits the model contains component x effect-modifier
+interactions, so relative effects are \strong{population-specific}:
+\verb{theta_t(x) = C_t' (beta + gamma x)}. You must name the target population
+through \code{newdata}; there is no population-free relative effect.
 }

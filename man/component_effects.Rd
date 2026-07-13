@@ -4,16 +4,23 @@
 \alias{component_effects}
 \title{Component effects from a cpaic fit}
 \usage{
-component_effects(object, ...)
+component_effects(object, newdata = NULL, ...)
 }
 \arguments{
 \item{object}{A fitted cpaic object (\code{cpaic_bridge}, \code{cpaic_maic},
 \code{cpaic_stc}, or \code{cpaic_mlnmr}).}
 
-\item{...}{Unused.}
+\item{newdata}{For \code{\link[=cmlnmr]{cmlnmr()}} fits: a one-row data frame giving the target
+population's effect-modifier values, at which the component effects
+\verb{beta + Gamma x} are reported. With \code{newdata = NULL} (default) the
+component \emph{main} effects \code{beta} are returned; these are the effects at the
+covariate origin and are not population-adjusted.}
+
+\item{...}{Passed to methods.}
 }
 \value{
 A data frame of component effects (estimate, se, CI, p-value).
+Components that the design cannot identify are returned as \code{NA}.
 }
 \description{
 Component effects from a cpaic fit

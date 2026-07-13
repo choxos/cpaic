@@ -42,12 +42,31 @@ test_that("cmlnmr recovers component effects when identified", {
   }
   expect_lt(max(fit$fit$summary("beta")$rhat), 1.1)
 
-  # relative_effects() must work on the Bayesian fit (no $bridge slot).
-  re <- relative_effects(fit)
+  # relative_effects() must work on the Bayesian fit (no $bridge slot), and
+  # must be told which population to report in.
+  expect_error(relative_effects(fit), "Specify `newdata`")
+  re <- relative_effects(fit, newdata = data.frame(x1 = 0))
   expect_s3_class(re, "cpaic_effects")
   expect_true(all(c("treatment", "estimate", "lower", "upper") %in% names(re)))
   expect_true(nrow(re) >= 1)
   expect_error(additivity_test(fit), "LOO")
+
+  # The effect is population-specific: gamma must actually be used, so a
+  # different target population must give a different answer. Component A has
+  # a positive interaction (gamma_A = 0.2), so its effect must increase with
+  # x1. Reporting C %*% beta alone would make these identical.
+  re0 <- relative_effects(fit, newdata = data.frame(x1 = 0), backtransf = FALSE)
+  re1 <- relative_effects(fit, newdata = data.frame(x1 = 1), backtransf = FALSE)
+  a0 <- re0$estimate[re0$treatment == "A"]
+  a1 <- re1$estimate[re1$treatment == "A"]
+  expect_false(isTRUE(all.equal(a0, a1)))
+  expect_gt(a1, a0)
+  # theta_A(x) = beta_A + gamma_A * x, so the increment recovers gamma_A.
+  expect_equal(a1 - a0, 0.2, tolerance = 0.15)
+
+  # Component effects in a target population differ from the main effects.
+  ce1 <- component_effects(fit, newdata = data.frame(x1 = 1))
+  expect_false(isTRUE(all.equal(ce$estimate, ce1$estimate)))
 })
 
 test_that("cmlnmr runs for gaussian, poisson, and survival families", {
@@ -204,4 +223,55 @@ test_that("cmlnmr fits an M-spline survival baseline", {
   expect_true(all(is.finite(ce$estimate)))
   expect_true(all(ce$estimate > 0))
   expect_lt(max(fit$fit$summary("beta")$rhat), 1.2)
+})
+
+test_that("integration margins respect the covariate's support", {
+  skip_if_not_installed("randtoolbox")
+  # A binary effect modifier with prevalence 0.3. A normal margin would place
+  # a third of the integration points outside {0, 1}, integrating the model
+  # over a population that cannot exist.
+  pts_norm <- cpaic:::.cpaic_integration_points(
+    means = 0.3, sds = sqrt(0.21), n_int = 64, margins = "normal")
+  expect_true(mean(pts_norm < 0 | pts_norm > 1) > 0.2)
+
+  pts_bern <- cpaic:::.cpaic_integration_points(
+    means = 0.3, sds = NA_real_, n_int = 64, margins = "bernoulli")
+  expect_true(all(pts_bern %in% c(0, 1)))
+  expect_equal(mean(pts_bern), 0.3, tolerance = 0.05)
+})
+
+test_that("binary effect modifiers get a Bernoulli margin by default", {
+  ipd <- data.frame(.study = "S1", .trt = "A",
+                    x1 = rep(c(0, 1), 50), x2 = rnorm(100))
+  m <- cpaic:::.cpaic_guess_margins(ipd, c("x1", "x2"))
+  expect_equal(unname(m[["x1"]]), "bernoulli")
+  expect_equal(unname(m[["x2"]]), "normal")
+})
+
+test_that("copula correlation is pooled within studies, not across them", {
+  # Two studies, each with ZERO within-study correlation, but shifted means.
+  # Pooling all rows manufactures a large spurious correlation.
+  set.seed(3)
+  n <- 400
+  s1 <- data.frame(.study = "S1", x1 = rnorm(n, -2), x2 = rnorm(n, -2))
+  s2 <- data.frame(.study = "S2", x1 = rnorm(n, 2), x2 = rnorm(n, 2))
+  ipd <- rbind(s1, s2)
+
+  pooled <- stats::cor(ipd$x1, ipd$x2)
+  expect_gt(pooled, 0.5)                       # the artefact
+
+  R <- cpaic:::.cpaic_copula_cor(ipd, c("x1", "x2"), ".study")
+  expect_lt(abs(R[1, 2]), 0.15)                # the truth
+})
+
+test_that("a supplied correlation matrix must really be a correlation matrix", {
+  ipd <- data.frame(.study = "S1", x1 = rnorm(50), x2 = rnorm(50))
+  expect_error(
+    cpaic:::.cpaic_copula_cor(ipd, c("x1", "x2"), ".study",
+                              given = diag(2) * 2),
+    "unit diagonal")
+  bad <- matrix(c(1, 1.5, 1.5, 1), 2)
+  expect_error(
+    cpaic:::.cpaic_copula_cor(ipd, c("x1", "x2"), ".study", given = bad),
+    "positive definite")
 })
