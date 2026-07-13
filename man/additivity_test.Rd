@@ -2,7 +2,7 @@
 % Please edit documentation in R/diagnostics.R
 \name{additivity_test}
 \alias{additivity_test}
-\title{Test the additivity assumption of the component model}
+\title{Fit statistics for the additive component model}
 \usage{
 additivity_test(object, ...)
 }
@@ -12,11 +12,31 @@ additivity_test(object, ...)
 \item{...}{Unused.}
 }
 \value{
-A one-row data frame with \code{Q}, \code{df}, and \code{pval}.
+A one-row data frame with \code{Q}, \code{df}, \code{pval} (total additive-model
+lack of fit) and \code{Q.diff}, \code{df.diff}, \code{pval.diff} (the nested additivity
+test, \code{NA} on a disconnected network).
 }
 \description{
-Returns the Cochran Q statistic for the additive component network
-meta-analysis (from \code{\link[netmeta:discomb]{netmeta::discomb()}}). A small p-value indicates
-lack of fit of the additive model, i.e. evidence of component
-interactions; consider adding interaction terms.
+Returns the Cochran Q statistics from \code{\link[netmeta:discomb]{netmeta::discomb()}}.
+}
+\details{
+Two different statistics are reported, and only one of them tests
+additivity:
+\itemize{
+\item \code{Q} (\code{Q.additive}) is the \strong{total lack of fit} of the additive component
+model, pooling ordinary heterogeneity/inconsistency with any failure of
+additivity. It is not a test of additivity.
+\item \code{Q.diff = Q.additive - Q.standard} is the \strong{nested test of the additivity
+restrictions} themselves, and is the statistic to read. It exists only
+when a standard (non-additive) NMA is also estimable, i.e. on a connected
+network; on a disconnected network it is \code{NA}.
+}
+
+\strong{Neither statistic can test the assumption that actually bridges a
+disconnected network}, namely that component effects (and, under
+population adjustment, component x effect-modifier interactions) are
+\emph{constant across sub-networks}. There is by construction no cross-gap
+evidence against which to test it. A large p-value here is therefore not a
+licence to bridge; the assumption must be defended on clinical grounds
+(Veroniki et al. 2026).
 }

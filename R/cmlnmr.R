@@ -4,30 +4,102 @@
 
 #' Build numerical integration points for an aggregate study
 #'
-#' Sobol' quasi-Monte-Carlo points mapped through normal margins defined by
-#' the study covariate means and standard deviations. When a correlation
-#' matrix `cor` is supplied the margins are coupled by a Gaussian copula
-#' (for normal margins this is exactly correlated multivariate normal draws,
-#' `mean + sd * z` with `z` correlated by `chol(cor)`); otherwise the
-#' covariates are integrated independently.
+#' Sobol' quasi-Monte-Carlo points are coupled by a Gaussian copula and then
+#' pushed through each covariate's marginal inverse CDF, following the
+#' construction used by `multinma::add_integration()`. Supported margins are
+#' `"normal"` (from the study mean and SD) and `"bernoulli"` (from the study
+#' mean, i.e. the prevalence). Using a normal margin for a binary covariate
+#' generates integration points outside `{0, 1}` and integrates the
+#' individual-level model over a population that does not exist, so the margin
+#' must match the covariate.
 #' @noRd
-.cpaic_integration_points <- function(means, sds, n_int, cor = NULL) {
+.cpaic_integration_points <- function(means, sds, n_int, cor = NULL,
+                                      margins = NULL) {
   P <- length(means)
   if (!requireNamespace("randtoolbox", quietly = TRUE)) {
     stop("Package 'randtoolbox' is required for cmlnmr() integration.",
          call. = FALSE)
   }
+  if (is.null(margins)) margins <- rep("normal", P)
   u <- matrix(randtoolbox::sobol(n = n_int, dim = P), nrow = n_int, ncol = P)
+  # Guard the tails: qnorm(0)/qnorm(1) are infinite.
+  eps <- 1 / (2 * max(n_int, 2L))
+  u <- pmin(pmax(u, eps), 1 - eps)
   z <- stats::qnorm(u)                       # independent standard normals
   if (!is.null(cor) && P > 1L) z <- z %*% chol(cor)   # Gaussian copula
-  sweep(sweep(z, 2, sds, "*"), 2, means, "+")
+
+  out <- matrix(0, nrow = n_int, ncol = P)
+  for (p in seq_len(P)) {
+    out[, p] <- switch(
+      margins[p],
+      bernoulli = stats::qbinom(stats::pnorm(z[, p]), size = 1L,
+                                prob = means[p]),
+      normal = means[p] + sds[p] * z[, p],
+      stop("Unsupported integration margin '", margins[p],
+           "'; use \"normal\" or \"bernoulli\".", call. = FALSE)
+    )
+  }
+  out
 }
 
-#' Covariate correlation matrix for the Gaussian copula, from IPD
+#' Guess a sensible integration margin for each effect modifier
+#'
+#' A covariate that is 0/1 in the IPD is treated as Bernoulli; anything else
+#' as normal. Override with the `margins` argument of [cmlnmr()].
 #' @noRd
-.cpaic_copula_cor <- function(X, given = NULL) {
-  if (ncol(X) < 2L) return(NULL)
-  R <- if (is.null(given)) stats::cor(X, use = "pairwise.complete.obs") else given
+.cpaic_guess_margins <- function(ipd, effect_modifiers) {
+  vapply(effect_modifiers, function(v) {
+    x <- stats::na.omit(ipd[[v]])
+    if (length(x) && all(x %in% c(0, 1))) "bernoulli" else "normal"
+  }, character(1))
+}
+
+#' Covariate correlation matrix for the Gaussian copula
+#'
+#' The copula needs the correlation *within* a population. Pooling all IPD
+#' rows across studies and arms confounds the within-study association with
+#' between-study shifts in the covariate means, which can manufacture a large
+#' correlation where none exists. Correlations are therefore computed within
+#' each IPD study and pooled on the Fisher z scale, weighted by `n - 3`, as in
+#' `multinma`.
+#' @noRd
+.cpaic_copula_cor <- function(ipd, effect_modifiers, study_col, given = NULL) {
+  Q <- length(effect_modifiers)
+  if (Q < 2L) return(NULL)
+
+  if (!is.null(given)) {
+    R <- as.matrix(given)
+    if (!is.matrix(R) || nrow(R) != Q || ncol(R) != Q || any(!is.finite(R)) ||
+        !isTRUE(all.equal(R, t(R), check.attributes = FALSE))) {
+      stop("`cor` must be a finite symmetric ", Q, "x", Q, " matrix.",
+           call. = FALSE)
+    }
+    if (!isTRUE(all.equal(diag(R), rep(1, Q), check.attributes = FALSE))) {
+      stop("`cor` must be a correlation matrix (unit diagonal).",
+           call. = FALSE)
+    }
+    if (min(eigen(R, symmetric = TRUE, only.values = TRUE)$values) <= 0) {
+      stop("`cor` must be positive definite.", call. = FALSE)
+    }
+    return(R)
+  }
+
+  idx <- split(seq_len(nrow(ipd)), as.character(ipd[[study_col]]))
+  Zsum <- matrix(0, Q, Q)
+  Wsum <- matrix(0, Q, Q)
+  for (rows in idx) {
+    if (length(rows) < 4L) next
+    Xs <- as.matrix(ipd[rows, effect_modifiers, drop = FALSE])
+    R <- suppressWarnings(stats::cor(Xs, use = "pairwise.complete.obs"))
+    R[!is.finite(R)] <- 0
+    R <- pmin(pmax(R, -0.999), 0.999)
+    w <- length(rows) - 3L
+    Zsum <- Zsum + w * atanh(R)
+    Wsum <- Wsum + w
+  }
+  if (all(Wsum == 0)) return(NULL)
+  R <- tanh(Zsum / pmax(Wsum, 1))
+  diag(R) <- 1
   R <- (R + t(R)) / 2
   if (min(eigen(R, symmetric = TRUE, only.values = TRUE)$values) <= 1e-8) {
     R <- as.matrix(Matrix::nearPD(R, corr = TRUE)$mat)
@@ -41,7 +113,7 @@
 #' interval the individual is at risk in, with the time at risk in that
 #' interval (`.texp`), an event indicator for that interval (`.event`), and
 #' the interval index (`.interval`). With `cut_points = NULL` there is a
-#' single interval (the exponential model).
+#' single interval (the exponential model). Right-censoring only.
 #' @noRd
 .cpaic_lexis <- function(ipd, time_col, status_col, cut_points) {
   cuts <- c(0, cut_points, Inf)
@@ -66,44 +138,75 @@
 #' Component-additive multilevel network meta-regression (ML-NMR)
 #'
 #' The Bayesian flagship of cpaic. The relative effect of every treatment is
-#' the sum of its component effects (`theta = C beta`), estimated jointly
-#' from individual patient data (IPD) and aggregate data (AgD). Aggregate
-#' arms are fitted by integrating the individual-level model over each
-#' study's covariate distribution. Because disconnected sub-networks share
-#' component parameters, the network is connected by construction.
+#' the sum of its component effects, estimated jointly from individual patient
+#' data (IPD) and aggregate data (AgD). Aggregate arms are fitted by
+#' integrating the individual-level model over each study's covariate
+#' distribution, averaging the outcome on its natural scale (not the link
+#' scale). Because disconnected sub-networks share component parameters, the
+#' network is connected by construction.
+#'
+#' The model includes component x effect-modifier interactions `gamma`, so the
+#' treatment effect is **population-specific**:
+#' \deqn{\theta_t(x) = C_t' (\beta + \Gamma x).}
+#' The component main effects `beta` are the effects at the covariate origin
+#' (`x = 0`) and are *not* by themselves a population-adjusted quantity. Use
+#' `newdata` in [relative_effects()] / [component_effects()] to obtain effects
+#' in a named target population.
 #'
 #' Supported families: `"binomial"` (logit), `"gaussian"` (identity),
-#' `"poisson"` (log), and `"survival"`. Survival uses a proportional-hazards
-#' model with a flexible baseline: `baseline = "piecewise"` gives a
-#' piecewise-exponential step baseline (one level per interval defined by
-#' `cut_points`; exponential when `cut_points = NULL`), while
-#' `baseline = "mspline"` gives a smooth baseline hazard from a non-negative
-#' M-spline basis (`n_basis` functions, simplex weights) evaluated at the
-#' interval midpoints over the `cut_points` grid. Individual patient data are
-#' split at the cut points internally; aggregate survival data are supplied
-#' as events and person-time per arm and (when `cut_points` are given) per
-#' interval. The aggregate likelihood approximates the expected events in an
-#' arm-interval by person-time times the integrated hazard; this assumes the
-#' person-time is independent of the covariates within an interval (most
-#' accurate when the intervals are narrow), so it is approximate when effect
-#' modifiers also drive censoring.
+#' `"poisson"` (log), and `"survival"`.
 #'
-#' Aggregate covariates are integrated with a Gaussian copula: the
-#' correlation is estimated from the IPD (or supplied via `cor`) so the
-#' integration points respect the covariate correlation structure rather
-#' than treating the effect modifiers as independent.
+#' @section Integration:
+#' Aggregate covariates are integrated with Sobol' quasi-Monte-Carlo points
+#' coupled by a Gaussian copula, whose correlation is pooled *within* IPD
+#' studies on the Fisher z scale (or supplied via `cor`). Each covariate is
+#' pushed through its own marginal inverse CDF: `margins` may be `"normal"`
+#' (using `x_mean` and `x_sd`) or `"bernoulli"` (using `x_mean` as the
+#' prevalence). Margins default to Bernoulli for covariates that are 0/1 in the
+#' IPD and normal otherwise; a normal margin on a binary covariate would
+#' integrate over a population that cannot occur.
 #'
-#' Identifiability note: a component whose effect-modifier interaction is
-#' informed only by aggregate arms is weakly identified, because main and
-#' interaction effects are constrained only through the integrated
-#' population-average outcome. Supply IPD for such components where possible;
-#' `prior_reg_sd` regularizes otherwise.
+#' @section Survival (approximations, read before use):
+#' Survival uses a proportional-hazards model with a piecewise-constant
+#' baseline log-hazard on the `cut_points` grid (`cut_points = NULL` gives the
+#' exponential model). With `baseline = "mspline"` the interval heights are
+#' *smoothed* by an M-spline basis evaluated at the interval midpoints. This is
+#' a piecewise-exponential model with a smoothed step baseline; it is **not**
+#' the continuous-time integrated M-spline survival likelihood of `multinma`,
+#' which uses both the M-spline hazard basis and its integrated (I-spline)
+#' cumulative hazard and supports left-, interval-censoring and delayed entry.
+#' cpaic handles right-censoring only.
+#'
+#' Aggregate survival data are supplied as events and person-time per arm and
+#' per interval, and the expected events are approximated by
+#' `person-time x mean hazard`. This is an approximation even without
+#' censoring, because higher-hazard individuals leave the risk set earlier, so
+#' the *baseline* covariate distribution does not describe the covariate
+#' distribution of the accumulated person-time. In a two-group example
+#' (hazards 0.1 and 0.4, 50:50, follow-up to t = 10) it overstates expected
+#' events by about 36%. Narrow intervals reduce the bias; supply IPD, or
+#' interval-specific risk-set covariate summaries, where accuracy matters.
+#'
+#' @section Identifiability:
+#' A relative effect is uniquely estimable only if its component contrast lies
+#' in the row space of the within-study component design (Wigle et al. 2026);
+#' [relative_effects()] returns `NA` otherwise rather than a prior-driven
+#' number. Note this checks identification of `beta`; a component x
+#' effect-modifier interaction is additionally identified only by covariate
+#' variation on the contrasts that involve it, and interactions informed only
+#' by aggregate arms are weakly identified (`prior_reg_sd` regularizes).
 #'
 #' @param ipd Individual patient data (one row per patient).
 #' @param agd Aggregate data (one row per arm) with the per-study covariate
-#'   summaries `x_mean`, `x_sd` for each effect modifier `x`.
+#'   summaries `x_mean` (and `x_sd` for normal margins) for each effect
+#'   modifier `x`.
 #' @param effect_modifiers Character vector of effect-modifier names.
+#' @param margins Optional named character vector giving the integration
+#'   margin of each effect modifier: `"normal"` or `"bernoulli"`. Defaults to
+#'   Bernoulli for 0/1 covariates and normal otherwise.
 #' @param inactive,sep.comps Component coding (see [cpaic_network()]).
+#'   `inactive = NULL` gives the *unanchored* component parameterization, in
+#'   which every unit receives its own parameter (Wigle & Béliveau 2022).
 #' @param family One of `"binomial"`, `"gaussian"`, `"poisson"`,
 #'   `"survival"`.
 #' @param study,trt Column names (in both `ipd` and `agd`).
@@ -114,27 +217,34 @@
 #'   (binomial), exposure `E` (poisson/survival), mean `outcome` and its
 #'   standard error `se` (gaussian).
 #' @param cut_points Survival only: interior interval boundaries for the
-#'   piecewise-exponential baseline. `NULL` (default) gives the exponential
+#'   piecewise-constant baseline. `NULL` (default) gives the exponential
 #'   model; e.g. `c(6, 12)` gives three intervals.
 #' @param interval Survival only: name of the aggregate interval-index
 #'   column (values `1..K`) required when `cut_points` are supplied.
-#' @param baseline Survival baseline hazard: `"piecewise"` (default,
-#'   step function) or `"mspline"` (smooth M-spline over the `cut_points`
-#'   grid).
+#' @param baseline Survival baseline hazard: `"piecewise"` (default, free
+#'   step heights) or `"mspline"` (step heights smoothed by an M-spline
+#'   evaluated at interval midpoints; see the Survival section).
 #' @param n_basis Number of M-spline basis functions when
 #'   `baseline = "mspline"` (must be `<=` the number of intervals).
 #' @param cor Optional covariate correlation matrix for the Gaussian-copula
-#'   integration. Defaults to the IPD correlation; pass a matrix to override
-#'   or the identity to integrate covariates independently.
+#'   integration. Must be a positive-definite correlation matrix (unit
+#'   diagonal). Defaults to the within-study IPD correlation.
 #' @param n_int Integration points per aggregate arm (ignored for
 #'   `gaussian`, which is exact at the covariate means).
 #' @param prior_intercept_sd,prior_beta_sd,prior_reg_sd Prior SDs.
 #' @param chains,iter_warmup,iter_sampling,seed Passed to `cmdstanr`.
-#' @param ... Reserved.
+#' @param ... Passed to the `cmdstanr` sampler (e.g. `adapt_delta`).
 #'
 #' @return An object of class `cpaic_mlnmr` with the `cmdstanr` fit, the
 #'   component design, and a tidy table of component effects.
-#' @seealso [cmaic()], [cstc()], [cnma_bridge()]
+#' @references
+#' Phillippo DM, Dias S, Ades AE, et al. (2020). Multilevel network
+#' meta-regression for population-adjusted treatment comparisons. *JRSS A*,
+#' 183(3), 1189--1210.
+#'
+#' Wigle A, Beliveau A, Nikolakopoulou A, Lin L (2026). Creating Treatment and
+#' Component Hierarchies in Component Network Meta-Analysis.
+#' @seealso [cmaic()], [cstc()], [cnma_bridge()], [estimable_effects()]
 #' @examplesIf requireNamespace("cmdstanr", quietly = TRUE) && !inherits(try(cmdstanr::cmdstan_path(), silent = TRUE), "try-error")
 #' \donttest{
 #' ipd <- data.frame(.study = "S1",
@@ -145,11 +255,13 @@
 #'                   x1_mean = c(0.2, 0.2), x1_sd = c(1, 1))
 #' fit <- cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "Placebo",
 #'               chains = 2, iter_warmup = 200, iter_sampling = 200)
-#' component_effects(fit)
+#' # Effects in a named target population (x1 = 0.2), not at the origin:
+#' relative_effects(fit, newdata = data.frame(x1 = 0.2))
 #' }
 #' @export
 cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
                    sep.comps = "+", family = "binomial",
+                   margins = NULL,
                    study = ".study", trt = ".trt", outcome = ".y",
                    time = ".time", exposure = ".exposure",
                    r = "r", n = "n", E = "E", se = "se",
@@ -203,13 +315,6 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
     stop("`cut_points` must be strictly increasing and positive.",
          call. = FALSE)
   }
-  if (!is.null(cor)) {
-    if (!is.matrix(cor) || nrow(cor) != Q || ncol(cor) != Q ||
-        any(!is.finite(cor)) || !isTRUE(all.equal(cor, t(cor)))) {
-      stop("`cor` must be a finite symmetric ", Q, "x", Q, " matrix.",
-           call. = FALSE)
-    }
-  }
   if (as.integer(n_int) < 1L) {
     stop("`n_int` must be a positive integer.", call. = FALSE)
   }
@@ -218,11 +323,39 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
     stop("`ipd` is missing effect-modifier column(s): ",
          paste(miss_em, collapse = ", "), call. = FALSE)
   }
+
+  # Integration margins: Bernoulli for 0/1 covariates unless overridden.
+  guessed <- .cpaic_guess_margins(ipd, effect_modifiers)
+  if (is.null(margins)) {
+    margins <- guessed
+  } else {
+    if (is.null(names(margins))) names(margins) <- effect_modifiers
+    unknown <- setdiff(names(margins), effect_modifiers)
+    if (length(unknown)) {
+      stop("`margins` names unknown effect modifier(s): ",
+           paste(unknown, collapse = ", "), call. = FALSE)
+    }
+    bad <- setdiff(margins, c("normal", "bernoulli"))
+    if (length(bad)) {
+      stop("`margins` must be \"normal\" or \"bernoulli\"; got: ",
+           paste(unique(bad), collapse = ", "), call. = FALSE)
+    }
+    guessed[names(margins)] <- margins
+    margins <- guessed
+  }
+  margins <- margins[effect_modifiers]
+
   for (v in effect_modifiers) {
     if (!paste0(v, "_mean") %in% names(agd)) {
       stop("`agd` is missing `", v, "_mean`.", call. = FALSE)
     }
-    if (family != "gaussian") {
+    if (margins[[v]] == "bernoulli") {
+      p <- agd[[paste0(v, "_mean")]]
+      if (any(!is.finite(p) | p < 0 | p > 1)) {
+        stop("`", v, "_mean` is a Bernoulli prevalence and must lie in [0, 1].",
+             call. = FALSE)
+      }
+    } else if (family != "gaussian") {
       sdn <- paste0(v, "_sd")
       if (!sdn %in% names(agd)) stop("`agd` is missing `", sdn, "`.",
                                      call. = FALSE)
@@ -275,6 +408,11 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
       stop("aggregate survival needs `r` >= 0 and positive person-time `E`.",
            call. = FALSE)
     }
+    warning("The aggregate survival likelihood approximates expected events ",
+            "by person-time x mean hazard. Higher-hazard individuals leave ",
+            "the risk set earlier, so this is biased upward unless the ",
+            "intervals are narrow. See the Survival section of ?cmlnmr.",
+            call. = FALSE)
   }
 
   # Reference treatment for reported relative effects.
@@ -284,8 +422,8 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
     rownames(C)[1]
   }
 
-  # Identifiability: component effects are estimable only if the within-study
-  # arm contrasts span all components; otherwise some are prior-driven.
+  # Estimability: the within-study arm contrasts, in component space, form the
+  # design whose row space contains exactly the estimable relative effects.
   arm_tbl <- unique(rbind(
     data.frame(s = as.character(ipd[[study]]), t = as.character(ipd[[trt]]),
                stringsAsFactors = FALSE),
@@ -298,22 +436,32 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
     sweep(Cs[-1, , drop = FALSE], 2, Cs[1, ], "-")
   })
   Dmat <- do.call(rbind, Dlist)
-  rk <- if (is.null(Dmat) || !nrow(Dmat)) 0L else
-    as.integer(Matrix::rankMatrix(Dmat))
+  if (is.null(Dmat) || !nrow(Dmat)) {
+    Dmat <- matrix(0, nrow = 1L, ncol = ncol(C))
+  }
+  rk <- as.integer(Matrix::rankMatrix(Dmat))
+  null_space <- .cpaic_null_space(Dmat)
   if (rk < ncol(C)) {
+    est_tbl <- .cpaic_estimable_table(C, null_space, reference)
+    bad <- est_tbl$treatment[!est_tbl$estimable]
     warning("Only ", rk, " of ", ncol(C), " component effects are identified ",
-            "by within-study contrasts; the remainder are informed only by ",
-            "the prior. Provide evidence that contrasts those components.",
+            "by within-study contrasts; the rest are informed only by the ",
+            "prior. ",
+            if (length(bad))
+              paste0("Relative effects versus \"", reference,
+                     "\" that are NOT estimable (returned as NA): ",
+                     paste(bad, collapse = ", "), ".")
+            else "All relative effects versus the reference remain estimable.",
             call. = FALSE)
   }
 
-  # Covariate correlation for the Gaussian-copula integration, estimated
-  # from the (pre-expansion) IPD unless supplied via `cor`.
-  cor_mat <- .cpaic_copula_cor(
-    as.matrix(ipd[, effect_modifiers, drop = FALSE]), cor)
+  # Covariate correlation for the Gaussian-copula integration, pooled WITHIN
+  # IPD studies (pooling across studies would confound within-study
+  # association with between-study mean shifts).
+  cor_mat <- .cpaic_copula_cor(ipd, effect_modifiers, study, cor)
 
   # Survival: Lexis-expand IPD into interval-at-risk rows and configure the
-  # piecewise-exponential baseline (K = 1 reduces to the exponential model).
+  # piecewise baseline (K = 1 reduces to the exponential model).
   K <- 1L
   interval_ipd <- NULL
   time_ipd_vec <- NULL
@@ -363,20 +511,27 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
   X_ipd <- as.matrix(ipd[, effect_modifiers, drop = FALSE])
   Tc_agd <- C[match(as.character(agd[[trt]]), rownames(C)), , drop = FALSE]
 
-  # Integration points (gaussian: 1 point at the means; else Sobol').
-  if (family == "gaussian") {
+  # Integration points. Gaussian with all-normal margins is exact at the
+  # covariate means (the identity link is linear in x), so a single point is
+  # enough; any other case needs the QMC grid.
+  gaussian_exact <- family == "gaussian" && all(margins == "normal")
+  if (gaussian_exact) {
     n_int_eff <- 1L
     X_agd_int <- as.matrix(
       agd[, paste0(effect_modifiers, "_mean"), drop = FALSE])
     colnames(X_agd_int) <- NULL
   } else {
     n_int_eff <- as.integer(n_int)
+    sd_of <- function(v, a) {
+      if (margins[[v]] == "bernoulli") return(NA_real_)
+      agd[[paste0(v, "_sd")]][a]
+    }
     X_list <- lapply(seq_len(nrow(agd)), function(a) {
       means <- vapply(effect_modifiers,
                       function(v) agd[[paste0(v, "_mean")]][a], numeric(1))
-      sds <- vapply(effect_modifiers,
-                    function(v) agd[[paste0(v, "_sd")]][a], numeric(1))
-      .cpaic_integration_points(means, sds, n_int_eff, cor = cor_mat)
+      sds <- vapply(effect_modifiers, sd_of, numeric(1), a = a)
+      .cpaic_integration_points(means, sds, n_int_eff, cor = cor_mat,
+                                margins = margins)
     })
     X_agd_int <- do.call(rbind, X_list)
   }
@@ -432,10 +587,16 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
     lower = apply(beta_draws, 2, stats::quantile, 0.025),
     upper = apply(beta_draws, 2, stats::quantile, 0.975),
     row.names = NULL, stringsAsFactors = FALSE)
+  bad_comp <- !.cpaic_in_rowspace(diag(ncol(C)), null_space)
+  if (any(bad_comp)) {
+    comp_tbl[bad_comp, c("estimate", "se", "lower", "upper")] <- NA_real_
+  }
 
   structure(
     list(fit = fit, components = comp_tbl, C.matrix = C, comps = comps,
          family = family, effect_modifiers = effect_modifiers,
+         margins = margins, cor = cor_mat, design = Dmat,
+         null_space = null_space, rank = rk,
          reference = reference, sm = switch(family, binomial = "OR",
            gaussian = "MD", poisson = "IRR", survival = "HR"),
          method = "cML-NMR"),
@@ -492,14 +653,36 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
 }
 
 #' @export
-component_effects.cpaic_mlnmr <- function(object, ...) object$components
+component_effects.cpaic_mlnmr <- function(object, newdata = NULL, ...) {
+  if (is.null(newdata)) {
+    out <- object$components
+    attr(out, "target") <- NULL
+    return(out)
+  }
+  x <- .cpaic_target_x(newdata, object$effect_modifiers)
+  Beff <- .cpaic_beta_at(object, x)
+  out <- data.frame(
+    component = object$comps,
+    estimate = apply(Beff, 2, mean),
+    se = apply(Beff, 2, stats::sd),
+    lower = apply(Beff, 2, stats::quantile, 0.025),
+    upper = apply(Beff, 2, stats::quantile, 0.975),
+    row.names = NULL, stringsAsFactors = FALSE)
+  bad <- !.cpaic_in_rowspace(diag(ncol(object$C.matrix)), object$null_space)
+  if (any(bad)) out[bad, -1L] <- NA_real_
+  attr(out, "target") <- x
+  out
+}
 
 #' @export
 print.cpaic_mlnmr <- function(x, ...) {
   cat("cpaic: component-additive ML-NMR (Bayesian, ", x$family, ")\n",
       sep = "")
-  cat("  Effect modifiers: ", paste(x$effect_modifiers, collapse = ", "),
-      "\n\n", sep = "")
+  cat("  Effect modifiers: ",
+      paste(names(x$margins), " [", x$margins, "]", sep = "",
+            collapse = ", "), "\n", sep = "")
+  cat("  Component effects below are at the covariate origin (x = 0).\n")
+  cat("  For a target population use relative_effects(fit, newdata = ...).\n\n")
   comp <- x$components
   comp[, c("estimate", "se", "lower", "upper")] <-
     round(comp[, c("estimate", "se", "lower", "upper")], 3)

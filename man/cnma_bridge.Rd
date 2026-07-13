@@ -22,12 +22,20 @@ An object of class \code{cpaic_bridge} wrapping the
 Fits the additive component network meta-analysis (cNMA) model of Rücker
 et al. (2020) to the aggregate contrast data, using
 \code{\link[netmeta:discomb]{netmeta::discomb()}}. When the network is disconnected but its
-sub-networks share components, the additive model estimates all
-component effects and so reconstructs the (otherwise unavailable)
-relative effects \emph{across} sub-networks. This is the "connect first"
-step; population adjustment is layered on by \code{\link[=cmaic]{cmaic()}} / \code{\link[=cstc]{cstc()}}, which
-replace unadjusted contrasts with adjusted ones before calling this
-function.
+sub-networks share components, the additive model estimates component
+effects and so reconstructs relative effects \emph{across} sub-networks. This
+is the "connect first" step; population adjustment is layered on by
+\code{\link[=cmaic]{cmaic()}} / \code{\link[=cstc]{cstc()}}, which replace unadjusted contrasts with adjusted
+ones before calling this function.
+}
+\details{
+Estimability is checked per contrast, not by a single global rank test: a
+relative effect is uniquely estimable if and only if its contrast vector
+lies in the row space of the component design matrix \verb{X = B C} (Wigle et
+al. 2026). A rank-deficient network is therefore \emph{not} rejected outright;
+the contrasts that remain estimable are still reported, and those that are
+not are returned as \code{NA} rather than as pseudoinverse artefacts. See
+\code{\link[=estimable_effects]{estimable_effects()}}.
 }
 \examples{
 net <- cpaic_network(cpaic_bin_agd, sm = "OR", inactive = "Placebo")
@@ -38,4 +46,7 @@ relative_effects(br)
 \references{
 Rücker G, Petropoulou M, Schwarzer G (2020). Network meta-analysis of
 multicomponent interventions. \emph{Biometrical Journal}, 62(3), 808--821.
+
+Wigle A, Beliveau A, Nikolakopoulou A, Lin L (2026). Creating Treatment and
+Component Hierarchies in Component Network Meta-Analysis.
 }

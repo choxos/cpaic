@@ -4,7 +4,7 @@
 \alias{league_table}
 \title{League table of all pairwise relative effects}
 \usage{
-league_table(object, backtransf = TRUE, level = 0.95, digits = 2)
+league_table(object, backtransf = TRUE, level = 0.95, digits = 2, ...)
 }
 \arguments{
 \item{object}{A \code{cpaic_bridge} / \code{cpaic_fit} object.}
@@ -12,11 +12,13 @@ league_table(object, backtransf = TRUE, level = 0.95, digits = 2)
 \item{backtransf, level}{See \code{\link[=relative_effects]{relative_effects()}}.}
 
 \item{digits}{Rounding for the printed cells.}
+
+\item{...}{Passed to \code{\link[=relative_effects]{relative_effects()}} (e.g. \code{newdata} for \code{\link[=cmlnmr]{cmlnmr()}}).}
 }
 \value{
 A character matrix (treatments x treatments); cell \verb{[i, j]} is
 the effect of the row treatment versus the column treatment with its
-confidence interval.
+confidence interval. Non-estimable cells are empty.
 }
 \description{
 League table of all pairwise relative effects

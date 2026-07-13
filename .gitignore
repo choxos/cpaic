@@ -34,3 +34,7 @@ src/*.dll
 # Codegraph / tooling artifacts
 .codegraph
 .omo/
+
+# Agent guidance files (local only, not part of the R package)
+CLAUDE.md
+AGENTS.md

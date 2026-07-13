@@ -9,24 +9,44 @@ cpaic_connectivity(network, tol = 1e-08)
 \arguments{
 \item{network}{A \code{\link[=cpaic_network]{cpaic_network()}} object.}
 
-\item{tol}{Numerical tolerance for the rank computation.}
+\item{tol}{Numerical tolerance for the rank and null-space computations.}
 }
 \value{
 An object of class \code{cpaic_connectivity}: a list with
 \code{connected} (logical), \code{n_subnetworks}, \code{subnetworks} (list of
 treatment-label vectors), \code{bridging_components} (components shared
 across sub-networks), \code{rank} and \code{n_components}, \code{identifiable}
-(logical: \code{rank == n_components}), and the \code{B}/\code{C}/\code{X} matrices.
+(logical: \code{rank == n_components}), \code{null_space}, \code{estimable_components},
+\code{estimable} (a data frame of estimable relative effects versus the
+reference), and the \code{B}/\code{C}/\code{X} matrices.
 }
 \description{
-Reports whether the treatment network is connected, and -- crucially for
-a disconnected network -- whether the additive component structure makes
-all component effects estimable. A disconnected network is \emph{bridgeable}
-only when sub-networks share enough components that the component design
-matrix \verb{X = B C} has full column rank (\verb{rank(X) = number of components}). Otherwise component effects cannot be uniquely identified
-and the bridge would produce arbitrary estimates.
+Reports whether the treatment network is connected and, for a disconnected
+network, which relative effects the additive component structure makes
+estimable.
+}
+\details{
+Two distinct questions are answered, and they are not the same (Wigle et
+al. 2026):
+\itemize{
+\item \strong{Are all component effects identified?} Yes if and only if the
+component design matrix \verb{X = B C} has full column rank (\code{rank(X)} equal to
+\code{n_components}). Reported as \code{identifiable}.
+\item \strong{Is a particular relative effect estimable?} Yes if and only if its
+contrast vector lies in the row space of \code{X}. Full column rank is
+sufficient but \strong{not necessary}, so a rank-deficient network can still
+identify useful cross-sub-network contrasts. Reported per treatment in
+\code{estimable} (see \code{\link[=estimable_effects]{estimable_effects()}}).
+}
 }
 \examples{
 net <- cpaic_network(cpaic_bin_agd, sm = "OR", inactive = "Placebo")
 cpaic_connectivity(net)
+}
+\references{
+Wigle A, Beliveau A, Nikolakopoulou A, Lin L (2026). Creating Treatment and
+Component Hierarchies in Component Network Meta-Analysis.
+}
+\seealso{
+\code{\link[=estimable_effects]{estimable_effects()}}
 }
