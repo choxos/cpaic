@@ -4,7 +4,7 @@ pkgdown_sha: ~
 articles:
   cpaic-intro: cpaic-intro.html
   cpaic-methods: cpaic-methods.html
-last_built: 2026-07-13T16:12Z
+last_built: 2026-07-13T16:16Z
 urls:
   reference: https://choxos.github.io/cpaic/reference
   article: https://choxos.github.io/cpaic/articles

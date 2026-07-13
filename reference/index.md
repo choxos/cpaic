@@ -49,6 +49,17 @@ Anchored, population-adjusted indirect comparison across the network.
 - [`effective_sample_size()`](https://choxos.github.io/cpaic/reference/effective_sample_size.md)
   : Effective sample sizes from a cMAIC fit
 
+## Hierarchies
+
+Rank treatments or components IN A TARGET POPULATION. Because component
+effects are population-specific under population adjustment, so are the
+rankings: a component can lead in one population and trail in another.
+
+- [`cpaic_ranks()`](https://choxos.github.io/cpaic/reference/cpaic_ranks.md)
+  : Population-adjusted treatment and component hierarchies
+- [`rank_curve()`](https://choxos.github.io/cpaic/reference/rank_curve.md)
+  : How a hierarchy changes across target populations
+
 ## Reporting and visualization
 
 - [`relative_effects()`](https://choxos.github.io/cpaic/reference/relative_effects.md)
