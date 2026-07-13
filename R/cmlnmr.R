@@ -666,12 +666,10 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
 
 #' @export
 component_effects.cpaic_mlnmr <- function(object, newdata = NULL, ...) {
-  if (is.null(newdata)) {
-    out <- object$components
-    attr(out, "target") <- NULL
-    return(out)
-  }
-  x <- .cpaic_target_x(newdata, object$effect_modifiers)
+  K <- ncol(object$C.matrix)
+  Q <- length(object$effect_modifiers)
+  x <- if (is.null(newdata)) rep(0, Q) else
+    .cpaic_target_x(newdata, object$effect_modifiers)
   Beff <- .cpaic_beta_at(object, x)
   out <- data.frame(
     component = object$comps,
@@ -680,7 +678,15 @@ component_effects.cpaic_mlnmr <- function(object, newdata = NULL, ...) {
     lower = apply(Beff, 2, stats::quantile, 0.025),
     upper = apply(Beff, 2, stats::quantile, 0.975),
     row.names = NULL, stringsAsFactors = FALSE)
-  bad <- !.cpaic_in_rowspace(diag(ncol(object$C.matrix)), object$null_space)
+
+  # A component effect IN A TARGET POPULATION is beta_c + Gamma_c' x, so its
+  # estimability must be judged against the JOINT design at that x, not against
+  # the component-main-effect design. Judging it on beta alone would report a
+  # confident number for a component whose interaction is not identified.
+  Id <- diag(K)
+  V <- do.call(rbind, lapply(seq_len(K),
+                             function(i) .cpaic_target_vec(Id[i, ], x)))
+  bad <- !.cpaic_in_rowspace(V, .cpaic_null_space(object$joint_design))
   if (any(bad)) out[bad, -1L] <- NA_real_
   attr(out, "target") <- x
   out
