@@ -56,37 +56,59 @@
 <div class="page-header"><h1 id="cpaic">cpaic<a class="anchor" aria-label="anchor" href="#cpaic"></a>
 </h1></div>
 <p><strong>Component-Based Population-Adjusted Indirect Comparison</strong></p>
-<p><code>cpaic</code> extends component network meta-analysis (cNMA) to population-adjusted indirect comparison (PAIC) methods, so that a <strong>disconnected</strong> treatment network can be <em>reconnected</em> through shared treatment components and, at the same time, <em>adjusted</em> for between-study differences in effect modifiers.</p>
-<p>Standard network meta-analysis needs a connected network. When the network is disconnected (no common comparator linking two sub-networks), it cannot be analyzed directly. Two ideas each solve part of the problem:</p>
+<p><code>cpaic</code> extends component network meta-analysis (cNMA) to population-adjusted indirect comparison (PAIC), so that a <strong>disconnected</strong> treatment network can be <em>reconnected</em> through shared treatment components and, at the same time, <em>adjusted</em> for between-study differences in effect modifiers.</p>
+<p>Standard network meta-analysis needs a connected network. When the network is disconnected (no common comparator links two sub-networks), it cannot be analyzed directly. Two ideas each solve half of the problem:</p>
 <ul>
 <li>
-<strong>Component NMA</strong> (Rücker et al. 2020) decomposes multi-component treatments into additive component effects; if sub-networks <em>share components</em>, the component effects bridge the gap — but on aggregate data only, ignoring effect-modifier imbalance.</li>
+<strong>Component NMA</strong> (Rücker et al. 2020) decomposes multi-component treatments into additive component effects. If sub-networks <em>share components</em>, those component effects bridge the gap; but the method uses aggregate data only and ignores effect-modifier imbalance.</li>
 <li>
-<strong>PAIC</strong> (STC, MAIC, ML-NMR) adjusts for effect-modifier imbalance using individual patient data (IPD), but assumes a connected/anchored network.</li>
+<strong>PAIC</strong> (STC, MAIC, ML-NMR) adjusts for effect-modifier imbalance using individual patient data (IPD), but assumes the network is already connected.</li>
 </ul>
-<p><code>cpaic</code> combines them: the component structure provides the bridge, and anchored STC / MAIC / ML-NMR provide the population adjustment.</p>
+<p><code>cpaic</code> composes them: the component structure supplies the bridge, and STC / MAIC / ML-NMR supply the population adjustment.</p>
+<div class="section level2">
+<h2 id="two-senses-of-anchored">Two senses of “anchored”<a class="anchor" aria-label="anchor" href="#two-senses-of-anchored"></a>
+</h2>
+<p>These are different words that happen to be spelled the same, and conflating them causes real confusion:</p>
+<ul>
+<li>
+<strong>Anchored PAIC</strong> (the NICE sense): the adjusted comparison runs through a <em>common comparator arm</em> within each trial, rather than comparing single arms. <code><a href="reference/cmaic.html">cmaic()</a></code> and <code><a href="reference/cstc.html">cstc()</a></code> are anchored in this sense.</li>
+<li>
+<strong>Anchored cNMA</strong> (the Rücker/Wigle sense): an <em>inactive component</em> is fixed at zero in the component parameterization. Setting <code>inactive = NULL</code> gives the <strong>unanchored</strong> parameterization of Wigle &amp; Béliveau (2022), in which every unit receives its own parameter and no anchor can be misspecified.</li>
+</ul>
+<p>Bridging a disconnected network through shared components is <strong>not</strong> anchoring by a common comparator. It is identification through additivity.</p>
+</div>
 <div class="section level2">
 <h2 id="status">Status<a class="anchor" aria-label="anchor" href="#status"></a>
 </h2>
 <ul>
 <li>
-<strong>Frequentist core — available.</strong> <code><a href="reference/cnma_bridge.html">cnma_bridge()</a></code> (reconnect via components), <code><a href="reference/cmaic.html">cmaic()</a></code> (component MAIC), <code><a href="reference/cstc.html">cstc()</a></code> (component anchored STC), with binary, continuous, count, and survival outcomes.</li>
+<strong>Frequentist core.</strong> <code><a href="reference/cnma_bridge.html">cnma_bridge()</a></code> (reconnect via components), <code><a href="reference/cmaic.html">cmaic()</a></code> (component MAIC), <code><a href="reference/cstc.html">cstc()</a></code> (component anchored STC). Binary, continuous, count, and survival outcomes.</li>
 <li>
-<strong>Bayesian flagship <code><a href="reference/cmlnmr.html">cmlnmr()</a></code> (component-additive ML-NMR) — available.</strong> Binary, continuous, count, and survival outcomes; fitted with <code>cmdstanr</code>. Survival uses a piecewise-exponential proportional-hazards model with a flexible (step-function) baseline set by <code>cut_points</code>.</li>
+<strong>Bayesian <code><a href="reference/cmlnmr.html">cmlnmr()</a></code></strong> (component-additive ML-NMR), fitted with <code>cmdstanr</code>. Binary, continuous, count, and survival outcomes.</li>
 </ul>
+<p>This is research software under active development. Read the Limitations section before using it for a decision.</p>
+</div>
+<div class="section level2">
+<h2 id="estimability-comes-first">Estimability comes first<a class="anchor" aria-label="anchor" href="#estimability-comes-first"></a>
+</h2>
+<p>Reconnecting a network through shared components does <strong>not</strong> guarantee that the effects you want are estimable. A relative effect is uniquely estimable exactly when its contrast vector lies in the <strong>row space</strong> of the component design matrix <code>X = B C</code> (Wigle et al. 2026). Full column rank of <code>X</code> is sufficient but <em>not necessary</em>, so a rank-deficient network can still identify useful cross-sub-network contrasts.</p>
+<p>This matters because both engines will otherwise hand back a confident-looking number for a contrast that carries no information: the frequentist fit through the Moore-Penrose pseudoinverse, and the Bayesian fit through the prior. <code>cpaic</code> checks every contrast and returns <code>NA</code> instead.</p>
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="reference/estimable_effects.html">estimable_effects</a></span><span class="op">(</span><span class="va">net</span><span class="op">)</span>     <span class="co"># which relative effects are identified?</span></span>
+<span><span class="fu"><a href="reference/cpaic_connectivity.html">cpaic_connectivity</a></span><span class="op">(</span><span class="va">net</span><span class="op">)</span>    <span class="co"># rank, null space, bridging components</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
-<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># install.packages("remotes")</span></span>
 <span><span class="fu">remotes</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"choxos/cpaic"</span><span class="op">)</span></span></code></pre></div>
-<p><code>cpaic</code> builds on <code>netmeta</code> (cNMA), <code>maicplus</code> (MAIC weights), and <code>multinma</code> (ML-NMR / numerical integration), all on CRAN.</p>
+<p><code>cpaic</code> builds on <code>netmeta</code> (cNMA), <code>maicplus</code> (MAIC weights), and <code>multinma</code> (ML-NMR and numerical integration), all on CRAN. <code><a href="reference/cmlnmr.html">cmlnmr()</a></code> additionally needs <code>cmdstanr</code>.</p>
 </div>
 <div class="section level2">
 <h2 id="quick-start">Quick start<a class="anchor" aria-label="anchor" href="#quick-start"></a>
 </h2>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/choxos/cpaic" class="external-link">cpaic</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># A disconnected network: sub-network {Placebo, A, B} and isolated</span></span>
@@ -95,30 +117,56 @@
 <span>                     family <span class="op">=</span> <span class="st">"binomial"</span>, ipd_covariates <span class="op">=</span> <span class="st">"x1"</span>,</span>
 <span>                     inactive <span class="op">=</span> <span class="st">"Placebo"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Is it bridgeable? (disconnected, but components make it identifiable)</span></span>
+<span><span class="co"># Which effects can this network actually identify?</span></span>
 <span><span class="fu"><a href="reference/cpaic_connectivity.html">cpaic_connectivity</a></span><span class="op">(</span><span class="va">net</span><span class="op">)</span></span>
+<span><span class="fu"><a href="reference/estimable_effects.html">estimable_effects</a></span><span class="op">(</span><span class="va">net</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># 1. Connect only (aggregate component NMA)</span></span>
 <span><span class="fu"><a href="reference/cnma_bridge.html">cnma_bridge</a></span><span class="op">(</span><span class="va">net</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># 2. Connect + population-adjust via anchored STC</span></span>
+<span><span class="co"># 2. Connect and population-adjust via anchored STC</span></span>
 <span><span class="fu"><a href="reference/cstc.html">cstc</a></span><span class="op">(</span><span class="va">net</span>, target <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>x1 <span class="op">=</span> <span class="fl">0</span><span class="op">)</span>, effect_modifiers <span class="op">=</span> <span class="st">"x1"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># 3. Connect + population-adjust via anchored MAIC</span></span>
+<span><span class="co"># 3. Connect and population-adjust via anchored MAIC</span></span>
 <span><span class="fu"><a href="reference/cmaic.html">cmaic</a></span><span class="op">(</span><span class="va">net</span>, target <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>x1 <span class="op">=</span> <span class="fl">0</span><span class="op">)</span>, effect_modifiers <span class="op">=</span> <span class="st">"x1"</span><span class="op">)</span></span></code></pre></div>
-<p><code><a href="reference/relative_effects.html">relative_effects()</a></code>, <code><a href="reference/league_table.html">league_table()</a></code>, <code><a href="reference/component_effects.html">component_effects()</a></code>, <code><a href="reference/additivity_test.html">additivity_test()</a></code>, <code><a href="reference/effective_sample_size.html">effective_sample_size()</a></code>, <code><a href="reference/forest.html">forest()</a></code> and <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> summarize and visualize a fit.</p>
+<p>For the Bayesian model, relative effects are <strong>population-specific</strong>: the model contains component by effect-modifier interactions, so <code>theta_t(x) = C_t' (beta + Gamma x)</code>. You must name the target population.</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/cmlnmr.html">cmlnmr</a></span><span class="op">(</span><span class="va">ipd</span>, <span class="va">agd</span>, effect_modifiers <span class="op">=</span> <span class="st">"x1"</span>, inactive <span class="op">=</span> <span class="st">"Placebo"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="reference/relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>x1 <span class="op">=</span> <span class="fl">0.3</span><span class="op">)</span><span class="op">)</span>   <span class="co"># effects at x1 = 0.3</span></span>
+<span><span class="fu"><a href="reference/component_effects.html">component_effects</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>x1 <span class="op">=</span> <span class="fl">0.3</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p><code><a href="reference/relative_effects.html">relative_effects()</a></code>, <code><a href="reference/league_table.html">league_table()</a></code>, <code><a href="reference/component_effects.html">component_effects()</a></code>, <code><a href="reference/estimable_effects.html">estimable_effects()</a></code>, <code><a href="reference/additivity_test.html">additivity_test()</a></code>, <code><a href="reference/effective_sample_size.html">effective_sample_size()</a></code>, <code><a href="reference/forest.html">forest()</a></code> and <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> summarize and visualize a fit.</p>
+</div>
+<div class="section level2">
+<h2 id="limitations">Limitations<a class="anchor" aria-label="anchor" href="#limitations"></a>
+</h2>
+<p>Read these before trusting a result.</p>
+<ul>
+<li>
+<strong>The bridging assumption is untestable.</strong> Reconnecting a disconnected network requires component effects (and, under population adjustment, component by effect-modifier interactions) to be <em>constant across sub-networks</em>. There is by construction no cross-gap evidence to test this against. <code><a href="reference/additivity_test.html">additivity_test()</a></code> reports the fit of the additive model <em>within</em> the observed evidence; a large p-value is not a licence to bridge.</li>
+<li>
+<strong>Only IPD edges are adjusted.</strong> <code><a href="reference/cmaic.html">cmaic()</a></code> and <code><a href="reference/cstc.html">cstc()</a></code> adjust the edges that have IPD; aggregate contrasts enter the bridge as published, in their own study populations. The pooled result is therefore fully adjusted to a single target only if the retained aggregate effects are themselves transportable.</li>
+<li>
+<strong>Estimands differ across the methods.</strong> <code><a href="reference/cstc.html">cstc()</a></code> returns a conditional effect at the target covariate values; <code><a href="reference/cmaic.html">cmaic()</a></code> returns a marginal weighted effect in the target population. On non-collapsible scales (odds ratios, hazard ratios) these differ even when both are correct.</li>
+<li>
+<strong>Survival is approximate.</strong> The aggregate survival likelihood approximates expected events by person-time times mean hazard, which is biased upward because higher-hazard individuals leave the risk set earlier. The <code>"mspline"</code> baseline is a step baseline whose interval heights are smoothed by an M-spline; it is <em>not</em> the continuous-time integrated M-spline likelihood of <code>multinma</code>. Right-censoring only.</li>
+<li>
+<strong><code><a href="reference/cmlnmr.html">cmlnmr()</a></code> is a common-effect model.</strong> No between-study heterogeneity.</li>
+</ul>
 </div>
 <div class="section level2">
 <h2 id="documentation">Documentation<a class="anchor" aria-label="anchor" href="#documentation"></a>
 </h2>
-<p>Technical documentation (mathematical foundations, methods manual, validation study) lives in the local <code>documentation/</code> folder. User-facing vignettes are installed with the package.</p>
+<p>Mathematical foundations, the methods manual, and the validation study live in the local <code>documentation/</code> folder. User-facing vignettes ship with the package.</p>
 </div>
 <div class="section level2">
 <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>
 </h2>
 <ul>
-<li>Rücker G, Petropoulou M, Schwarzer G (2020). Network meta-analysis of multicomponent interventions. <em>Biometrical Journal</em> 62(3):808–821.</li>
-<li>Phillippo DM, et al. (2020). Multilevel network meta-regression for population-adjusted treatment comparisons. <em>JRSS A</em> 183(3):1189–1210.</li>
+<li>Rücker G, Petropoulou M, Schwarzer G (2020). Network meta-analysis of multicomponent interventions. <em>Biometrical Journal</em> 62(3):808-821.</li>
+<li>Wigle A, Béliveau A (2022). Bayesian unanchored additive models for component network meta-analysis. <em>Statistics in Medicine</em> 41(22):4444-4466.</li>
+<li>Wigle A, Béliveau A, Nikolakopoulou A, Lin L (2026). Creating treatment and component hierarchies in component network meta-analysis.</li>
+<li>Efthimiou O, et al. (2022). A Bayesian model for combining aggregate and individual participant data in component network meta-analysis. <em>Statistics in Medicine</em> 41(14):2586-2606.</li>
+<li>Phillippo DM, et al. (2020). Multilevel network meta-regression for population-adjusted treatment comparisons. <em>JRSS A</em> 183(3):1189-1210.</li>
 </ul>
 </div>
 <div class="section level2">
@@ -168,7 +216,7 @@
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>

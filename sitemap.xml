@@ -1,6 +1,5 @@
 <urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
 <url><loc>https://choxos.github.io/cpaic/404.html</loc></url>
-<url><loc>https://choxos.github.io/cpaic/CLAUDE.html</loc></url>
 <url><loc>https://choxos.github.io/cpaic/LICENSE-text.html</loc></url>
 <url><loc>https://choxos.github.io/cpaic/articles/cpaic-intro.html</loc></url>
 <url><loc>https://choxos.github.io/cpaic/articles/cpaic-methods.html</loc></url>
@@ -20,6 +19,8 @@
 <url><loc>https://choxos.github.io/cpaic/reference/cpaic_network.html</loc></url>
 <url><loc>https://choxos.github.io/cpaic/reference/cstc.html</loc></url>
 <url><loc>https://choxos.github.io/cpaic/reference/effective_sample_size.html</loc></url>
+<url><loc>https://choxos.github.io/cpaic/reference/estimable_effects.html</loc></url>
+<url><loc>https://choxos.github.io/cpaic/reference/estimable_effects_at.html</loc></url>
 <url><loc>https://choxos.github.io/cpaic/reference/forest.html</loc></url>
 <url><loc>https://choxos.github.io/cpaic/reference/index.html</loc></url>
 <url><loc>https://choxos.github.io/cpaic/reference/league_table.html</loc></url>

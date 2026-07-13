@@ -87,6 +87,12 @@ relative_effects(fit)
 #>      A+B+D    Placebo    4.669 0.430 2.009 10.850 3.582 0.000
 #>          B    Placebo    1.492 0.256 0.903  2.466 1.560 0.119
 additivity_test(fit)
-#> Additivity (Cochran Q) test of the component model
-#>   Q = 2.669, df = 1, p = 0.102
+#> Additive component model: fit statistics
+#>   Total lack of fit (Q.additive): Q = 2.669, df = 1, p = 0.102
+#>   Additivity restrictions (Q.diff): not available -- no standard NMA
+#>     is estimable on a disconnected network.
+#>   Note: neither statistic tests whether component effects are constant
+#>   ACROSS sub-networks, which is the assumption that bridges the gap.
+#>   That assumption is untestable from the data and must be justified
+#>   clinically.
 ```

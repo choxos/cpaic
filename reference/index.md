@@ -9,13 +9,23 @@ Build a (possibly disconnected) component network and code components.
 - [`build_C_matrix()`](https://choxos.github.io/cpaic/reference/build_C_matrix.md)
   : Build a component-coded treatment-by-component matrix
 
-## Connectivity
+## Connectivity and estimability
 
-Detect disconnection and check component-bridge identifiability.
+Detect disconnection, and check which relative effects the component
+design can actually identify. Reconnecting a network does not guarantee
+that the effects you want are estimable, and both engines will otherwise
+return a confident-looking number for a contrast that carries no
+information.
 
 - [`cpaic_connectivity()`](https://choxos.github.io/cpaic/reference/cpaic_connectivity.md)
   : Assess connectivity and component-bridge identifiability of a
   network
+- [`estimable_effects()`](https://choxos.github.io/cpaic/reference/estimable_effects.md)
+  : Which relative effects of a component network are uniquely
+  estimable?
+- [`estimable_effects_at()`](https://choxos.github.io/cpaic/reference/estimable_effects_at.md)
+  : Which population-adjusted contrasts are estimable at a target
+  population?
 
 ## Connection layer
 
@@ -24,7 +34,7 @@ Reconnect a disconnected network through shared components.
 - [`cnma_bridge()`](https://choxos.github.io/cpaic/reference/cnma_bridge.md)
   : Reconnect a network through its additive component structure
 - [`additivity_test()`](https://choxos.github.io/cpaic/reference/additivity_test.md)
-  : Test the additivity assumption of the component model
+  : Fit statistics for the additive component model
 
 ## Population adjustment
 

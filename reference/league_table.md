@@ -5,7 +5,7 @@ League table of all pairwise relative effects
 ## Usage
 
 ``` r
-league_table(object, backtransf = TRUE, level = 0.95, digits = 2)
+league_table(object, backtransf = TRUE, level = 0.95, digits = 2, ...)
 ```
 
 ## Arguments
@@ -23,8 +23,15 @@ league_table(object, backtransf = TRUE, level = 0.95, digits = 2)
 
   Rounding for the printed cells.
 
+- ...:
+
+  Passed to
+  [`relative_effects()`](https://choxos.github.io/cpaic/reference/relative_effects.md)
+  (e.g. `newdata` for
+  [`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md)).
+
 ## Value
 
 A character matrix (treatments x treatments); cell `[i, j]` is the
 effect of the row treatment versus the column treatment with its
-confidence interval.
+confidence interval. Non-estimable cells are empty.

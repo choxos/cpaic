@@ -1,11 +1,12 @@
 # Component-additive multilevel network meta-regression (ML-NMR)
 
 The Bayesian flagship of cpaic. The relative effect of every treatment
-is the sum of its component effects (`theta = C beta`), estimated
-jointly from individual patient data (IPD) and aggregate data (AgD).
-Aggregate arms are fitted by integrating the individual-level model over
-each study's covariate distribution. Because disconnected sub-networks
-share component parameters, the network is connected by construction.
+is the sum of its component effects, estimated jointly from individual
+patient data (IPD) and aggregate data (AgD). Aggregate arms are fitted
+by integrating the individual-level model over each study's covariate
+distribution, averaging the outcome on its natural scale (not the link
+scale). Because disconnected sub-networks share component parameters,
+the network is connected by construction.
 
 ## Usage
 
@@ -17,6 +18,7 @@ cmlnmr(
   inactive = NULL,
   sep.comps = "+",
   family = "binomial",
+  margins = NULL,
   study = ".study",
   trt = ".trt",
   outcome = ".y",
@@ -52,7 +54,8 @@ cmlnmr(
 - agd:
 
   Aggregate data (one row per arm) with the per-study covariate
-  summaries `x_mean`, `x_sd` for each effect modifier `x`.
+  summaries `x_mean` (and `x_sd` for normal margins) for each effect
+  modifier `x`.
 
 - effect_modifiers:
 
@@ -62,10 +65,19 @@ cmlnmr(
 
   Component coding (see
   [`cpaic_network()`](https://choxos.github.io/cpaic/reference/cpaic_network.md)).
+  `inactive = NULL` gives the *unanchored* component parameterization,
+  in which every unit receives its own parameter (Wigle & Béliveau
+  2022).
 
 - family:
 
   One of `"binomial"`, `"gaussian"`, `"poisson"`, `"survival"`.
+
+- margins:
+
+  Optional named character vector giving the integration margin of each
+  effect modifier: `"normal"` or `"bernoulli"`. Defaults to Bernoulli
+  for 0/1 covariates and normal otherwise.
 
 - study, trt:
 
@@ -88,9 +100,9 @@ cmlnmr(
 
 - cut_points:
 
-  Survival only: interior interval boundaries for the
-  piecewise-exponential baseline. `NULL` (default) gives the exponential
-  model; e.g. `c(6, 12)` gives three intervals.
+  Survival only: interior interval boundaries for the piecewise-constant
+  baseline. `NULL` (default) gives the exponential model; e.g.
+  `c(6, 12)` gives three intervals.
 
 - interval:
 
@@ -99,8 +111,9 @@ cmlnmr(
 
 - baseline:
 
-  Survival baseline hazard: `"piecewise"` (default, step function) or
-  `"mspline"` (smooth M-spline over the `cut_points` grid).
+  Survival baseline hazard: `"piecewise"` (default, free step heights)
+  or `"mspline"` (step heights smoothed by an M-spline evaluated at
+  interval midpoints; see the Survival section).
 
 - n_basis:
 
@@ -110,8 +123,8 @@ cmlnmr(
 - cor:
 
   Optional covariate correlation matrix for the Gaussian-copula
-  integration. Defaults to the IPD correlation; pass a matrix to
-  override or the identity to integrate covariates independently.
+  integration. Must be a positive-definite correlation matrix (unit
+  diagonal). Defaults to the within-study IPD correlation.
 
 - n_int:
 
@@ -128,7 +141,7 @@ cmlnmr(
 
 - ...:
 
-  Reserved.
+  Passed to the `cmdstanr` sampler (e.g. `adapt_delta`).
 
 ## Value
 
@@ -137,39 +150,80 @@ design, and a tidy table of component effects.
 
 ## Details
 
+The model includes component x effect-modifier interactions `gamma`, so
+the treatment effect is **population-specific**: \$\$\theta_t(x) = C_t'
+(\beta + \Gamma x).\$\$ The component main effects `beta` are the
+effects at the covariate origin (`x = 0`) and are *not* by themselves a
+population-adjusted quantity. Use `newdata` in
+[`relative_effects()`](https://choxos.github.io/cpaic/reference/relative_effects.md)
+/
+[`component_effects()`](https://choxos.github.io/cpaic/reference/component_effects.md)
+to obtain effects in a named target population.
+
 Supported families: `"binomial"` (logit), `"gaussian"` (identity),
-`"poisson"` (log), and `"survival"`. Survival uses a
-proportional-hazards model with a flexible baseline:
-`baseline = "piecewise"` gives a piecewise-exponential step baseline
-(one level per interval defined by `cut_points`; exponential when
-`cut_points = NULL`), while `baseline = "mspline"` gives a smooth
-baseline hazard from a non-negative M-spline basis (`n_basis` functions,
-simplex weights) evaluated at the interval midpoints over the
-`cut_points` grid. Individual patient data are split at the cut points
-internally; aggregate survival data are supplied as events and
-person-time per arm and (when `cut_points` are given) per interval. The
-aggregate likelihood approximates the expected events in an arm-interval
-by person-time times the integrated hazard; this assumes the person-time
-is independent of the covariates within an interval (most accurate when
-the intervals are narrow), so it is approximate when effect modifiers
-also drive censoring.
+`"poisson"` (log), and `"survival"`.
 
-Aggregate covariates are integrated with a Gaussian copula: the
-correlation is estimated from the IPD (or supplied via `cor`) so the
-integration points respect the covariate correlation structure rather
-than treating the effect modifiers as independent.
+## Integration
 
-Identifiability note: a component whose effect-modifier interaction is
-informed only by aggregate arms is weakly identified, because main and
-interaction effects are constrained only through the integrated
-population-average outcome. Supply IPD for such components where
-possible; `prior_reg_sd` regularizes otherwise.
+Aggregate covariates are integrated with Sobol' quasi-Monte-Carlo points
+coupled by a Gaussian copula, whose correlation is pooled *within* IPD
+studies on the Fisher z scale (or supplied via `cor`). Each covariate is
+pushed through its own marginal inverse CDF: `margins` may be `"normal"`
+(using `x_mean` and `x_sd`) or `"bernoulli"` (using `x_mean` as the
+prevalence). Margins default to Bernoulli for covariates that are 0/1 in
+the IPD and normal otherwise; a normal margin on a binary covariate
+would integrate over a population that cannot occur.
+
+## Survival (approximations, read before use)
+
+Survival uses a proportional-hazards model with a piecewise-constant
+baseline log-hazard on the `cut_points` grid (`cut_points = NULL` gives
+the exponential model). With `baseline = "mspline"` the interval heights
+are *smoothed* by an M-spline basis evaluated at the interval midpoints.
+This is a piecewise-exponential model with a smoothed step baseline; it
+is **not** the continuous-time integrated M-spline survival likelihood
+of `multinma`, which uses both the M-spline hazard basis and its
+integrated (I-spline) cumulative hazard and supports left-,
+interval-censoring and delayed entry. cpaic handles right-censoring
+only.
+
+Aggregate survival data are supplied as events and person-time per arm
+and per interval, and the expected events are approximated by
+`person-time x mean hazard`. This is an approximation even without
+censoring, because higher-hazard individuals leave the risk set earlier,
+so the *baseline* covariate distribution does not describe the covariate
+distribution of the accumulated person-time. In a two-group example
+(hazards 0.1 and 0.4, 50:50, follow-up to t = 10) it overstates expected
+events by about 36%. Narrow intervals reduce the bias; supply IPD, or
+interval-specific risk-set covariate summaries, where accuracy matters.
+
+## Identifiability
+
+A relative effect is uniquely estimable only if its component contrast
+lies in the row space of the within-study component design (Wigle et al.
+2026);
+[`relative_effects()`](https://choxos.github.io/cpaic/reference/relative_effects.md)
+returns `NA` otherwise rather than a prior-driven number. Note this
+checks identification of `beta`; a component x effect-modifier
+interaction is additionally identified only by covariate variation on
+the contrasts that involve it, and interactions informed only by
+aggregate arms are weakly identified (`prior_reg_sd` regularizes).
+
+## References
+
+Phillippo DM, Dias S, Ades AE, et al. (2020). Multilevel network
+meta-regression for population-adjusted treatment comparisons. *JRSS A*,
+183(3), 1189–1210.
+
+Wigle A, Beliveau A, Nikolakopoulou A, Lin L (2026). Creating Treatment
+and Component Hierarchies in Component Network Meta-Analysis.
 
 ## See also
 
 [`cmaic()`](https://choxos.github.io/cpaic/reference/cmaic.md),
 [`cstc()`](https://choxos.github.io/cpaic/reference/cstc.md),
-[`cnma_bridge()`](https://choxos.github.io/cpaic/reference/cnma_bridge.md)
+[`cnma_bridge()`](https://choxos.github.io/cpaic/reference/cnma_bridge.md),
+[`estimable_effects()`](https://choxos.github.io/cpaic/reference/estimable_effects.md)
 
 ## Examples
 
@@ -184,7 +238,8 @@ agd <- data.frame(.study = "S2", .trt = c("Placebo", "A+B"),
                   x1_mean = c(0.2, 0.2), x1_sd = c(1, 1))
 fit <- cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "Placebo",
               chains = 2, iter_warmup = 200, iter_sampling = 200)
-component_effects(fit)
+# Effects in a named target population (x1 = 0.2), not at the origin:
+relative_effects(fit, newdata = data.frame(x1 = 0.2))
 # }
 }
 ```

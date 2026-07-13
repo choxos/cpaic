@@ -67,7 +67,8 @@ cpaic_connectivity(net)
 #>     [1] 3 treatments
 #>     [2] 3 treatments
 #>   Bridging components: A, B
-#>   Component identifiability: rank(X) = 4 / 4 components -> IDENTIFIABLE
+#>   Component design:  rank(X) = 4 / 4 components -> all component effects identified
+#>   Estimable effects: 5 / 5 vs Placebo
 ```
 
 When identifiable,

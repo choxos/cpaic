@@ -4,9 +4,9 @@ Fits the additive component network meta-analysis (cNMA) model of Rücker
 et al. (2020) to the aggregate contrast data, using
 [`netmeta::discomb()`](https://rdrr.io/pkg/netmeta/man/discomb.html).
 When the network is disconnected but its sub-networks share components,
-the additive model estimates all component effects and so reconstructs
-the (otherwise unavailable) relative effects *across* sub-networks. This
-is the "connect first" step; population adjustment is layered on by
+the additive model estimates component effects and so reconstructs
+relative effects *across* sub-networks. This is the "connect first"
+step; population adjustment is layered on by
 [`cmaic()`](https://choxos.github.io/cpaic/reference/cmaic.md) /
 [`cstc()`](https://choxos.github.io/cpaic/reference/cstc.md), which
 replace unadjusted contrasts with adjusted ones before calling this
@@ -42,10 +42,24 @@ An object of class `cpaic_bridge` wrapping the
 [`netmeta::discomb()`](https://rdrr.io/pkg/netmeta/man/discomb.html)
 fit, with tidied component and treatment effects.
 
+## Details
+
+Estimability is checked per contrast, not by a single global rank test:
+a relative effect is uniquely estimable if and only if its contrast
+vector lies in the row space of the component design matrix `X = B C`
+(Wigle et al. 2026). A rank-deficient network is therefore *not*
+rejected outright; the contrasts that remain estimable are still
+reported, and those that are not are returned as `NA` rather than as
+pseudoinverse artefacts. See
+[`estimable_effects()`](https://choxos.github.io/cpaic/reference/estimable_effects.md).
+
 ## References
 
 Rücker G, Petropoulou M, Schwarzer G (2020). Network meta-analysis of
 multicomponent interventions. *Biometrical Journal*, 62(3), 808–821.
+
+Wigle A, Beliveau A, Nikolakopoulou A, Lin L (2026). Creating Treatment
+and Component Hierarchies in Component Network Meta-Analysis.
 
 ## Examples
 

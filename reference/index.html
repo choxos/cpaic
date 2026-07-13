@@ -59,9 +59,9 @@
         </dt>
         <dd>Build a component-coded treatment-by-component matrix</dd>
       </dl></div><div class="section level2">
-      <h2 id="connectivity">Connectivity<a class="anchor" aria-label="anchor" href="#connectivity"></a></h2>
+      <h2 id="connectivity-and-estimability">Connectivity and estimability<a class="anchor" aria-label="anchor" href="#connectivity-and-estimability"></a></h2>
 
-      <div class="section-desc"><p>Detect disconnection and check component-bridge identifiability.</p></div>
+      <div class="section-desc"><p>Detect disconnection, and check which relative effects the component design can actually identify. Reconnecting a network does not guarantee that the effects you want are estimable, and both engines will otherwise return a confident-looking number for a contrast that carries no information.</p></div>
 
       <dl></dl></div><div class="section level2">
 
@@ -74,6 +74,20 @@
 
         </dt>
         <dd>Assess connectivity and component-bridge identifiability of a network</dd>
+
+        <dt>
+
+          <code><a href="estimable_effects.html">estimable_effects()</a></code>
+
+        </dt>
+        <dd>Which relative effects of a component network are uniquely estimable?</dd>
+
+        <dt>
+
+          <code><a href="estimable_effects_at.html">estimable_effects_at()</a></code>
+
+        </dt>
+        <dd>Which population-adjusted contrasts are estimable at a target population?</dd>
       </dl></div><div class="section level2">
       <h2 id="connection-layer">Connection layer<a class="anchor" aria-label="anchor" href="#connection-layer"></a></h2>
 
@@ -96,7 +110,7 @@
           <code><a href="additivity_test.html">additivity_test()</a></code>
 
         </dt>
-        <dd>Test the additivity assumption of the component model</dd>
+        <dd>Fit statistics for the additive component model</dd>
       </dl></div><div class="section level2">
       <h2 id="population-adjustment">Population adjustment<a class="anchor" aria-label="anchor" href="#population-adjustment"></a></h2>
 
@@ -211,7 +225,7 @@
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer></div>
