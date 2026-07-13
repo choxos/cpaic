@@ -134,3 +134,33 @@ test_that("multi-arm IPD contributes its full contrast span", {
   # A vs B is estimable even though neither is the study's reference arm.
   expect_true(est_at(D, C3["A", ] - C3["B", ], 1.5))
 })
+
+test_that("arm-confounded covariates do not count as variation", {
+  # Codex counterexample. The control arm has x1 in {0, 1}; the treated arm has
+  # x1 == 5. The POOLED sample looks like x1 varies, but arm is perfectly
+  # confounded with the covariate, so the only identified functional is
+  # m'(beta + 5 Gamma). Pooling the arms would wrongly claim full transport.
+  Cc <- build_C_matrix(c("Placebo", "A"), inactive = "Placebo")
+  ipd <- data.frame(
+    .study = "S1",
+    .trt = c(rep("Placebo", 40), rep("A", 40)),
+    x1 = c(rep(c(0, 1), 20), rep(5, 40)))
+  D <- cpaic:::.cpaic_joint_design(Cc, ipd, NULL, "x1")
+  m <- Cc["A", ] - Cc["Placebo", ]
+
+  expect_true(est_at(D, m, 5))     # only where both arms overlap
+  expect_false(est_at(D, m, 0))
+  expect_false(est_at(D, m, 1))
+})
+
+test_that("a randomized trial is unaffected (arms share a covariate law)", {
+  # Sanity: when both arms have the same covariate distribution, the arm-support
+  # intersection equals the pooled row space and full transport is retained.
+  Cc <- build_C_matrix(c("Placebo", "A"), inactive = "Placebo")
+  set.seed(9)
+  ipd <- data.frame(.study = "S1", .trt = rep(c("Placebo", "A"), each = 60),
+                    x1 = rnorm(120))
+  D <- cpaic:::.cpaic_joint_design(Cc, ipd, NULL, "x1")
+  m <- Cc["A", ] - Cc["Placebo", ]
+  for (x in c(-2, 0, 1, 3)) expect_true(est_at(D, m, x))
+})

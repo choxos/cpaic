@@ -43,11 +43,33 @@
 #     than at the raw mean xbar_s. The screen has the right rank structure (a
 #     two-arm aggregate study supplies exactly one functional per contrast
 #     direction, which cannot separate the 1 + Q unknowns), so it finds the
-#     under-determined contrasts correctly; but the anchor point is shifted. Do
-#     not read a failure as "weakly identified through curvature": the
+#     under-determined contrasts correctly; but the anchor point is shifted.
+#
+#     Concretely, an aggregate study need not identify its own-population contrast
+#     under a nonlinear link. With a log link, one aggregate study, and a symmetric
+#     covariate P(x = -1) = P(x = +1) = 1/2 (so xbar = 0), the arm means are
+#     exp(mu) and exp(mu + beta) cosh(gamma), so the data identify only
+#     beta + log cosh(gamma), NOT beta = m'(beta + Gamma xbar). Do not read a
+#     failure of the screen as "weakly identified through curvature" either: the
 #     nonlinearity generally identifies other, NONLINEAR functionals of phi (such
 #     as the marginal natural-scale effect), not the conditional link-scale
 #     contrast m'(beta + Gamma x).
+#
+#   ESTIMAND. m'(beta + Gamma x) is the CONDITIONAL contrast on the linear
+#     predictor scale, evaluated at covariate value x. It is not the marginal
+#     effect obtained by integrating natural-scale outcomes over the target
+#     population; on a non-collapsible scale those differ. ML-NMR distinguishes
+#     them (Phillippo et al. 2020) and so must any statement built on this
+#     criterion, including the hierarchies in R/ranks.R.
+#
+#   ECOLOGICAL vs WITHIN-STUDY INTERACTION. Writing an effect as
+#     alpha + gamma_W (x - xbar_s) + gamma_B xbar_s, aggregate contrasts depend
+#     only on alpha + gamma_B xbar_s: they carry NO information about the
+#     within-study interaction gamma_W, and the model silently imposes
+#     gamma_W = gamma_B. Randomization identifies each study's effect but does not
+#     randomize covariate means ACROSS studies, so a between-study gradient is
+#     confounded in a way a within-study slope is not (Berlin et al. 2002;
+#     Freeman et al. 2018). `identified_by` therefore separates the two.
 #   An observed aggregate contrast is always estimable in its own population
 #     (take x = xbar_s in (*)).
 #   A two-arm IPD study in which every effect modifier varies identifies its own
@@ -59,6 +81,63 @@
 #' @noRd
 .cpaic_target_vec <- function(m, x) {
   as.numeric(kronecker(matrix(c(1, x), nrow = 1L), matrix(m, nrow = 1L)))
+}
+
+#' Orthonormal basis (columns) of the row space of a matrix
+#'
+#' For an n x p matrix this returns a basis of the space spanned by its ROWS,
+#' living in R^p. (The column space would live in R^n, which is the wrong space
+#' for a covariate-direction argument.)
+#' @noRd
+.cpaic_row_space <- function(X, tol = 1e-8) {
+  X <- as.matrix(X)
+  if (!nrow(X) || !ncol(X)) return(matrix(0, ncol(X), 0L))
+  s <- svd(X, nu = 0L, nv = ncol(X))
+  keep <- s$d > tol * max(1, max(s$d))
+  if (!any(keep)) return(matrix(0, ncol(X), 0L))
+  s$v[, keep, drop = FALSE]
+}
+
+#' Orthonormal basis of the intersection of two subspaces
+#'
+#' `B1`, `B2` have orthonormal columns spanning subspaces of the same R^p.
+#' A vector lies in both iff it is `B1 c1 = B2 c2`, i.e. `(c1, c2)` is in the
+#' null space of `[B1, -B2]`.
+#' @noRd
+.cpaic_subspace_intersect <- function(B1, B2, tol = 1e-8) {
+  p <- nrow(B1)
+  if (!ncol(B1) || !ncol(B2)) return(matrix(0, p, 0L))
+  N <- .cpaic_null_space(cbind(B1, -B2), tol = tol)
+  if (!ncol(N)) return(matrix(0, p, 0L))
+  V <- B1 %*% N[seq_len(ncol(B1)), , drop = FALSE]
+  s <- svd(V, nv = 0L)
+  keep <- s$d > tol * max(1, max(s$d))
+  if (!any(keep)) return(matrix(0, p, 0L))
+  s$u[, keep, drop = FALSE]
+}
+
+#' Which functionals w'(m'beta, m'Gamma_1, ..., m'Gamma_Q) does an IPD arm
+#' contrast identify?
+#'
+#' The linear predictor carries an arm-COMMON nuisance surface (the study
+#' intercept and the prognostic effects), which cancels from an arm contrast
+#' evaluated at the same covariate value. What survives is that the contrast is
+#' pinned down only on the augmented covariate directions that BOTH arms
+#' actually support. Pooling the two arms' covariates would overstate this:
+#' if the control arm has x in {0, 1} but the treated arm has x == 5 (perfect
+#' confounding of arm with covariate), the pooled sample looks like it varies,
+#' yet the only identified functional is m'(beta + 5 Gamma).
+#'
+#' The identified set is therefore `row(U_ref)` intersect `row(U_arm)`, where
+#' `U_a` stacks the augmented rows `(1, x_i)` of arm `a`. In a randomized trial
+#' the two arms share a covariate distribution and this equals the pooled row
+#' space, so nothing is lost in the usual case.
+#' @noRd
+.cpaic_arm_directions <- function(Xref, Xarm, tol = 1e-8) {
+  aug <- function(X) cbind(1, as.matrix(X))
+  B1 <- .cpaic_row_space(aug(Xref), tol = tol)
+  B2 <- .cpaic_row_space(aug(Xarm), tol = tol)
+  .cpaic_subspace_intersect(B1, B2, tol = tol)
 }
 
 #' First-order information design for (beta, vec(Gamma))
@@ -83,43 +162,56 @@
     sweep(Cs[-1L, , drop = FALSE], 2, Cs[1L, ], "-")
   }
 
-  # --- IPD studies: arm main effect + arm-by-covariate slopes ----------------
+  # --- IPD studies ------------------------------------------------------------
+  # An arm contrast cancels the arm-common nuisance surface (the study intercept
+  # and the prognostic effects) only when evaluated at the same covariate value.
+  # So an arm contrast identifies w'(m'beta, m'Gamma_1, ..., m'Gamma_Q) exactly
+  # for the augmented covariate directions w that BOTH arms support:
+  #
+  #     w in row(U_ref) intersect row(U_arm),   U_a = rows (1, x_i) of arm a.
+  #
+  # Two things follow, and both matter.
+  #
+  #   * The anchor is the study's own covariate support, never the global origin.
+  #     A modifier held constant within a trial (a single-sex trial, say) gives
+  #     w = (1, 5): the trial identifies m'(beta + 5 Gamma) and can never
+  #     separate m'beta from m'Gamma. Anchoring at the origin would call x = 0
+  #     estimable (it is not) and deny x = 5 (which is), i.e. exactly backwards.
+  #
+  #   * Pooling the arms would overstate identification. If the control arm has
+  #     x in {0, 1} but the treated arm has x == 5, the pooled sample appears to
+  #     vary, yet arm is perfectly confounded with the covariate and only
+  #     m'(beta + 5 Gamma) is identified. In a randomized trial the arms share a
+  #     covariate distribution, the intersection equals the pooled row space, and
+  #     nothing is lost.
+  #
+  # For a multi-arm study this takes each non-reference arm against the reference
+  # arm. That is conservative relative to the exact multi-arm set (which allows
+  # constrained combinations across arms), so it can only return NA more often,
+  # never less.
   if (!is.null(ipd) && nrow(ipd)) {
     for (ss in unique(as.character(ipd[[study]]))) {
       sub <- ipd[as.character(ipd[[study]]) == ss, , drop = FALSE]
-      ts <- unique(as.character(sub[[trt]]))
-      if (length(ts) < 2L) next
-      M <- contrasts_of(ts)                       # (n_arms - 1) x K
-
-      # The LEVEL row must be anchored at this study's OWN covariate mean, not at
-      # the global covariate origin. If a modifier is held constant within the
-      # trial (a single-sex trial, say), the trial identifies the arm effect only
-      # AT that value: with x == 5 one learns m'(beta + 5 Gamma) and can never
-      # separate m'beta from m'Gamma. Anchoring at the origin would call x = 0
-      # estimable (it is not) and x = 5 not estimable (it is), i.e. exactly
-      # backwards. When every modifier varies, the level and slope rows together
-      # span the full block I_{1+Q} %x% m, so nothing is lost.
-      xbar <- rep(0, Q)
-      A <- matrix(numeric(0), nrow = 0L, ncol = Q)
-      if (Q) {
-        Xs <- as.matrix(sub[, effect_modifiers, drop = FALSE])
-        xbar <- colMeans(Xs)
-        Xc <- sweep(Xs, 2, xbar, "-")
-        sv <- svd(Xc, nu = 0L, nv = Q)
-        keep <- sv$d > tol * max(1, max(sv$d))
-        if (any(keep)) A <- t(sv$v[, keep, drop = FALSE])   # r x Q basis
+      arms <- unique(as.character(sub[[trt]]))
+      if (length(arms) < 2L) next
+      M <- contrasts_of(arms)                       # (n_arms - 1) x K
+      xof <- function(a) {
+        as.matrix(sub[as.character(sub[[trt]]) == a, effect_modifiers,
+                      drop = FALSE])
       }
+      Xref <- xof(arms[1L])
 
       for (r in seq_len(nrow(M))) {
         m <- M[r, ]
-        # level, anchored at this study's own covariate mean
-        rows[[length(rows) + 1L]] <- .cpaic_target_vec(m, xbar)
-        # slopes: (0, a) %x% m for each direction that actually varies
-        for (j in seq_len(nrow(A))) {
-          a <- A[j, ]
+        W <- if (Q) {
+          .cpaic_arm_directions(Xref, xof(arms[r + 1L]), tol = tol)
+        } else {
+          matrix(1, 1L, 1L)                          # Q = 0: only the level
+        }
+        for (j in seq_len(ncol(W))) {
+          w <- W[, j]
           rows[[length(rows) + 1L]] <-
-            as.numeric(kronecker(matrix(c(0, a), nrow = 1L),
-                                 matrix(m, nrow = 1L)))
+            as.numeric(kronecker(matrix(w, nrow = 1L), matrix(m, nrow = 1L)))
         }
       }
     }
