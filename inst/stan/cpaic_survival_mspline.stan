@@ -98,6 +98,7 @@ data {
 
   int<lower=0, upper=1> prior_only;
   real<lower=0> prior_intercept_sd;
+  real<lower=0> prior_aux_sd;
   real<lower=0> prior_beta_sd;
   real<lower=0> prior_reg_sd;
   int<lower=1, upper=2> prior_gamma_dist;
@@ -110,12 +111,20 @@ data {
 
 parameters {
   // The fixed-effects coefficients are sampled on the QR scale. The baseline
-  // hazard simplexes and the random effects stay outside the QR block. One
-  // simplex per study gives each study its own baseline hazard shape; the
-  // simplex constraint fixes the scale, so the level is carried by that study's
-  // intercept and the two are separately identified.
+  // hazards and the random effects stay outside the QR block.
   vector[nX] beta_tilde;
-  array[N_studies] simplex[N_base] coefficients;
+
+  // Each study gets its own baseline hazard SHAPE, through a non-centered
+  // first-order random walk on the log spline coefficients with a shared
+  // smoothing scale. This is the prior multinma uses, and it is not a
+  // refinement: a flat Dirichlet on a per-study simplex leaves the shape weakly
+  // identified in a small study, and the sampler crawls. The random walk ties
+  // neighboring basis coefficients together and shrinks each study's baseline
+  // toward a constant hazard as bsmooth goes to zero, while the shared scale
+  // lets the studies borrow strength from one another.
+  array[N_studies] vector[N_base - 1] bshape_raw;
+  real<lower=0> bsmooth;
+
   vector[RE ? N_delta : 0] delta_aux;
   vector<lower=0>[RE] tau;
 }
@@ -126,6 +135,7 @@ transformed parameters {
   vector[C] beta;
   vector[P] breg;
   matrix[C, Q] gamma;
+  array[N_studies] simplex[N_base] coefficients;
   vector[RE ? N_delta : 0] delta;
   vector[N_ipd] eta_ipd;
   vector[N_ipd] log_L_ipd;
@@ -144,6 +154,13 @@ transformed parameters {
   gamma = to_matrix(
     segment(allbeta, N_studies + C + P + 1, C * Q), C, Q
   );
+
+  for (s in 1:N_studies) {
+    vector[N_base] lsc;
+    lsc[1] = 0;
+    lsc[2:N_base] = cumulative_sum(bshape_raw[s]) * bsmooth;
+    coefficients[s] = softmax(lsc);
+  }
 
   delta = delta_aux;
   if (RE) {
@@ -196,9 +213,8 @@ model {
   // Priors remain on allbeta. The QR map is linear with a constant Jacobian,
   // so no Jacobian adjustment can change the posterior distribution.
   mu ~ normal(0, prior_intercept_sd);
-  for (s in 1:N_studies) {
-    coefficients[s] ~ dirichlet(rep_vector(1.0, N_base));
-  }
+  for (s in 1:N_studies) bshape_raw[s] ~ std_normal();
+  bsmooth ~ normal(0, prior_aux_sd);   // half-normal: <lower=0> is declared
   beta ~ normal(0, prior_beta_sd);
   breg ~ normal(0, prior_reg_sd);
   if (prior_gamma_dist == 1) {

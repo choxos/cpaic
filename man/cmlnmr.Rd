@@ -33,6 +33,7 @@ cmlnmr(
   trt_effects = c("fixed", "random"),
   re_parameterization = c("noncentered", "centered"),
   prior_intercept_sd = 2.5,
+  prior_aux_sd = 1,
   prior_beta_sd = 2.5,
   prior_reg_sd = 1,
   prior_gamma_dist = c("normal", "student_t"),
@@ -130,6 +131,14 @@ sampling diagnostics.}
 
 \item{prior_intercept_sd, prior_beta_sd, prior_reg_sd}{Standard deviations for
 study-intercept, component-effect, and prognostic-regression normal priors.}
+
+\item{prior_aux_sd}{Scale of the half-normal prior on the baseline-hazard
+smoothing parameter (survival families only). Each study has its own
+baseline hazard, given a first-order random-walk prior on the log spline
+coefficients with this shared smoothing scale, as in \code{multinma}. Smaller
+values shrink every study's baseline toward a constant hazard. The default
+of 1 follows the Stan recommendation of a half-normal(0, 1) prior for a
+hierarchical scale.}
 
 \item{prior_gamma_dist, prior_gamma_scale, prior_gamma_df}{Distribution, scale,
 and degrees of freedom for interaction priors. The Student t option uses

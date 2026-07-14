@@ -98,6 +98,7 @@ data {
 
   int<lower=0, upper=1> prior_only;
   real<lower=0> prior_intercept_sd;
+  real<lower=0> prior_aux_sd;
   real<lower=0> prior_beta_sd;
   real<lower=0> prior_reg_sd;
   int<lower=1, upper=2> prior_gamma_dist;
@@ -110,10 +111,14 @@ data {
 
 parameters {
   vector[nX] beta_tilde;
-  // One set of step heights per study. The first interval is pinned to zero on
-  // the log scale, so each study's step function is expressed relative to its
-  // own first interval and the level is carried by that study's intercept.
-  matrix[N_studies, N_base - 1] bshape_raw;
+  // One baseline per study, as a non-centered first-order random walk on the
+  // log step heights with a shared smoothing scale (the prior multinma uses).
+  // The first interval is pinned to zero on the log scale, so each study's step
+  // function is relative to its own first interval and the level is carried by
+  // that study's intercept. Without the random walk the step heights of a small
+  // study are weakly identified and the sampler crawls.
+  array[N_studies] vector[N_base - 1] bshape_raw;
+  real<lower=0> bsmooth;
   vector[RE ? N_delta : 0] delta_aux;
   vector<lower=0>[RE] tau;
 }
@@ -141,8 +146,10 @@ transformed parameters {
   );
 
   for (s in 1:N_studies) {
-    coefficients[s] =
-      exp(append_row(rep_vector(0, 1), to_vector(bshape_raw[s])));
+    vector[N_base] lsc;
+    lsc[1] = 0;
+    lsc[2:N_base] = cumulative_sum(bshape_raw[s]) * bsmooth;
+    coefficients[s] = exp(lsc);
   }
   delta = delta_aux;
   if (RE) {
@@ -195,7 +202,8 @@ model {
   // Priors remain on allbeta. The QR map is linear with a constant Jacobian,
   // so no Jacobian adjustment can change the posterior distribution.
   mu ~ normal(0, prior_intercept_sd);
-  to_vector(bshape_raw) ~ normal(0, prior_intercept_sd);
+  for (s in 1:N_studies) bshape_raw[s] ~ std_normal();
+  bsmooth ~ normal(0, prior_aux_sd);   // half-normal: <lower=0> is declared
   beta ~ normal(0, prior_beta_sd);
   breg ~ normal(0, prior_reg_sd);
   if (prior_gamma_dist == 1) {

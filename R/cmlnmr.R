@@ -255,6 +255,13 @@
 #'   intercepts and the spread of the integration points keep the conditioning
 #'   mild. Check `Z_cond` on the fit, and reach for `QR = TRUE` only when it is
 #'   large.
+#' @param prior_aux_sd Scale of the half-normal prior on the baseline-hazard
+#'   smoothing parameter (survival families only). Each study has its own
+#'   baseline hazard, given a first-order random-walk prior on the log spline
+#'   coefficients with this shared smoothing scale, as in `multinma`. Smaller
+#'   values shrink every study's baseline toward a constant hazard. The default
+#'   of 1 follows the Stan recommendation of a half-normal(0, 1) prior for a
+#'   hierarchical scale.
 #' @param trt_effects Treatment-effect model: `"fixed"` or `"random"`.
 #' @param re_parameterization Random-effects parameterization. The default
 #'   `"noncentered"` should be used for inference; `"centered"` is provided for
@@ -308,7 +315,8 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
                    cor = NULL, n_int = 64L, QR = FALSE,
                    trt_effects = c("fixed", "random"),
                    re_parameterization = c("noncentered", "centered"),
-                   prior_intercept_sd = 2.5, prior_beta_sd = 2.5,
+                   prior_intercept_sd = 2.5, prior_aux_sd = 1,
+                   prior_beta_sd = 2.5,
                    prior_reg_sd = 1,
                    prior_gamma_dist = c("normal", "student_t"),
                    prior_gamma_scale = 1, prior_gamma_df = 4,
@@ -342,6 +350,7 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
   }
   prior_values <- c(
     prior_intercept_sd = prior_intercept_sd,
+    prior_aux_sd = prior_aux_sd,
     prior_beta_sd = prior_beta_sd,
     prior_reg_sd = prior_reg_sd,
     prior_gamma_scale = prior_gamma_scale,
@@ -664,7 +673,7 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
     re_idx_ipd = re$re_idx_ipd, re_idx_agd = re$re_idx_agd,
     prior_only = as.integer(prior_predictive),
     prior_intercept_sd = prior_intercept_sd, prior_beta_sd = prior_beta_sd,
-    prior_reg_sd = prior_reg_sd,
+    prior_aux_sd = prior_aux_sd, prior_reg_sd = prior_reg_sd,
     prior_gamma_dist = match(prior_gamma_dist, c("normal", "student_t")),
     prior_gamma_scale = prior_gamma_scale, prior_gamma_df = prior_gamma_df,
     prior_tau_dist = match(prior_tau_dist,
@@ -758,6 +767,7 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
     cor = cor, n_int = n_int, QR = QR, trt_effects = trt_effects,
     re_parameterization = re_parameterization,
     prior_intercept_sd = prior_intercept_sd,
+    prior_aux_sd = prior_aux_sd,
     prior_beta_sd = prior_beta_sd, prior_reg_sd = prior_reg_sd,
     prior_gamma_dist = prior_gamma_dist,
     prior_gamma_scale = prior_gamma_scale, prior_gamma_df = prior_gamma_df,
