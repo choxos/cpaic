@@ -106,11 +106,41 @@ test_that("forest() SHOWS non-estimable contrasts rather than dropping them", {
   expect_null(p2$labels$caption)
 })
 
+test_that("forest() facets an all-contrasts table by comparator", {
+  skip_if_no_ggplot()
+  br <- cnma_bridge(bin_net(ipd = FALSE))
+  re <- relative_effects(br, all_contrasts = TRUE)
+  expect_gt(length(unique(re$comparator)), 1L)
+  p <- forest(re)
+  expect_ggplot(p)
+  expect_s3_class(p$facet, "FacetWrap")
+  # Faceted rows are labelled by treatment; the comparator is the panel.
+  expect_setequal(levels(p$data$.label), unique(re$treatment))
+})
+
 test_that("forest() rejects a bad ref_line", {
   skip_if_no_ggplot()
   br <- cnma_bridge(bin_net(ipd = FALSE))
   expect_error(forest(br, ref_line = c(0, 1)), "single number")
   expect_error(forest(br, ref_line = "zero"), "single number")
+  # 0 is not the null value of an odds ratio, and a log axis cannot show it.
+  expect_error(forest(br, ref_line = 0), "must be\\s+positive")
+  expect_ggplot(forest(br, ref_line = 0, backtransf = FALSE))
+})
+
+test_that("forest() draws ratio measures on a log axis", {
+  skip_if_no_ggplot()
+  br <- cnma_bridge(bin_net(ipd = FALSE))
+  # OR is back-transformed, so the x scale is log10 ...
+  expect_true(any(vapply(forest(br)$scales$scales,
+                         function(s) identical(s$trans$name, "log-10") ||
+                           identical(s$transform$name, "log-10"),
+                         logical(1))))
+  # ... but the link scale is linear.
+  expect_false(any(vapply(forest(br, backtransf = FALSE)$scales$scales,
+                          function(s) identical(s$trans$name, "log-10") ||
+                            identical(s$transform$name, "log-10"),
+                          logical(1))))
 })
 
 # Edge influence -----------------------------------------------------------------

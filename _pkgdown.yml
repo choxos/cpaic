@@ -73,6 +73,8 @@ reference:
 - title: Bayesian diagnostics
   contents:
   - dic
+  - loo.cpaic_mlnmr
+  - waic.cpaic_mlnmr
   - prior_sensitivity
   - prior_predictive_check
 - title: Data

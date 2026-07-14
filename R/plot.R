@@ -16,10 +16,10 @@
 # used inside aes() are declared here so R CMD check sees them bound.
 utils::globalVariables(c(
   ".angle", ".label", ".nx", ".ny", ".x", ".xend", ".y", ".yend",
-  "bridges", "contrast", "deviance_x", "deviance_y", "edge_type", "element",
-  "estimate", "identified_by", "influence", "leverage", "lower", "n_int",
-  "n_studies", "probability", "rank_position", "ssrd", "subnetwork", "surv",
-  "target", "time", "type", "upper", "value", "zero_influence"
+  "bridges", "comparator", "contrast", "deviance_x", "deviance_y", "edge_type",
+  "element", "estimate", "identified_by", "influence", "leverage", "lower",
+  "n_int", "n_studies", "probability", "rank_position", "ssrd", "subnetwork",
+  "surv", "target", "time", "type", "upper", "value", "zero_influence"
 ))
 
 #' Is ggplot2 available?
@@ -268,6 +268,11 @@ plot.cpaic_network <- function(x, ..., weight_edges = TRUE,
 #' reader with a plot that looks complete when it is not; see
 #' [estimable_effects()] and [estimable_effects_at()].
 #'
+#' A table with several comparators (from `relative_effects(all_contrasts =
+#' TRUE)`) is faceted, one panel per comparator. Ratio measures are drawn on a
+#' log axis, on which they are symmetric. Pass `level` through `...` to change
+#' the interval width.
+#'
 #' @param x A `cpaic_effects` data frame (from [relative_effects()]), a fitted
 #'   cpaic object (`cpaic_bridge`, `cpaic_maic`, `cpaic_stc`, `cpaic_mlnmr`),
 #'   or a component-effect data frame from [component_effects()].
@@ -280,7 +285,7 @@ plot.cpaic_network <- function(x, ..., weight_edges = TRUE,
 #' @param ref_line Position of the vertical reference line. Defaults to the null
 #'   value of the summary measure (`1` on a back-transformed ratio scale, `0`
 #'   otherwise); `NA` draws none.
-#' @param fatten Relative size of the point estimate marker. Default `2`.
+#' @param point_size Size of the point-estimate marker. Default `1.2`.
 #' @param show_na Show non-estimable contrasts as labelled empty rows? Default
 #'   `TRUE`. Setting this to `FALSE` hides evidence that the network cannot
 #'   answer part of your question, so leave it on unless you have a reason.
@@ -295,7 +300,7 @@ plot.cpaic_network <- function(x, ..., weight_edges = TRUE,
 #' @export
 forest <- function(x, ..., what = c("relative", "component"),
                    order = c("estimate", "alphabetical", "none"),
-                   ref_line = NULL, fatten = 2, show_na = TRUE) {
+                   ref_line = NULL, point_size = 1.2, show_na = TRUE) {
   .cpaic_need_ggplot("forest()")
   what <- match.arg(what)
   order <- match.arg(order)
@@ -322,13 +327,21 @@ forest <- function(x, ..., what = c("relative", "component"),
   backtransf <- what == "relative" && isTRUE(attr(tab, "backtransf"))
   tab <- as.data.frame(tab)
 
+  # With several comparators (an all-contrasts table) one facet per comparator
+  # is far easier to read than one long list of "t vs u" labels.
+  facet <- FALSE
   if (what == "component") {
     tab$.label <- as.character(tab$component)
     if (is.null(sm) && inherits(x, "cpaic_fit")) sm <- x$sm
     ylab <- "Component"
   } else {
-    tab$.label <- paste0(tab$treatment, " vs ", tab$comparator)
-    ylab <- "Contrast"
+    facet <- length(unique(tab$comparator)) > 1L
+    tab$.label <- if (facet) {
+      as.character(tab$treatment)
+    } else {
+      paste0(tab$treatment, " vs ", tab$comparator)
+    }
+    ylab <- if (facet) "Treatment" else "Contrast"
   }
 
   tab$estimable <- is.finite(tab$estimate) & is.finite(tab$lower) &
@@ -345,6 +358,12 @@ forest <- function(x, ..., what = c("relative", "component"),
          call. = FALSE)
   }
   ref_line <- as.numeric(ref_line)
+  if (backtransf && is.finite(ref_line) && ref_line <= 0) {
+    stop("A ratio measure is drawn on a log axis, so `ref_line` must be ",
+         "positive; its null value is 1. For a line at 0 use ",
+         "`backtransf = FALSE` and read the effect on the link scale.",
+         call. = FALSE)
+  }
 
   ord <- switch(
     order,
@@ -360,13 +379,21 @@ forest <- function(x, ..., what = c("relative", "component"),
   ok <- tab[tab$estimable, , drop = FALSE]
   bad <- tab[!tab$estimable, , drop = FALSE]
 
-  xr <- range(c(ok$lower, ok$upper, ref_line), na.rm = TRUE)
-  if (!all(is.finite(xr))) xr <- if (backtransf) c(0.5, 2) else c(-1, 1)
-  if (diff(xr) == 0) xr <- xr + c(-0.5, 0.5) * max(abs(xr), 1)
-  # Park the "not estimable" labels in the middle of the plotted range.
-  if (nrow(bad)) {
-    bad$estimate <- if (backtransf) exp(mean(log(xr))) else mean(xr)
+  # Park the "not estimable" labels in the middle of the plotted range. On a log
+  # axis only positive values exist, so build the range from those alone.
+  if (backtransf) {
+    pos <- c(ok$lower, ok$upper, ref_line)
+    pos <- pos[is.finite(pos) & pos > 0]
+    xr <- if (length(pos)) range(pos) else c(0.5, 2)
+    if (diff(xr) == 0) xr <- xr * c(0.5, 2)
+    mid <- exp(mean(log(xr)))
+  } else {
+    xr <- range(c(ok$lower, ok$upper, ref_line), na.rm = TRUE)
+    if (!all(is.finite(xr))) xr <- c(-1, 1)
+    if (diff(xr) == 0) xr <- xr + c(-0.5, 0.5) * max(abs(xr), 1)
+    mid <- mean(xr)
   }
+  if (nrow(bad)) bad$estimate <- mid
 
   # The full table is the plot's default data, so a caller can add layers with
   # ggplot2::aes() and see the non-estimable rows too.
@@ -378,7 +405,7 @@ forest <- function(x, ..., what = c("relative", "component"),
   }
   if (nrow(ok)) {
     p <- p + ggplot2::geom_pointrange(
-      data = ok, orientation = "y", fatten = fatten)
+      data = ok, orientation = "y", size = point_size)
   }
   if (nrow(bad)) {
     p <- p + ggplot2::geom_text(
@@ -388,9 +415,13 @@ forest <- function(x, ..., what = c("relative", "component"),
   }
 
   caption <- if (nrow(bad)) {
+    nm <- if (facet) {
+      paste0(bad$treatment, " vs ", bad$comparator)
+    } else {
+      as.character(bad$.label)
+    }
     paste0("Not estimable from this component design: ",
-           paste(as.character(bad$.label), collapse = "; "),
-           ". See estimable_effects().")
+           paste(nm, collapse = "; "), ". See estimable_effects().")
   } else {
     NULL
   }
@@ -406,6 +437,11 @@ forest <- function(x, ..., what = c("relative", "component"),
     ggplot2::labs(x = .cpaic_sm_label(sm, backtransf), y = ylab,
                   subtitle = subtitle, caption = caption) +
     .cpaic_theme()
+  if (facet) {
+    p <- p + ggplot2::facet_wrap(~ comparator,
+                                 labeller = ggplot2::labeller(
+                                   comparator = function(z) paste("vs", z)))
+  }
   # A ratio measure is symmetric on the log scale, so plot it there.
   if (backtransf) p <- p + ggplot2::scale_x_log10()
   p

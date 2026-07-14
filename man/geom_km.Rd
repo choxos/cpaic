@@ -9,10 +9,11 @@ geom_km(object, ..., curve_args = list(), cens_args = list())
 \arguments{
 \item{object}{A \code{\link[=cmlnmr]{cmlnmr()}} fit with \code{family = "survival"}.}
 
-\item{...}{Passed to \code{\link[ggplot2:geom_step]{ggplot2::geom_step()}}.}
+\item{...}{Passed to \code{\link[survival:survfit]{survival::survfit()}}.}
 
 \item{curve_args, cens_args}{Optional lists of arguments customizing the
-curves and the censoring marks.}
+curves (\code{\link[ggplot2:geom_step]{ggplot2::geom_step()}}) and the censoring marks
+(\code{\link[ggplot2:geom_point]{ggplot2::geom_point()}}).}
 }
 \value{
 A list of ggplot2 layers.

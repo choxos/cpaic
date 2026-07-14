@@ -27,11 +27,16 @@ of equality fit better under the second model, points above it fit better
 under the first.
 }
 \details{
-\code{\link[=dic]{dic()}} stores the posterior mean deviance per data point. The deviance and
-the residual deviance differ by a per-point constant that is common to both
-models, so the line of equality keeps its meaning. For posterior uncertainty
-and for the leverage plot, which need the saturated model, call
-\code{\link[=plot_leverage]{plot_leverage()}} on the fitted model itself.
+\code{\link[=dic]{dic()}} stores the posterior mean deviance per data point, not the residual
+deviance. The two differ by the saturated log likelihood, which for the
+binomial and Poisson families is a function of the data alone: it is the same
+under both models, so it shifts both axes equally and the line of equality
+keeps its meaning. For a Gaussian likelihood the saturated term also involves
+the model's own \code{sigma}, so two Gaussian models with very different residual
+variance are shifted by different amounts; read that comparison with care.
+
+For posterior uncertainty and for the leverage plot, which need the saturated
+model explicitly, call \code{\link[=plot_leverage]{plot_leverage()}} on the fitted model itself.
 }
 \examples{
 \dontshow{if (FALSE) withAutoprint(\{ # examplesIf}

@@ -440,8 +440,10 @@ plot_estimability <- function(object, em, values, at = NULL, reference = NULL,
 #'
 #' The saturated log likelihood is subtracted so that a well-fitting data point
 #' contributes about one residual deviance, as in the DIC diagnostics of
-#' multinma and NICE TSD2. It is a per-point constant, so DIC *differences* and
-#' the `pV` penalty of [dic()] are unaffected.
+#' multinma and NICE TSD2. For the binomial and Poisson families it is a
+#' per-point constant, so it cancels from DIC *differences* and leaves the `pV`
+#' penalty of [dic()] untouched. For the Gaussian family the IPD saturated term
+#' depends on `sigma`, so it is a draw-level quantity.
 #' @noRd
 .cpaic_resdev_draws <- function(object) {
   .cpaic_check_mlnmr(object, "This diagnostic")
@@ -541,11 +543,16 @@ plot_estimability <- function(object, em, values, at = NULL, reference = NULL,
 #' of equality fit better under the second model, points above it fit better
 #' under the first.
 #'
-#' [dic()] stores the posterior mean deviance per data point. The deviance and
-#' the residual deviance differ by a per-point constant that is common to both
-#' models, so the line of equality keeps its meaning. For posterior uncertainty
-#' and for the leverage plot, which need the saturated model, call
-#' [plot_leverage()] on the fitted model itself.
+#' [dic()] stores the posterior mean deviance per data point, not the residual
+#' deviance. The two differ by the saturated log likelihood, which for the
+#' binomial and Poisson families is a function of the data alone: it is the same
+#' under both models, so it shifts both axes equally and the line of equality
+#' keeps its meaning. For a Gaussian likelihood the saturated term also involves
+#' the model's own `sigma`, so two Gaussian models with very different residual
+#' variance are shifted by different amounts; read that comparison with care.
+#'
+#' For posterior uncertainty and for the leverage plot, which need the saturated
+#' model explicitly, call [plot_leverage()] on the fitted model itself.
 #'
 #' @param x A `cpaic_dic` object from [dic()].
 #' @param y An optional second `cpaic_dic` object, for a dev-dev plot.
@@ -1040,9 +1047,10 @@ plot.cpaic_mlnmr <- function(x, y, ...,
 #' and interval censoring) are treated as censored for the empirical curve.
 #'
 #' @param object A [cmlnmr()] fit with `family = "survival"`.
-#' @param ... Passed to [ggplot2::geom_step()].
+#' @param ... Passed to [survival::survfit()].
 #' @param curve_args,cens_args Optional lists of arguments customizing the
-#'   curves and the censoring marks.
+#'   curves ([ggplot2::geom_step()]) and the censoring marks
+#'   ([ggplot2::geom_point()]).
 #'
 #' @return A list of ggplot2 layers.
 #' @seealso [plot_survival()]
@@ -1056,7 +1064,6 @@ geom_km <- function(object, ..., curve_args = list(), cens_args = list()) {
     stop("geom_km() needs a cmlnmr() fit with family = \"survival\".",
          call. = FALSE)
   }
-  args <- object$refit_args
   dat <- .cpaic_surv_rows(object)
 
   km <- do.call(rbind, lapply(split(dat, dat$study_arm), function(d) {

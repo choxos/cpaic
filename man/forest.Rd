@@ -13,7 +13,7 @@ forest(
   what = c("relative", "component"),
   order = c("estimate", "alphabetical", "none"),
   ref_line = NULL,
-  fatten = 2,
+  point_size = 1.2,
   show_na = TRUE
 )
 
@@ -41,7 +41,7 @@ the incremental effect of each component.}
 value of the summary measure (\code{1} on a back-transformed ratio scale, \code{0}
 otherwise); \code{NA} draws none.}
 
-\item{fatten}{Relative size of the point estimate marker. Default \code{2}.}
+\item{point_size}{Size of the point-estimate marker. Default \code{1.2}.}
 
 \item{show_na}{Show non-estimable contrasts as labelled empty rows? Default
 \code{TRUE}. Setting this to \code{FALSE} hides evidence that the network cannot
@@ -62,6 +62,10 @@ Contrasts that the component design cannot identify are \strong{shown}, labelled
 \verb{not estimable}, rather than silently dropped. Dropping them would leave the
 reader with a plot that looks complete when it is not; see
 \code{\link[=estimable_effects]{estimable_effects()}} and \code{\link[=estimable_effects_at]{estimable_effects_at()}}.
+
+A table with several comparators (from \code{relative_effects(all_contrasts = TRUE)}) is faceted, one panel per comparator. Ratio measures are drawn on a
+log axis, on which they are symmetric. Pass \code{level} through \code{...} to change
+the interval width.
 }
 \examples{
 \dontshow{if (requireNamespace("ggplot2", quietly = TRUE)) withAutoprint(\{ # examplesIf}

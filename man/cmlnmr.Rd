@@ -29,6 +29,7 @@ cmlnmr(
   n_basis = 6L,
   cor = NULL,
   n_int = 64L,
+  QR = FALSE,
   trt_effects = c("fixed", "random"),
   re_parameterization = c("noncentered", "centered"),
   prior_intercept_sd = 2.5,
@@ -103,6 +104,12 @@ diagonal). Defaults to the within-study IPD correlation.}
 
 \item{n_int}{Integration points per aggregate arm (ignored for
 \code{gaussian}, which is exact at the covariate means).}
+
+\item{QR}{Logical scalar. If \code{TRUE}, apply the scaled thin QR
+reparameterization used by \code{multinma} to the complete fixed-effects design
+matrix. This is only a reparameterization: it must not change the
+posterior distribution. It changes only the geometry explored by the
+sampler. The default is \code{FALSE}, matching \code{multinma}.}
 
 \item{trt_effects}{Treatment-effect model: \code{"fixed"} or \code{"random"}.}
 

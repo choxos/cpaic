@@ -29,7 +29,6 @@ RoxygenNote: 8.0.0
 Depends:
     R (>= 4.0.0)
 Imports:
-    graphics,
     grDevices,
     igraph,
     loo,

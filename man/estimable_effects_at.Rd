@@ -17,8 +17,10 @@ effect-modifier values. Defaults to the covariate origin.}
 \item{...}{Unused.}
 }
 \value{
-A data frame with \code{treatment}, \code{comparator}, \code{estimable}, and
-\code{identified_by} (\code{"IPD"}, \code{"aggregate"}, or \code{"none"}).
+A data frame with \code{treatment}, \code{comparator}, \code{estimable},
+\code{identified_by} (\code{"IPD"}, \code{"aggregate"}, or \code{"none"}) and \code{basis}
+(\code{"exact"}, \code{"first-order screen"}, or \code{"not identified"}); see the section
+below.
 }
 \description{
 Extends the row-space criterion of Wigle et al. (2026) from the component
@@ -35,7 +37,41 @@ target population}: a contrast estimable at the covariate origin need not be
 estimable in a target population where the component by effect-modifier
 interactions are not identified.
 }
+\section{Strength of the guarantee}{
+
+The \code{basis} column states how much the criterion actually proves for each
+contrast, which is not the same for every row.
+
+\describe{
+\item{\code{"exact"}}{Either the contrast is identified by IPD, or the link is
+the identity. IPD identification is exact under \strong{any} link: the IPD
+likelihood is an ordinary regression in arm and covariates, so the
+within-study arm-by-covariate variation pins down \verb{m'beta} and \verb{m'Gamma}
+directly. Under an identity link an aggregate arm's mean is linear in the
+parameters, so aggregate identification is exact too.}
+\item{\code{"first-order screen"}}{The contrast is identified only through
+aggregate arms, under a nonlinear link (logit, log). The aggregate
+likelihood is then an integral over the covariate distribution, and a
+study pins the contrast down at a variance-weighted mean rather than at
+its raw covariate mean. The criterion has the right rank structure, so it
+finds under-determined contrasts correctly, but the anchor point is
+shifted and it can be \strong{optimistic}. With a log link, one aggregate study
+and a symmetric covariate \code{P(x = -1) = P(x = +1) = 1/2}, the arm means are
+\code{exp(mu)} and \verb{exp(mu + beta) cosh(gamma)}, so the data identify only
+\verb{beta + log cosh(gamma)}, not \code{beta} itself. Treat such a contrast as
+reported under an additional smoothness assumption, and check it with
+\code{\link[=prior_sensitivity]{prior_sensitivity()}}.}
+\item{\code{"not identified"}}{Not in the row space of the first-order
+information. Any number reported here would be the prior, not the data.
+These contrasts are returned as \code{NA} by \code{\link[=relative_effects]{relative_effects()}} and dropped
+by \code{\link[=cpaic_ranks]{cpaic_ranks()}}.}
+}
+}
+
 \references{
 Wigle A, Beliveau A, Nikolakopoulou A, Lin L (2026). Creating Treatment and
 Component Hierarchies in Component Network Meta-Analysis.
+}
+\seealso{
+\code{\link[=prior_sensitivity]{prior_sensitivity()}}, \code{\link[=relative_effects]{relative_effects()}}, \code{\link[=cpaic_ranks]{cpaic_ranks()}}
 }
