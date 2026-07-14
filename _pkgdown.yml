@@ -83,9 +83,23 @@ reference:
   - cpaic_bin_ipd
 
 articles:
-- title: Articles
+- title: Getting started
   navbar: ~
   contents:
   - cpaic-intro
   - cpaic-methods
+- title: Worked examples, by outcome type
+  navbar: Outcomes
+  desc: >
+    Each example plants a known truth, then asks whether the method recovers it.
+    All four fit Stan models and are pre-rendered, so they are not re-run at
+    build time.
+  contents:
+  - binary-outcomes
+  - continuous-outcomes
+  - count-outcomes
+  - survival-outcomes
+- title: Disconnected networks
+  navbar: ~
+  contents:
   - cpaic-disconnected-myeloma

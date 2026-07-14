@@ -8,14 +8,10 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-```{r, include = FALSE}
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6,
-                      fig.height = 4)
-has_stan <- requireNamespace("cmdstanr", quietly = TRUE) &&
-  !inherits(try(cmdstanr::cmdstan_path(), silent = TRUE), "try-error")
-```
 
-```{r setup}
+
+
+``` r
 library(cpaic)
 set.seed(2026)
 ```
@@ -55,7 +51,8 @@ integrating a binary covariate as though it were normal would place integration
 points outside `{0, 1}`, that is, integrate the model over patients who cannot
 exist. cpaic gives a 0/1 covariate a Bernoulli margin automatically.
 
-```{r truth}
+
+``` r
 treatments <- c("Obs", "R", "V", "R+V", "R+D", "R+I")
 Cmat <- build_C_matrix(treatments, inactive = "Obs")
 
@@ -65,6 +62,13 @@ beta_true  <- c(D = 0.30, I = 0.35, R = 0.45, V = 0.55)  # main effects
 gamma_true <- c(D = 0.60, I = 0.10, R = 0.05, V = -0.50) # x effect modifier
 
 Cmat
+#>     D I R V
+#> Obs 0 0 0 0
+#> R   0 0 1 0
+#> V   0 0 0 1
+#> R+V 0 0 1 1
+#> R+D 1 0 1 0
+#> R+I 0 1 1 0
 ```
 
 The estimand is population-specific,
@@ -73,7 +77,8 @@ patients in the **target** population. Note already that `V` and `D` must cross:
 `theta_V(x) = 0.55 - 0.50x` while `theta_D(x) = 0.30 + 0.60x`, so they are equal at
 `x = 0.227` and swap order either side of it.
 
-```{r simulate}
+
+``` r
 gen_arm <- function(study, trt, n, mu0, p_hr) {
   hr <- rbinom(n, 1, p_hr)
   tc <- Cmat[trt, ]
@@ -100,15 +105,22 @@ agd <- rbind(agg(gen_arm("OLD-1", "Obs", 350, -0.3, 0.15)),
              agg(gen_arm("NEW-2", "R+V", 400,  0.0, 0.45)),
              agg(gen_arm("NEW-2", "R+I", 400,  0.0, 0.45)))
 agd
+#>   .study .trt   r   n   hr_mean
+#> 1  OLD-1  Obs 140 350 0.1228571
+#> 2  OLD-1    R 183 350 0.1571429
+#> 3  NEW-2  R+V 277 400 0.4175000
+#> 4  NEW-2  R+I 307 400 0.4375000
 ```
 
 ## 1. Standard NMA cannot answer the question
 
-```{r nma}
+
+``` r
 edges <- data.frame(treat1 = c("R", "V", "R+D", "R+I"),
                     treat2 = c("Obs", "Obs", "R+V", "R+V"))
 g <- igraph::graph_from_data_frame(edges, directed = FALSE)
 igraph::components(g)$no    # number of connected components
+#> [1] 2
 ```
 
 Two components, so there is no path from `R+D` to `R`. A standard NMA cannot
@@ -141,13 +153,20 @@ Reconnecting a network does **not** guarantee that the effect you want is
 identified. Population adjustment is strictly harder than reconnection, because the
 component by effect-modifier interactions have to be identified too. Always check.
 
-```{r fit, eval = has_stan}
+
+``` r
 fit <- cmlnmr(ipd, agd,
               effect_modifiers = "hr",   # binary -> Bernoulli margin, automatic
               inactive = "Obs", family = "binomial",
               chains = 4, iter_warmup = 700, iter_sampling = 700, seed = 1)
 
 estimable_effects_at(fit, newdata = data.frame(hr = 0.30))
+#>   treatment comparator estimable identified_by
+#> 1         R        Obs     FALSE          none
+#> 2       R+D        Obs     FALSE          none
+#> 3       R+I        Obs     FALSE          none
+#> 4       R+V        Obs     FALSE          none
+#> 5         V        Obs      TRUE           IPD
 ```
 
 Read the `identified_by` column. An effect identified only from *aggregate* data is
@@ -165,17 +184,39 @@ pinned down only at that study's covariate mean. Their *difference*, `R+D` versu
 that are not identified and a number for the one that is, which is exactly the
 behavior you want.
 
-```{r effects, eval = has_stan}
+
+``` r
 relative_effects(fit, reference = "R", newdata = data.frame(hr = 0.15))
+#> Relative effects (OR, back-transformed)
+#>   Target population: hr = 0.15
+#>  treatment comparator estimate    se lower upper pr_gt0
+#>        Obs          R       NA    NA    NA    NA     NA
+#>        R+D          R    1.547 0.139 1.177 2.008  0.999
+#>        R+I          R       NA    NA    NA    NA     NA
+#>        R+V          R    1.739 0.086 1.464 2.047  1.000
+#>          V          R       NA    NA    NA    NA     NA
+#>   NA = not uniquely estimable from this component design (see estimable_effects()).
 relative_effects(fit, reference = "R", newdata = data.frame(hr = 0.60))
+#> Relative effects (OR, back-transformed)
+#>   Target population: hr = 0.6
+#>  treatment comparator estimate    se lower upper pr_gt0
+#>        Obs          R       NA    NA    NA    NA     NA
+#>        R+D          R    2.120 0.139 1.591 2.781  1.000
+#>        R+I          R       NA    NA    NA    NA     NA
+#>        R+V          R    1.352 0.098 1.112 1.638  0.999
+#>          V          R       NA    NA    NA    NA     NA
+#>   NA = not uniquely estimable from this component design (see estimable_effects()).
 ```
 
-```{r truth-check, eval = has_stan}
+
+``` r
 theta <- function(trt, x) sum(Cmat[trt, ] * (beta_true + gamma_true * x))
 for (x in c(0.15, 0.60)) {
   cat(sprintf("hr = %.2f: true log-OR(R+D vs R) = %+.3f\n",
               x, theta("R+D", x) - theta("R", x)))
 }
+#> hr = 0.15: true log-OR(R+D vs R) = +0.390
+#> hr = 0.60: true log-OR(R+D vs R) = +0.660
 ```
 
 The contrast that no trial measured, across a gap no comparator spans, is
@@ -189,9 +230,28 @@ If component effects depend on the population, so do component *rankings*. The
 question is not "which component is best?" but **"which component is best in this
 population?"** [@Wigle2026].
 
-```{r ranks, eval = has_stan}
+
+``` r
 cpaic_ranks(fit, newdata = data.frame(hr = 0.05), what = "component")
+#> Warning: Dropped from the hierarchy as not estimable in this target population: I, R.
+#> Ranking them would rank the prior. See estimable_effects_at().
+#> Population-adjusted component hierarchy
+#>   Target population: hr = 0.05
+#>  element estimate p_best median_rank mean_rank sucra
+#>        V    0.606  0.981           1     1.019 0.981
+#>        D    0.356  0.019           2     1.981 0.019
+#>   Not estimable in this population, so not ranked: I, R
+#>   Ranking metrics depend on the set ranked; report them with the effects, not instead.
 cpaic_ranks(fit, newdata = data.frame(hr = 0.80), what = "component")
+#> Warning: Dropped from the hierarchy as not estimable in this target population: I, R.
+#> Ranking them would rank the prior. See estimable_effects_at().
+#> Population-adjusted component hierarchy
+#>   Target population: hr = 0.8
+#>  element estimate p_best median_rank mean_rank sucra
+#>        D    0.882      1           1         1     1
+#>        V    0.185      0           2         2     0
+#>   Not estimable in this population, so not ranked: I, R
+#>   Ranking metrics depend on the set ranked; report them with the effects, not instead.
 ```
 
 Two things happen here, and both are the point.
@@ -205,7 +265,8 @@ workflow, now with an estimable set that itself depends on the target.
 Second, among the components that *are* identified, **the order reverses**: `V` wins
 in a low-risk population and `D` wins in a high-risk one.
 
-```{r rankcurve, eval = has_stan, fig.height = 4}
+
+``` r
 curve <- rank_curve(fit, em = "hr", values = seq(0, 1, by = 0.1),
                     what = "component")
 if (requireNamespace("ggplot2", quietly = TRUE)) {
@@ -220,6 +281,8 @@ if (requireNamespace("ggplot2", quietly = TRUE)) {
     theme_minimal()
 }
 ```
+
+![plot of chunk rankcurve](figure/rankcurve-1.png)
 
 ## What to take away
 

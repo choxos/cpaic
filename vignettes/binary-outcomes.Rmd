@@ -38,10 +38,10 @@ offset see `vignette("count-outcomes")`.
 Write `UC` for usual care (brief advice; the inactive comparator) and use four
 active components:
 
-* `NRT` -- nicotine replacement therapy,
-* `CBT` -- intensive behavioral counseling,
-* `VAR` -- varenicline,
-* `BUP` -- bupropion.
+* `NRT`: nicotine replacement therapy,
+* `CBT`: intensive behavioral counseling,
+* `VAR`: varenicline,
+* `BUP`: bupropion.
 
 The outcome is **sustained abstinence at six months** (a binary success), so a
 log odds ratio above zero favors the active arm.
@@ -91,7 +91,7 @@ $$
 There is **no population-free relative effect** once $\Gamma \neq 0$. Asking for
 one is asking a question that has no answer, so `relative_effects()` requires a
 `newdata` argument naming the target population. Note also that $\beta$ on its
-own is the effect at the covariate *origin* -- here, at a smoker who smokes 15 a
+own is the effect at the covariate *origin*: here, at a smoker who smokes 15 a
 day. It is not a population-adjusted quantity and should not be reported as one.
 
 **2. Sub-networks that share components share parameters.** `CBT+VAR` and `NRT`
@@ -121,7 +121,7 @@ mean the conditional or the marginal one, and the methods answer differently
 | `cmlnmr()`, i.e. $(C_t - C_u)^\top(\beta + \Gamma x)$ | **conditional** log OR at $x$ |
 
 All three can be simultaneously correct and still disagree. We will see them
-disagree, in the direction non-collapsibility predicts.
+disagree, and we will measure the disagreement against the truth we planted.
 
 ## Setting up the data
 
@@ -418,9 +418,88 @@ non-collapsible scale this is not a detail:
 * `cmlnmr()`'s $(C_t - C_u)^\top(\beta + \Gamma x)$ is, like `cstc()`,
   **conditional** at `x`.
 
-Non-collapsibility says the marginal effect is closer to the null than the
-conditional one. So `cmaic()` should come out *smaller* than `cstc()` here, and
-that is not a sign that either has gone wrong.
+These are different numbers, and we can prove it before fitting anything. The
+adjusted contrast each method hands to the bridge is stored on the fitted object,
+so we can line it up against the truth it is *supposed* to be estimating. The true
+conditional effect is $(C_t - C_u)^\top(\beta + \Gamma x)$, in closed form; the
+true marginal effect we get by G-computation over the target population. (Because
+MAIC's weights are exponential in `cpd` and `cpd`$^2$, reweighting a normal
+covariate returns exactly a normal, so the target really is
+$\mathrm{N}(0.3,\,0.7^2)$ and this Monte Carlo is exact.)
+
+
+``` r
+edge <- function(fitobj, study) {
+  a <- fitobj$bridge$network$agd
+  a$TE[a$studlab == study]
+}
+mu_of <- function(s) design$mu[design$study == s]
+
+# the TRUE conditional log-OR: (C_t - C_u)' (beta + Gamma x), in closed form
+truth <- function(t1, t2, x) theta(t1, x) - theta(t2, x)
+
+# true MARGINAL log-OR in the target population, by G-computation
+mc_marginal <- function(mu, t1, t2, m = 0.3, s = 0.7, M = 2e5) {
+  x <- rnorm(M, m, s)
+  p <- function(t) mean(plogis(mu + b_prog * x +
+                               vapply(x, function(z) theta(t, z), numeric(1))))
+  qlogis(p(t1)) - qlogis(p(t2))
+}
+
+knitr::kable(data.frame(
+  Edge = c("BRIEF-2: CBT vs UC", "COMBO-1: CBT+VAR vs CBT+NRT"),
+  true_conditional = c(truth("CBT", "UC", 0.3),
+                       truth("CBT+VAR", "CBT+NRT", 0.3)),
+  cSTC             = c(edge(fit_stc, "BRIEF-2"), edge(fit_stc, "COMBO-1")),
+  true_marginal    = c(mc_marginal(mu_of("BRIEF-2"), "CBT", "UC"),
+                       mc_marginal(mu_of("COMBO-1"), "CBT+VAR", "CBT+NRT")),
+  cMAIC            = c(edge(fit_maic, "BRIEF-2"), edge(fit_maic, "COMBO-1"))),
+  digits = 3, row.names = FALSE,
+  caption = "Adjusted log odds ratios each method hands to the bridge, against the estimand it targets")
+```
+
+
+
+Table: Adjusted log odds ratios each method hands to the bridge, against the estimand it targets
+
+|Edge                        | true_conditional|  cSTC| true_marginal| cMAIC|
+|:---------------------------|----------------:|-----:|-------------:|-----:|
+|BRIEF-2: CBT vs UC          |            0.490| 0.284|         0.513| 0.359|
+|COMBO-1: CBT+VAR vs CBT+NRT |            0.675| 0.632|         0.579| 0.620|
+
+
+
+Read that table by rows, and note that the *direction* of the estimand gap is not
+fixed:
+
+* On `COMBO-1`, where the effect modification is strong, the marginal truth sits
+  well below the conditional one (a gap near 0.10 on the log scale, about 10% on
+  the odds-ratio scale), and `cmaic()` duly comes out below `cstc()`.
+* On `BRIEF-2` the marginal truth sits slightly *above* the conditional one, and
+  `cmaic()` duly comes out above `cstc()`.
+
+Each method tracks its own estimand, gap direction included. The naive summary
+"the marginal effect is attenuated toward the null" is only half the story: pure
+non-collapsibility does attenuate, but once a component is effect-modified, the
+marginal effect also re-weights the conditional effects across the covariate
+distribution, and that can push either way.
+
+The *levels* in the table are noisy: with a binary outcome and 700 patients per
+arm, an edge carries a standard error around 0.15, and the `BRIEF-2` estimates
+both sit about a standard error below their targets. The ordering is the signal
+here, not the third decimal place. **The two methods are estimating different
+quantities, and both are estimating them correctly.**
+
+Watch what the bridge then does with that difference, though. Each adjusted IPD
+edge is pooled with the *unadjusted aggregate* edges that sit on the same
+contrast (`BRIEF-3` and `BRIEF-4` on `CBT`; `COMBO-3` on `VAR` versus `NRT`), and
+those aggregate contrasts are identical in both routes. The estimand difference
+therefore survives into the bridged answer only in proportion to how much of the
+edge's weight the IPD trial carries. In a network with plenty of aggregate
+evidence, the two routes can come out close together **not because the estimands
+agree, but because the adjustment is a minority of the weight.** That is worth
+knowing before you conclude from a small STC-MAIC gap that the choice did not
+matter.
 
 ### Route 2: one stage, Bayesian
 
@@ -541,10 +620,10 @@ IPD**, meaning from covariate variation *within* a trial. The other three are no
 identified at all:
 
 * `UC` and `CBT` against `NRT` each need the `NRT` component **on its own**, and
-  only `BRIEF-1` measured that -- as an aggregate contrast, at its own mean of
+  only `BRIEF-1` measured that, and did so as an aggregate contrast, at its own mean of
   8 cigarettes a day.
 * `CBT+BUP` against `NRT` needs bupropion-minus-nicotine-replacement, and only
-  `COMBO-2` measured that -- again aggregate, at its own mean of 24 a day.
+  `COMBO-2` measured that, again as an aggregate contrast, at its own mean of 24 a day.
 
 Those two quantities are pinned down at *those trials' covariate means*, and 18
 cigarettes a day is neither of them. An aggregate two-arm trial gives you one
@@ -639,8 +718,6 @@ sit closer to the null.
 
 
 ``` r
-truth <- function(t1, t2, x) theta(t1, x) - theta(t2, x)
-
 # pull one cell (as plain numbers) out of a relative_effects() table
 grab <- function(tab, t1, ref, what = "estimate") {
   as.numeric(tab[[what]][tab$treatment == t1 & tab$comparator == ref])
@@ -680,14 +757,10 @@ Both estimable contrasts are recovered: the point estimates sit near the planted
 truth and the credible intervals cover it. The `CBT+VAR` row is the one to dwell
 on, because *no trial in the network measured it*.
 
-Look also at `cmaic()` against `cstc()`. For the large `CBT+VAR` effect the
-marginal estimate is visibly pulled toward the null relative to the conditional
-one; for the small `CBT+NRT` effect the two are indistinguishable. That is
-non-collapsibility behaving exactly as advertised: the marginal-conditional gap
-grows with the size of the effect and with the prognostic variance you are not
-conditioning on, and vanishes as either goes to zero. Neither method is wrong;
-they are answering different questions, and the gap between the answers is a
-feature of the logit link.
+The bridged `cSTC` and `cMAIC` answers come out close together, for the reason set
+out above: the estimand gap lives on the two IPD edges, and the bridge dilutes it
+with unadjusted aggregate evidence on the same contrasts. The place to look for
+the difference is the edge table, not the league table.
 
 The population dependence is recovered too:
 
@@ -702,22 +775,22 @@ curve <- do.call(rbind, lapply(grid, function(x) {
 }))
 ggplot(curve, aes(15 + 10 * cpd)) +
   geom_ribbon(aes(ymin = lo, ymax = hi), alpha = 0.15) +
-  geom_line(aes(y = est, colour = "cML-NMR posterior mean"), linewidth = 1) +
-  geom_line(aes(y = truth, colour = "Truth"), linetype = "dashed",
+  geom_line(aes(y = est, color = "cML-NMR posterior mean"), linewidth = 1) +
+  geom_line(aes(y = truth, color = "Truth"), linetype = "dashed",
             linewidth = 1) +
-  geom_hline(yintercept = 1, colour = "grey50") +
+  geom_hline(yintercept = 1, color = "grey50") +
   scale_y_log10() +
-  scale_colour_manual(values = c("cML-NMR posterior mean" = "#2c7fb8",
+  scale_color_manual(values = c("cML-NMR posterior mean" = "#2c7fb8",
                                  "Truth" = "#d95f0e")) +
   labs(x = "Cigarettes per day in the target population",
-       y = "Odds ratio, CBT+VAR vs NRT (log scale)", colour = NULL,
+       y = "Odds ratio, CBT+VAR vs NRT (log scale)", color = NULL,
        title = "There is no population-free relative effect",
        subtitle = "The contrast no trial measured, recovered across a gap no comparator spans") +
   theme_minimal() + theme(legend.position = "top")
 ```
 
 <div class="figure" style="text-align: center">
-<img src="figure/pop-curve-1.png" alt="plot of chunk pop-curve"  />
+<img src="figure/binary-pop-curve-1.png" alt="plot of chunk pop-curve"  />
 <p class="caption">plot of chunk pop-curve</p>
 </div>
 
@@ -865,6 +938,13 @@ additivity_test(fit_stc)
 #>   clinically.
 ```
 
+The additive model fits the observed contrasts comfortably here. Do not read that
+as reassurance about the bridge: a `Q` this size is consistent with an additive
+model *and* with the population mismatch we are about to expose, and it says
+nothing whatever about whether the component effects are the same on both sides
+of the gap. (In `vignette("count-outcomes")` the same statistic comes out large,
+for a reason that has nothing to do with additivity.)
+
 ### Prior sensitivity
 
 Prior movement is the empirical definition of identification: a contrast that
@@ -900,7 +980,7 @@ the check the package's own validation script performs.
 
 | | Adjusts the population | Bridges the gap | Reports non-identified effects |
 |---|---|---|---|
-| Standard NMA | no | no | -- (cannot estimate them at all) |
+| Standard NMA | no | no | not at all; they lie outside the model |
 | ML-NMR | yes | no | yes, as prior-driven numbers |
 | `cstc()` / `cmaic()` + `cnma_bridge()` | IPD edges only | yes | **yes, silently** |
 | `cmlnmr()` | yes, all edges | yes | no: returns `NA` |
@@ -928,18 +1008,23 @@ Three honest limitations.
 2. **The two-stage route leaves the aggregate edges unadjusted.** `cstc()` and
    `cmaic()` adjust only the edges where you hold IPD. Every aggregate edge
    enters the bridge in its own trial's population, and the additive model then
-   propagates that mismatch into any contrast that leans on it -- with no warning,
+   propagates that mismatch into any contrast that leans on it, with no warning,
    and, as the `covers` column showed, with an interval that can exclude the
    truth. Use the two-stage route when the aggregate edges sit close to the target
    or their components are not effect-modified; otherwise prefer `cmlnmr()`, which
    integrates each aggregate study over its own covariate distribution and tells
    you when it cannot answer.
-3. **cMAIC's marginal contrasts are not additive.** The additive component model
-   is a model for *conditional*, link-scale effects. Marginal log odds ratios do
-   not add across components, so feeding `cmaic()` contrasts to `cnma_bridge()`
-   mixes currencies on a non-collapsible scale. The mismatch is small here and
-   larger when effects are large. It largely disappears on a collapsible measure;
-   see `vignette("count-outcomes")`, where the rate ratio is collapsible and the
-   two routes converge.
+3. **The bridge mixes estimands, and dilutes the adjustment.** Two related
+   problems, both visible above. First, the additive component model is a model
+   for *conditional*, link-scale effects; marginal log odds ratios do not add
+   across components, so feeding `cmaic()` contrasts into `cnma_bridge()` mixes
+   currencies on a non-collapsible scale. (The published aggregate contrasts are
+   marginal too, so even the `cstc()` route pools conditional IPD edges with
+   marginal aggregate ones.) Second, the adjusted IPD edge is only ever a *share*
+   of the weight on its contrast, so the population adjustment is diluted by
+   however much unadjusted aggregate evidence sits alongside it. Both problems
+   are milder on a collapsible measure; see `vignette("count-outcomes")`, where
+   the rate ratio is collapsible and the conditional and marginal estimands very
+   nearly coincide.
 
 ## References
