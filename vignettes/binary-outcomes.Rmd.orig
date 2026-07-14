@@ -8,7 +8,10 @@ link-citations: yes
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE, comment = "#>", message = FALSE, warning = FALSE,
-  fig.width = 7, fig.height = 4, fig.align = "center", dpi = 110
+  fig.width = 7, fig.height = 4, fig.align = "center", dpi = 110,
+  # Per-vignette prefix: chunk labels are not unique across vignettes, so
+  # without this every vignette with a "pop-curve" chunk writes the same PNG.
+  fig.path = "figure/binary-"
 )
 options(width = 100, mc.cores = parallel::detectCores(),
         rmarkdown.html_vignette.check_title = FALSE)
@@ -44,10 +47,10 @@ offset see `vignette("count-outcomes")`.
 Write `UC` for usual care (brief advice; the inactive comparator) and use four
 active components:
 
-* `NRT` -- nicotine replacement therapy,
-* `CBT` -- intensive behavioral counseling,
-* `VAR` -- varenicline,
-* `BUP` -- bupropion.
+* `NRT`: nicotine replacement therapy,
+* `CBT`: intensive behavioral counseling,
+* `VAR`: varenicline,
+* `BUP`: bupropion.
 
 The outcome is **sustained abstinence at six months** (a binary success), so a
 log odds ratio above zero favors the active arm.
@@ -97,7 +100,7 @@ $$
 There is **no population-free relative effect** once $\Gamma \neq 0$. Asking for
 one is asking a question that has no answer, so `relative_effects()` requires a
 `newdata` argument naming the target population. Note also that $\beta$ on its
-own is the effect at the covariate *origin* -- here, at a smoker who smokes 15 a
+own is the effect at the covariate *origin*: here, at a smoker who smokes 15 a
 day. It is not a population-adjusted quantity and should not be reported as one.
 
 **2. Sub-networks that share components share parameters.** `CBT+VAR` and `NRT`
@@ -127,7 +130,7 @@ mean the conditional or the marginal one, and the methods answer differently
 | `cmlnmr()`, i.e. $(C_t - C_u)^\top(\beta + \Gamma x)$ | **conditional** log OR at $x$ |
 
 All three can be simultaneously correct and still disagree. We will see them
-disagree, in the direction non-collapsibility predicts.
+disagree, and we will measure the disagreement against the truth we planted.
 
 ## Setting up the data
 
@@ -370,10 +373,26 @@ knitr::kable(data.frame(
   caption = "Adjusted log odds ratios each method hands to the bridge, against the estimand it targets")
 ```
 
-`cstc()` lands on the conditional truth; `cmaic()` lands on the marginal truth;
-and on the `COMBO-1` edge the two truths differ by about 0.10 on the log scale
-(10% on the odds-ratio scale). Neither method is biased. **They are estimating
-different quantities, and both are estimating them correctly.**
+Read that table by rows, and note that the *direction* of the estimand gap is not
+fixed:
+
+* On `COMBO-1`, where the effect modification is strong, the marginal truth sits
+  well below the conditional one (a gap near 0.10 on the log scale, about 10% on
+  the odds-ratio scale), and `cmaic()` duly comes out below `cstc()`.
+* On `BRIEF-2` the marginal truth sits slightly *above* the conditional one, and
+  `cmaic()` duly comes out above `cstc()`.
+
+Each method tracks its own estimand, gap direction included. The naive summary
+"the marginal effect is attenuated toward the null" is only half the story: pure
+non-collapsibility does attenuate, but once a component is effect-modified, the
+marginal effect also re-weights the conditional effects across the covariate
+distribution, and that can push either way.
+
+The *levels* in the table are noisy: with a binary outcome and 700 patients per
+arm, an edge carries a standard error around 0.15, and the `BRIEF-2` estimates
+both sit about a standard error below their targets. The ordering is the signal
+here, not the third decimal place. **The two methods are estimating different
+quantities, and both are estimating them correctly.**
 
 Watch what the bridge then does with that difference, though. Each adjusted IPD
 edge is pooled with the *unadjusted aggregate* edges that sit on the same
@@ -468,10 +487,10 @@ IPD**, meaning from covariate variation *within* a trial. The other three are no
 identified at all:
 
 * `UC` and `CBT` against `NRT` each need the `NRT` component **on its own**, and
-  only `BRIEF-1` measured that -- as an aggregate contrast, at its own mean of
+  only `BRIEF-1` measured that, and did so as an aggregate contrast, at its own mean of
   8 cigarettes a day.
 * `CBT+BUP` against `NRT` needs bupropion-minus-nicotine-replacement, and only
-  `COMBO-2` measured that -- again aggregate, at its own mean of 24 a day.
+  `COMBO-2` measured that, again as an aggregate contrast, at its own mean of 24 a day.
 
 Those two quantities are pinned down at *those trials' covariate means*, and 18
 cigarettes a day is neither of them. An aggregate two-arm trial gives you one
@@ -575,15 +594,15 @@ curve <- do.call(rbind, lapply(grid, function(x) {
 }))
 ggplot(curve, aes(15 + 10 * cpd)) +
   geom_ribbon(aes(ymin = lo, ymax = hi), alpha = 0.15) +
-  geom_line(aes(y = est, colour = "cML-NMR posterior mean"), linewidth = 1) +
-  geom_line(aes(y = truth, colour = "Truth"), linetype = "dashed",
+  geom_line(aes(y = est, color = "cML-NMR posterior mean"), linewidth = 1) +
+  geom_line(aes(y = truth, color = "Truth"), linetype = "dashed",
             linewidth = 1) +
-  geom_hline(yintercept = 1, colour = "grey50") +
+  geom_hline(yintercept = 1, color = "grey50") +
   scale_y_log10() +
-  scale_colour_manual(values = c("cML-NMR posterior mean" = "#2c7fb8",
+  scale_color_manual(values = c("cML-NMR posterior mean" = "#2c7fb8",
                                  "Truth" = "#d95f0e")) +
   labs(x = "Cigarettes per day in the target population",
-       y = "Odds ratio, CBT+VAR vs NRT (log scale)", colour = NULL,
+       y = "Odds ratio, CBT+VAR vs NRT (log scale)", color = NULL,
        title = "There is no population-free relative effect",
        subtitle = "The contrast no trial measured, recovered across a gap no comparator spans") +
   theme_minimal() + theme(legend.position = "top")
@@ -719,7 +738,7 @@ the check the package's own validation script performs.
 
 | | Adjusts the population | Bridges the gap | Reports non-identified effects |
 |---|---|---|---|
-| Standard NMA | no | no | -- (cannot estimate them at all) |
+| Standard NMA | no | no | not at all; they lie outside the model |
 | ML-NMR | yes | no | yes, as prior-driven numbers |
 | `cstc()` / `cmaic()` + `cnma_bridge()` | IPD edges only | yes | **yes, silently** |
 | `cmlnmr()` | yes, all edges | yes | no: returns `NA` |
@@ -747,7 +766,7 @@ Three honest limitations.
 2. **The two-stage route leaves the aggregate edges unadjusted.** `cstc()` and
    `cmaic()` adjust only the edges where you hold IPD. Every aggregate edge
    enters the bridge in its own trial's population, and the additive model then
-   propagates that mismatch into any contrast that leans on it -- with no warning,
+   propagates that mismatch into any contrast that leans on it, with no warning,
    and, as the `covers` column showed, with an interval that can exclude the
    truth. Use the two-stage route when the aggregate edges sit close to the target
    or their components are not effect-modified; otherwise prefer `cmlnmr()`, which

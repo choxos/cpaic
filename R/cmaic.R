@@ -10,7 +10,7 @@
                                      outcome_col, weights,
                                      time_col = NULL, status_col = NULL,
                                      exposure_col = NULL) {
-  # Note: do not reorder `data` here -- `weights` is aligned to the
+  # Note: do not reorder `data` here; `weights` is aligned to the
   # incoming row order; `relevel()` fixes the reference arm regardless.
   arm <- stats::relevel(factor(data[[arm_col]]), ref = ref_arm)
   w <- weights

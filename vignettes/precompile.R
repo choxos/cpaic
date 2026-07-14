@@ -5,7 +5,7 @@
 #   Rscript vignettes/precompile.R
 #
 # For each "<stem>.Rmd.orig" this:
-#   1. knits it to a static "<stem>.Rmd" -- fitting the Stan models ONCE, here;
+#   1. knits it to a static "<stem>.Rmd", fitting the Stan models ONCE, here;
 #   2. renders a self-contained "<stem>.html" (output: rmarkdown::html_vignette);
 #   3. writes "<stem>.html.asis" so R CMD build and CRAN register and serve the
 #      pre-rendered HTML through the R.rsp::asis engine and never run Stan.
@@ -30,7 +30,8 @@ stems <- c(
   "binary-outcomes",
   "continuous-outcomes",
   "count-outcomes",
-  "survival-outcomes"
+  "survival-outcomes",
+  "cpaic-disconnected-myeloma"
 )
 
 # Operate inside vignettes/ so figure paths and the bibliography path resolve

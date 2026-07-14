@@ -38,3 +38,4 @@ src/*.dll
 # Agent guidance files (local only, not part of the R package)
 CLAUDE.md
 AGENTS.md
+Rplots.pdf

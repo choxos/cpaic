@@ -84,7 +84,7 @@ print.cpaic_additivity <- function(x, ...) {
       cat("    -> evidence against additivity within the network.\n")
     }
   } else {
-    cat("  Additivity restrictions (Q.diff): not available -- no standard NMA\n",
+    cat("  Additivity restrictions (Q.diff): not available; no standard NMA\n",
         "    is estimable on a disconnected network.\n", sep = "")
   }
   cat("  Note: neither statistic tests whether component effects are constant\n",

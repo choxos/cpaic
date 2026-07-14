@@ -8,7 +8,10 @@ link-citations: yes
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE, comment = "#>", message = FALSE, warning = FALSE,
-  fig.width = 7, fig.height = 4, fig.align = "center", dpi = 110
+  fig.width = 7, fig.height = 4, fig.align = "center", dpi = 110,
+  # Per-vignette prefix: chunk labels are not unique across vignettes, so
+  # without this every vignette with a "pop-curve" chunk writes the same PNG.
+  fig.path = "figure/count-"
 )
 options(width = 100, mc.cores = parallel::detectCores(),
         rmarkdown.html_vignette.check_title = FALSE)
@@ -32,7 +35,8 @@ this one as well:
 * **two** effect modifiers, one continuous and one binary, which turns out to
   make the aggregate-only components *harder*, not easier, to identify;
 * the rate ratio is **collapsible**, unlike the odds ratio, so `cstc()` and
-  `cmaic()` converge here where in the binary vignette they did not.
+  `cmaic()` target nearly the same estimand here, where on the odds-ratio scale
+  they do not.
 
 > **The data here are entirely simulated.** The clinical setting (maintenance
 > inhaler therapy in COPD) supplies only the vocabulary, because inhaled regimens
@@ -45,10 +49,10 @@ this one as well:
 
 Write `PBO` for placebo (the inactive comparator) and use four active components:
 
-* `LABA` -- a long-acting beta-agonist,
-* `LAMA` -- a long-acting muscarinic antagonist,
-* `ICS` -- an inhaled corticosteroid,
-* `ROF` -- roflumilast, an oral add-on.
+* `LABA`: a long-acting beta-agonist,
+* `LAMA`: a long-acting muscarinic antagonist,
+* `ICS`: an inhaled corticosteroid,
+* `ROF`: roflumilast, an oral add-on.
 
 The outcome is the **number of moderate-to-severe exacerbations** a patient has
 during follow-up. Follow-up length differs between patients (people drop out), so
@@ -68,10 +72,10 @@ monotherapy?** That contrast crosses the gap.
 
 The two groups also enrolled different patients, on two axes that matter:
 
-* `eos` -- the **blood eosinophil count**, coded as
-  `(cells per microlitre - 200) / 100`, so `eos = 0` is 200 cells and `eos = 1.5`
+* `eos`: the **blood eosinophil count**, coded as
+  `(cells per microliter - 200) / 100`, so `eos = 0` is 200 cells and `eos = 1.5`
   is 350 cells. It is continuous, and it modifies the steroid effect.
-* `freqex` -- a **frequent exacerbator** indicator (two or more exacerbations in
+* `freqex`: a **frequent exacerbator** indicator (two or more exacerbations in
   the year before enrolment). It is binary, it is strongly *prognostic*, and it
   modifies the `LAMA` effect.
 
@@ -379,18 +383,22 @@ knitr::kable(data.frame(
 ```
 
 Compare the `true_conditional` and `true_marginal` columns. **They are almost the
-same number.** That is collapsibility: on the rate-ratio scale, marginalizing over
-a covariate does not move the effect, and what little movement remains is the
-second-order Jensen term that survives because $\Gamma \neq 0$. Run the identical
-comparison on the odds-ratio scale (`vignette("binary-outcomes")`) and the two
-truths separate by about 10%. Same two functions, same network shape, different
-link: the estimand gap opens or closes according to the link, and nothing else.
+same number**: on the `MONO-1` edge they agree to three decimal places. That is
+collapsibility: on the rate-ratio scale, marginalizing over a covariate does not
+move the effect, and what little movement survives is the second-order Jensen term
+that exists only because $\Gamma \neq 0$. Run the identical comparison on the
+odds-ratio scale (`vignette("binary-outcomes")`) and the two truths separate by
+about 10%. Same two functions, same network shape, different link: the estimand
+gap opens or closes according to the link, and nothing else.
 
-The practical consequence is worth stating plainly. On a collapsible measure the
-`cstc()`-versus-`cmaic()` choice is close to a matter of taste, and you may
-reasonably pick on variance grounds (regression adjustment is usually the more
-efficient of the two). On a non-collapsible measure it is a choice of estimand,
-and you have to make it deliberately [@remiro2022].
+So on a collapsible measure the `cstc()`-versus-`cmaic()` choice is not a choice of
+estimand, and you may pick on variance grounds instead. That is worth doing, and
+this table shows why: `cmaic()` is visibly the noisier of the two on the `MONO-1`
+edge. Its effective sample size there collapsed to a few hundred of the 1200
+patients, because `MONO-1` is the trial furthest from the target, and the estimate
+pays for it. Regression adjustment uses every patient and is usually the more
+efficient. On a *non*-collapsible measure you do not get this luxury: there the
+choice is a choice of estimand, and it has to be made deliberately [@remiro2022].
 
 ### Route 2: one stage, Bayesian
 
@@ -576,15 +584,15 @@ curve <- do.call(rbind, lapply(grid, function(e) {
 }))
 ggplot(curve, aes(200 + 100 * eos)) +
   geom_ribbon(aes(ymin = lo, ymax = hi), alpha = 0.15) +
-  geom_line(aes(y = est, colour = "cML-NMR posterior mean"), linewidth = 1) +
-  geom_line(aes(y = truth, colour = "Truth"), linetype = "dashed",
+  geom_line(aes(y = est, color = "cML-NMR posterior mean"), linewidth = 1) +
+  geom_line(aes(y = truth, color = "Truth"), linetype = "dashed",
             linewidth = 1) +
-  geom_hline(yintercept = 1, colour = "grey50") +
+  geom_hline(yintercept = 1, color = "grey50") +
   scale_y_log10() +
-  scale_colour_manual(values = c("cML-NMR posterior mean" = "#2c7fb8",
+  scale_color_manual(values = c("cML-NMR posterior mean" = "#2c7fb8",
                                  "Truth" = "#d95f0e")) +
   labs(x = expression("Blood eosinophils in the target population (cells /" ~ mu * "L)"),
-       y = "Rate ratio, LABA+ICS vs LAMA (log scale)", colour = NULL,
+       y = "Rate ratio, LABA+ICS vs LAMA (log scale)", color = NULL,
        title = "The steroid earns its place only in eosinophilic patients",
        subtitle = "Frequent-exacerbator prevalence held at 55%; the contrast no trial measured") +
   theme_minimal() + theme(legend.position = "top")
@@ -594,7 +602,7 @@ ggplot(curve, aes(200 + 100 * eos)) +
 
 `cstc()` and `cmaic()` adjust only the edges where you hold IPD. Every aggregate
 edge enters `cnma_bridge()` **in its own trial's population**, and the additive
-model then propagates that into any contrast that leans on it -- with no warning.
+model then propagates that into any contrast that leans on it, with no warning.
 Look at the contrasts `cmlnmr()` refused to report:
 
 ```{r wrong}
@@ -619,7 +627,7 @@ that matter (`Gamma_true["LAMA", "eos"] = 0.01`, and roflumilast barely interact
 with anything), so evaluating their contrasts in the wrong population costs little.
 
 Change `Gamma_true["LAMA", "eos"]` to something substantial and those cells would
-be badly wrong, with intervals that exclude the truth -- which is exactly what
+be badly wrong, with intervals that exclude the truth; that is exactly what
 happens in `vignette("binary-outcomes")`, where the aggregate-only component
 *is* strongly effect-modified. **You cannot know which case you are in without
 fitting a model that can tell you.** The `NA` is not the tool being unhelpful; it
@@ -678,7 +686,7 @@ model is exactly right by construction. It is that the contrasts being pooled ar
 covariate means, the adjusted IPD edges at the target, the components are
 effect-modified, and so no single vector of component effects can fit them all.
 $Q$ is picking up the population heterogeneity that the two-stage route is
-ignoring. It cannot tell you that is the cause -- but when you see it, this is a
+ignoring. It cannot tell you that is the cause, but when you see it, this is a
 possibility to rule in or out before you blame additivity.
 
 ### Prior sensitivity
@@ -711,7 +719,7 @@ different properties, and only one of them is a reason to believe a number.**
 
 | | Adjusts the population | Bridges the gap | Reports non-identified effects |
 |---|---|---|---|
-| Standard NMA | no | no | -- (cannot estimate them at all) |
+| Standard NMA | no | no | not at all; they lie outside the model |
 | ML-NMR | yes | no | yes, as prior-driven numbers |
 | `cstc()` / `cmaic()` + `cnma_bridge()` | IPD edges only | yes | **yes, silently** |
 | `cmlnmr()` | yes, all edges | yes | no: returns `NA` |
