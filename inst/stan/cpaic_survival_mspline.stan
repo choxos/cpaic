@@ -76,6 +76,16 @@ data {
   array[N_agd] int<lower=0, upper=3> status_agd;
   matrix[N_agd * n_int, nX] Z_agd_int;
 
+  // The baseline hazard is a study-level nuisance function, so each study gets
+  // its own. A network meta-analysis requires the TREATMENT EFFECTS to be
+  // exchangeable across studies; it does not require the baseline hazards to
+  // share a shape. Forcing a common shape would make the treatment effects
+  // absorb any baseline misfit. multinma likewise fits a separate baseline per
+  // study. The study intercept is inside the QR design, so the study index is
+  // carried here only to select each study's baseline.
+  array[N_ipd] int<lower=1, upper=N_studies> study_ipd;
+  array[N_agd] int<lower=1, upper=N_studies> study_agd;
+
   int<lower=0, upper=1> QR;
   matrix[QR ? nX : 0, QR ? nX : 0] R_inv;
 
@@ -100,9 +110,12 @@ data {
 
 parameters {
   // The fixed-effects coefficients are sampled on the QR scale. The baseline
-  // hazard simplex and the random effects stay outside the QR block.
+  // hazard simplexes and the random effects stay outside the QR block. One
+  // simplex per study gives each study its own baseline hazard shape; the
+  // simplex constraint fixes the scale, so the level is carried by that study's
+  // intercept and the two are separately identified.
   vector[nX] beta_tilde;
-  simplex[N_base] coefficients;
+  array[N_studies] simplex[N_base] coefficients;
   vector[RE ? N_delta : 0] delta_aux;
   vector<lower=0>[RE] tau;
 }
@@ -145,10 +158,12 @@ transformed parameters {
     eta_ipd[i] = lp;
     log_L_ipd[i] = cpaic_survival_loglik(
       time_basis_ipd[i], itime_basis_ipd[i], start_basis_ipd[i],
-      entry_basis_ipd[i], delayed_ipd[i], status_ipd[i], lp, coefficients
+      entry_basis_ipd[i], delayed_ipd[i], status_ipd[i], lp,
+      coefficients[study_ipd[i]]
     );
     p_event_ipd[i] = cpaic_event_probability(
-      itime_basis_ipd[i], entry_basis_ipd[i], lp, coefficients
+      itime_basis_ipd[i], entry_basis_ipd[i], lp,
+      coefficients[study_ipd[i]]
     );
   }
 
@@ -164,10 +179,12 @@ transformed parameters {
       }
       log_L_ii[k] = cpaic_survival_loglik(
         time_basis_agd[a], itime_basis_agd[a], start_basis_agd[a],
-        entry_basis_agd[a], delayed_agd[a], status_agd[a], lp, coefficients
+        entry_basis_agd[a], delayed_agd[a], status_agd[a], lp,
+        coefficients[study_agd[a]]
       );
       event_acc += cpaic_event_probability(
-        itime_basis_agd[a], entry_basis_agd[a], lp, coefficients
+        itime_basis_agd[a], entry_basis_agd[a], lp,
+        coefficients[study_agd[a]]
       );
     }
     log_L_agd[a] = log_sum_exp(log_L_ii) - log(n_int);
@@ -179,7 +196,9 @@ model {
   // Priors remain on allbeta. The QR map is linear with a constant Jacobian,
   // so no Jacobian adjustment can change the posterior distribution.
   mu ~ normal(0, prior_intercept_sd);
-  coefficients ~ dirichlet(rep_vector(1.0, N_base));
+  for (s in 1:N_studies) {
+    coefficients[s] ~ dirichlet(rep_vector(1.0, N_base));
+  }
   beta ~ normal(0, prior_beta_sd);
   breg ~ normal(0, prior_reg_sd);
   if (prior_gamma_dist == 1) {

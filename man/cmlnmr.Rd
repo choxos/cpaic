@@ -107,9 +107,20 @@ diagonal). Defaults to the within-study IPD correlation.}
 
 \item{QR}{Logical scalar. If \code{TRUE}, apply the scaled thin QR
 reparameterization used by \code{multinma} to the complete fixed-effects design
-matrix. This is only a reparameterization: it must not change the
-posterior distribution. It changes only the geometry explored by the
-sampler. The default is \code{FALSE}, matching \code{multinma}.}
+matrix. This is only a reparameterization: it must not change the posterior
+distribution, only the geometry the sampler explores. The default is
+\code{FALSE}, matching \code{multinma}.
+
+Do not turn this on expecting a free improvement. On the component networks
+tested here the fixed-effects design was not badly conditioned (a condition
+number near 19, in a network where every active treatment shared a
+component), and \code{QR = TRUE} gave \emph{fewer} effective samples per second than
+\code{QR = FALSE}, with no divergent transitions either way. The intuition that a
+component design must be severely collinear, because one component recurs
+across many multi-component treatments, is not borne out: the study
+intercepts and the spread of the integration points keep the conditioning
+mild. Check \code{Z_cond} on the fit, and reach for \code{QR = TRUE} only when it is
+large.}
 
 \item{trt_effects}{Treatment-effect model: \code{"fixed"} or \code{"random"}.}
 

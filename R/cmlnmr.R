@@ -241,9 +241,20 @@
 #'   `gaussian`, which is exact at the covariate means).
 #' @param QR Logical scalar. If `TRUE`, apply the scaled thin QR
 #'   reparameterization used by `multinma` to the complete fixed-effects design
-#'   matrix. This is only a reparameterization: it must not change the
-#'   posterior distribution. It changes only the geometry explored by the
-#'   sampler. The default is `FALSE`, matching `multinma`.
+#'   matrix. This is only a reparameterization: it must not change the posterior
+#'   distribution, only the geometry the sampler explores. The default is
+#'   `FALSE`, matching `multinma`.
+#'
+#'   Do not turn this on expecting a free improvement. On the component networks
+#'   tested here the fixed-effects design was not badly conditioned (a condition
+#'   number near 19, in a network where every active treatment shared a
+#'   component), and `QR = TRUE` gave *fewer* effective samples per second than
+#'   `QR = FALSE`, with no divergent transitions either way. The intuition that a
+#'   component design must be severely collinear, because one component recurs
+#'   across many multi-component treatments, is not borne out: the study
+#'   intercepts and the spread of the integration points keep the conditioning
+#'   mild. Check `Z_cond` on the fit, and reach for `QR = TRUE` only when it is
+#'   large.
 #' @param trt_effects Treatment-effect model: `"fixed"` or `"random"`.
 #' @param re_parameterization Random-effects parameterization. The default
 #'   `"noncentered"` should be used for inference; `"centered"` is provided for
@@ -675,6 +686,10 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
       r_agd = as.integer(agd[[r]]), E_agd = as.numeric(agd[[E]]))),
     survival = c(base, list(
       N_base = survival_spec$n_basis,
+      # The study index is carried separately for the survival families. The
+      # study intercept is inside the QR design, but each study also has its OWN
+      # baseline hazard, which has to be indexed by study.
+      study_ipd = study_ipd, study_agd = study_agd,
       time_basis_ipd = survival_ipd_basis$time,
       itime_basis_ipd = survival_ipd_basis$itime,
       start_basis_ipd = survival_ipd_basis$start_itime,
