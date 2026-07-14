@@ -17,7 +17,7 @@
 # Requires (Suggests): cmdstanr (fits the models), ggplot2 (figures), knitr,
 # rmarkdown, R.rsp.
 
-for (pkg in c("knitr", "rmarkdown", "cmdstanr", "ggplot2")) {
+for (pkg in c("knitr", "rmarkdown", "cmdstanr", "ggplot2", "bayesplot")) {
   if (!requireNamespace(pkg, quietly = TRUE)) {
     stop("precompile.R needs the '", pkg, "' package installed.", call. = FALSE)
   }
@@ -25,6 +25,48 @@ for (pkg in c("knitr", "rmarkdown", "cmdstanr", "ggplot2")) {
 if (inherits(try(cmdstanr::cmdstan_path(), silent = TRUE), "try-error")) {
   stop("precompile.R needs a working CmdStan installation.", call. = FALSE)
 }
+
+# The vignettes call library(cpaic), so they run against the INSTALLED package,
+# not this source tree. If the installed build is stale the vignettes are built
+# from the wrong code, and the failure is not always loud: a plot method that is
+# not yet registered falls through to the base-R generic and produces a WRONG
+# FIGURE with no error at all. Refuse to run unless the installed package
+# matches the source.
+.assert_install_current <- function() {
+  if (!requireNamespace("cpaic", quietly = TRUE)) {
+    stop("cpaic is not installed. Run R CMD INSTALL . from the package root ",
+         "before precompiling.", call. = FALSE)
+  }
+  root <- if (basename(getwd()) == "vignettes") ".." else "."
+  stale <- character()
+  for (f in list.files(file.path(root, "inst", "stan"), pattern = "[.]stan$")) {
+    src <- readLines(file.path(root, "inst", "stan", f), warn = FALSE)
+    dst <- system.file("stan", f, package = "cpaic")
+    if (!nzchar(dst) || !identical(src, readLines(dst, warn = FALSE))) {
+      stale <- c(stale, f)
+    }
+  }
+  ns <- getNamespaceExports("cpaic")
+  missing_fns <- setdiff(c("plot_estimability", "plot_rank_curve", "rank_probs",
+                           "plot_edge_influence", "plot_prior_posterior"), ns)
+  unreg <- !any(grepl("^plot",
+                      as.character(utils::.S3methods(class = "cpaic_ranks"))))
+  if (length(stale) || length(missing_fns) || unreg) {
+    stop("The installed cpaic is STALE, so the vignettes would be built from ",
+         "the wrong code.\n",
+         if (length(stale)) paste0("  Stan models differing from source: ",
+                                   paste(stale, collapse = ", "), "\n"),
+         if (length(missing_fns)) paste0("  Functions not exported: ",
+                                         paste(missing_fns, collapse = ", "),
+                                         "\n"),
+         if (unreg) "  plot.cpaic_ranks is not registered, so plot() would ",
+         if (unreg) "silently draw the WRONG figure.\n",
+         "Run R CMD INSTALL . from the package root, then precompile again.",
+         call. = FALSE)
+  }
+  message("Installed cpaic matches the source. Proceeding.")
+}
+.assert_install_current()
 
 stems <- c(
   "binary-outcomes",

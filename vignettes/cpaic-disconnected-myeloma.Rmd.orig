@@ -10,9 +10,14 @@ vignette: >
 
 ```{r, include = FALSE}
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6,
-                      fig.height = 4)
+                      fig.height = 4, fig.path = "figure/myeloma-")
 has_stan <- requireNamespace("cmdstanr", quietly = TRUE) &&
   !inherits(try(cmdstanr::cmdstan_path(), silent = TRUE), "try-error")
+# Figures need ggplot2; the MCMC diagnostics also need bayesplot; the figures
+# that summarize the fitted model need a working Stan toolchain as well.
+fig_ok <- requireNamespace("ggplot2", quietly = TRUE)
+fit_fig_ok <- has_stan && fig_ok
+mcmc_fig_ok <- fit_fig_ok && requireNamespace("bayesplot", quietly = TRUE)
 ```
 
 ```{r setup}
@@ -115,7 +120,137 @@ Two components, so there is no path from `R+D` to `R`. A standard NMA cannot
 estimate the contrast at all. It is not that the estimate is imprecise; it does
 not exist.
 
-## 2. ML-NMR adjusts the population, but does not bridge the gap
+### The same network, read as components
+
+A standard NMA sees nodes and edges, and nothing else. cpaic reads the treatment
+labels as *components*, and so sees what the treatment graph cannot: the two
+sub-networks are disjoint as sets of treatments but overlapping as sets of
+components. Build the network object from the contrast-level data, one unadjusted
+log-odds ratio per trial, together with the individual patient data.
+
+```{r network}
+arms <- rbind(
+  do.call(rbind,
+          lapply(split(ipd, list(ipd$.study, ipd$.trt), drop = TRUE), agg)),
+  agd)
+
+# The unadjusted within-trial contrast, for each of the four trials.
+unadjusted <- function(study, t1, t2) {
+  a <- arms[arms$.study == study & arms$.trt == t1, ]
+  b <- arms[arms$.study == study & arms$.trt == t2, ]
+  data.frame(studlab = study, treat1 = t1, treat2 = t2,
+             TE = log(a$r * (b$n - b$r) / ((a$n - a$r) * b$r)),
+             seTE = sqrt(1 / a$r + 1 / (a$n - a$r) + 1 / b$r + 1 / (b$n - b$r)))
+}
+contrasts <- rbind(unadjusted("OLD-1", "R",   "Obs"),
+                   unadjusted("OLD-2", "V",   "Obs"),
+                   unadjusted("NEW-1", "R+D", "R+V"),
+                   unadjusted("NEW-2", "R+I", "R+V"))
+contrasts
+
+net <- cpaic_network(contrasts, ipd = ipd, sm = "OR", family = "binomial",
+                     ipd_covariates = "hr", inactive = "Obs")
+cpaic_connectivity(net)
+```
+
+Two sub-networks, which the treatment graph had already established. The new
+information is in the last two lines: the component design matrix `X = B C` has
+full column rank, so all four component effects are identified, and every
+relative effect versus `Obs` is estimable. The gap is closable, and
+`cpaic_connectivity()` names the components that close it.
+
+```{r network-plot, eval = fig_ok, fig.height = 4.5}
+plot(net)
+```
+
+This is the central figure of the vignette. Each sub-network is laid out on its
+own circle and the circles are placed side by side, so the disconnection is shown
+rather than asserted: no edge runs between the two groups. Node fill gives the
+sub-network. Edges are colored by the evidence behind them, so the two trials for
+which we hold individual patient data (`OLD-2`, the `Obs` versus `V` edge on the
+left, and `NEW-1`, the `R+V` versus `R+D` edge on the right) are distinguished
+from the two published aggregate trials. The triangular nodes are the treatments
+that contain a *bridging* component, which here is every treatment except `Obs`,
+and the subtitle names the bridging components themselves: `R` and `V`. Those two
+components are what the sub-networks hold in common. `R` is given alone in the old
+trials and sits inside every regimen of the new ones; `V` is given alone in the
+old trials and sits inside `R+V` in the new ones. An additive model assigns each
+component a single parameter, shared across the gap, and that shared parameter is
+the entire mechanism by which the network is reconnected.
+
+```{r network-plain, eval = fig_ok, fig.height = 4}
+plot(net, weight_edges = FALSE)
+```
+
+Every comparison in this network is informed by exactly one trial, so scaling
+edge width by the number of studies conveys nothing here; `weight_edges = FALSE`
+removes that legend and leaves a cleaner reading of the same network. On a
+network with several trials per comparison the default is the more informative of
+the two.
+
+## 2. cNMA reconnects the network, but leaves the populations unadjusted
+
+An additive component NMA [@rucker2020cnma; @rucker2021disconnected] estimates
+the four component effects from the four observed contrasts and reconstructs any
+treatment effect as `theta_t = C_t' beta`. Because the component parameters are
+shared between the sub-networks, the reconstruction reaches across the gap. This
+is the connection layer of cpaic, and on aggregate data alone it is already
+enough to produce a cross-gap number.
+
+```{r bridge}
+br <- cnma_bridge(net)
+br
+```
+
+Note the Cochran Q line: four contrasts and four components leave zero degrees of
+freedom, so the additive model is saturated and its fit cannot be tested at all
+here. Additivity is assumed, not checked. This is not an artifact of the
+simulation; it is the generic situation when a network is only just rich enough
+in components to be bridged.
+
+```{r bridge-forest, eval = fig_ok, fig.height = 3.2}
+forest(br)
+```
+
+Every treatment now has an estimate versus `Obs`, including the three regimens in
+the sub-network that contains no `Obs` arm. The disconnection has been repaired.
+
+```{r bridge-components, eval = fig_ok, fig.height = 2.8}
+forest(br, what = "component")
+```
+
+The component forest shows the incremental effect of adding each component to a
+regimen, on the log-odds-ratio scale. These four numbers are what carry the
+evidence across the gap; every treatment effect above is a sum of them.
+
+```{r bridge-league}
+knitr::kable(league_table(br),
+             caption = "Aggregate cNMA league table (odds ratios, row versus column). Every cell is filled: the component bridge reconnects the network completely.")
+```
+
+The league table is complete. Not one cell is empty, even though only four of the
+fifteen pairwise comparisons among these six treatments were ever made in a trial.
+That is the achievement of the connection layer, and it is also the trap: nothing
+in this table records which population it refers to.
+
+```{r bridge-influence, eval = fig_ok, fig.height = 2.8}
+plot_edge_influence(br, treatment = "R+D", comparator = "R")
+```
+
+This is the figure that decides whether population adjustment is possible at all.
+It decomposes the cross-gap estimate of `R+D` versus `R` into the weight each
+observed edge carries in it. Exactly two edges carry the contrast, `OLD-2` (`V` versus `Obs`) and
+`NEW-1` (`R+D` versus `R+V`), each with weight one; the other two edges have
+weight zero and contribute nothing. Those two load-bearing edges are precisely the
+two trials for which we hold individual patient data, one on each side of the gap.
+The cross-gap contrast is therefore adjustable: the edges that carry it are the
+edges we can reweight or model. Had the individual patient data instead sat on
+`OLD-1` and `NEW-2`, the two edges with zero weight, no amount of population
+adjustment could have moved this contrast, however healthy the effective sample
+size looked. `plot_edge_influence()` is the diagnostic that detects that, and no
+conventional one does.
+
+## 3. ML-NMR adjusts the population, but does not bridge the gap
 
 ML-NMR [@phillippo2020mlnmr] is the right tool for the *population* problem: it
 fits the individual-level model to the IPD and integrates it over each aggregate
@@ -128,7 +263,7 @@ will still return a posterior for the contrast, and it will look perfectly healt
 but it is the **prior** speaking, not the data. This is precisely the trap Wigle et
 al. [-@Wigle2026] warn about.
 
-## 3. cML-NMR: bridge with components, adjust by integration
+## 4. cML-NMR: bridge with components, adjust by integration
 
 The regimens are not really indivisible. `R+D` and `R` **share the component `R`**,
 and `R+V` shares `R` and `V` with the old trials. The additive component model turns
@@ -155,6 +290,53 @@ identified by a between-study gradient across study means, which is ecological
 inference; an effect identified from *IPD* is identified by within-study covariate
 variation. They are not equal currency, and cpaic keeps them apart.
 
+`plot_estimability()` evaluates the same check over a grid of target populations
+and tiles the answer. We ask it against `R`, the comparator the decision maker
+actually wants.
+
+```{r estimability-map, eval = fit_fig_ok, fig.height = 2.8}
+plot_estimability(fit, em = "hr", values = seq(0, 1, by = 0.2),
+                  reference = "R")
+```
+
+Compare this with the league table of Section 2, in which every single cell was
+filled. The aggregate cNMA reconnected the network completely; the
+population-adjusted model does not, and the map says which contrasts survive.
+Population adjustment is strictly harder than reconnection: reconnection needs
+only the component *main* effects `beta`, whereas a population-adjusted contrast
+also needs the component by effect-modifier interactions `Gamma` along the
+direction of the target. A contrast can therefore be perfectly estimable in an
+aggregate-data cNMA and still not be estimable as a population-adjusted effect,
+which is exactly what has happened to three of the five rows here. In this
+particular network the estimable set happens to be the same in every target
+population, so the rows are constant across the grid; that is not guaranteed, and
+the point of the figure is that it must be checked rather than assumed.
+
+The reason is visible in the posteriors themselves.
+
+```{r prior-posterior-gamma, eval = fit_fig_ok, fig.height = 3.4}
+plot_prior_posterior(fit, prior = "gamma")
+```
+
+Each panel overlays the posterior of one component by effect-modifier interaction
+(histogram) on its prior (red line). The components are indexed alphabetically, so
+`gamma[1,1]` through `gamma[4,1]` are `D`, `I`, `R` and `V`.
+
+The interactions of `D` and of `V` are each carried by one of the two
+individual-patient-data trials, and their posteriors are far tighter than their
+priors: those two have been estimated. The interaction of `I` is its prior
+redrawn, because no trial informs it with within-study covariate variation; the
+data have said nothing about it at all.
+
+`R` is the instructive case, and it is why this figure must not be read on its
+own. Its posterior is somewhat narrower than its prior, yet `R` is *not*
+identified. An aggregate arm constrains a combination of a main effect and its
+interaction without pinning either one, which narrows the marginal posterior while
+leaving the individual parameter free. Narrowness is not identification. A
+Bayesian model returns a posterior for all four regardless, and all four look like
+perfectly respectable distributions; what may legitimately be reported is settled
+by the algebraic check in `estimable_effects_at()`, not by the eye.
+
 ### The cross-gap comparison, in a named target population
 
 Ask for the cross-gap contrast **directly**, against `R` as the reference. This
@@ -170,6 +352,22 @@ relative_effects(fit, reference = "R", newdata = data.frame(hr = 0.15))
 relative_effects(fit, reference = "R", newdata = data.frame(hr = 0.60))
 ```
 
+The same two tables as forest plots, one target population each.
+
+```{r effects-forest, eval = fit_fig_ok, fig.height = 3}
+forest(fit, reference = "R", newdata = data.frame(hr = 0.15))
+forest(fit, reference = "R", newdata = data.frame(hr = 0.60))
+```
+
+The subtitle of each panel records the target population, because without it the
+estimates are meaningless. Two features deserve attention. First, the contrasts
+that are not identified are drawn as labeled empty rows rather than dropped:
+`forest()` will not present a plot that looks complete when it is not, and the
+caption repeats which rows are missing and why. Second, `R+D` versus `R` moves
+between the two panels while `R+V` versus `R` moves the other way, which is the
+crossing of daratumumab and bortezomib that we built into the data generating
+mechanism.
+
 ```{r truth-check, eval = has_stan}
 theta <- function(trt, x) sum(Cmat[trt, ] * (beta_true + gamma_true * x))
 for (x in c(0.15, 0.60)) {
@@ -183,7 +381,28 @@ recovered; and it is recovered *differently* in the two target populations, beca
 daratumumab is more effective in high-risk patients. A single population-free number
 would be wrong for at least one of them.
 
-## 4. The hierarchy is population-specific
+```{r mlnmr-league, eval = has_stan}
+knitr::kable(league_table(fit, newdata = data.frame(hr = 0.60)),
+             caption = "cML-NMR league table (odds ratios, row versus column) in a target population with 60% high-risk patients. Empty cells are not estimable as population-adjusted effects.")
+```
+
+Set this against the aggregate cNMA league table of Section 2. That one was
+complete; this one is mostly empty, and the difference between them is the whole
+lesson of the vignette. The unadjusted bridge gives a number for every cell and
+attaches it to no population at all. The adjusted model gives a number only where
+the data can support one in the population you asked about, and it declines the
+rest.
+
+The cells it does fill are `V` against `Obs`, inside the old sub-network, and the
+three comparisons among `R`, `R+V` and `R+D`, which include the cross-gap contrast
+that prompted the analysis. The pattern of refusals is not arbitrary. Any
+comparison that changes the ixazomib content is refused, because no trial anywhere
+in the network provides within-study covariate variation on `I`; and any comparison
+that changes the lenalidomide content is refused for the same reason applied to
+`R`. What survives is precisely the set of contrasts in which the components with
+unidentified interactions cancel.
+
+## 5. The hierarchy is population-specific
 
 If component effects depend on the population, so do component *rankings*. The
 question is not "which component is best?" but **"which component is best in this
@@ -205,40 +424,125 @@ workflow, now with an estimable set that itself depends on the target.
 Second, among the components that *are* identified, **the order reverses**: `V` wins
 in a low-risk population and `D` wins in a high-risk one.
 
-```{r rankcurve, eval = has_stan, fig.height = 4}
-curve <- rank_curve(fit, em = "hr", values = seq(0, 1, by = 0.1),
-                    what = "component")
-if (requireNamespace("ggplot2", quietly = TRUE)) {
-  library(ggplot2)
-  ggplot(curve, aes(hr, sucra, colour = element)) +
-    geom_line(linewidth = 1) +
-    geom_vline(xintercept = 0.227, linetype = "dashed") +
-    labs(x = "Proportion of high-risk patients in the target population",
-         y = "SUCRA", colour = "Component",
-         title = "A component hierarchy is a function of the target population",
-         subtitle = "Dashed line: the true crossover at hr = 0.227") +
-    theme_minimal()
-}
+```{r ranks-plot, eval = fit_fig_ok, fig.height = 2.5}
+plot(suppressWarnings(
+  cpaic_ranks(fit, newdata = data.frame(hr = 0.05), what = "component")))
+plot(suppressWarnings(
+  cpaic_ranks(fit, newdata = data.frame(hr = 0.80), what = "component")))
 ```
+
+The two hierarchies, plotted. Each carries its target population in the subtitle
+and the components it refused to rank in the caption, so neither can be quoted
+without them. Between the first panel and the second the SUCRA values of `D` and
+`V` exchange places completely.
+
+The full rank distribution behind those metrics is available through
+`rank_probs()`. Asking for it at the level of *treatments*, which is the default,
+produces a refusal.
+
+```{r rankogram-refusal, eval = has_stan}
+tryCatch(
+  rank_probs(fit, newdata = data.frame(hr = 0.30)),
+  error = function(e) cat("rank_probs() refused:\n ", conditionMessage(e), "\n"))
+```
+
+The refusal is the correct answer, and it is deliberate. Of the five treatments to
+be ranked against `Obs`, only `V` is estimable in a general target population, and
+a hierarchy of one element is not a hierarchy. The alternative, which most software
+would take, is to rank all five from posteriors that are for the most part the
+prior redrawn, and to return a confident-looking ordering built on nothing. This is
+Step 3 of the Wigle et al. [-@Wigle2026] workflow enforced in code rather than left
+to the analyst's discipline. Ask instead for the hierarchy the network can support,
+which is the one over components.
+
+```{r rankogram, eval = fit_fig_ok, fig.height = 2.6}
+plot(suppressWarnings(
+  rank_probs(fit, newdata = data.frame(hr = 0.80), what = "component")))
+```
+
+The rankogram gives the posterior probability that each component occupies each
+rank, among the components that are estimable in this target population. In a
+population with 80% high-risk patients the posterior is close to certain that
+daratumumab is the better of the two, which is the same conclusion as the SUCRA
+plot above but with the uncertainty made explicit.
+
+```{r rankcurve, eval = fit_fig_ok, fig.height = 4}
+plot_rank_curve(fit, em = "hr", values = seq(0, 1, by = 0.1),
+                what = "component") +
+  ggplot2::geom_vline(xintercept = 0.227, linetype = "dashed") +
+  ggplot2::labs(
+    title = "A component hierarchy is a function of the target population",
+    x = "Proportion of high-risk patients in the target population")
+```
+
+`plot_rank_curve()` traces the whole family of hierarchies at once, rather than
+one hierarchy at a time. The dashed line marks the true crossover at `hr = 0.227`,
+which we derived from the parameter values we set at the top of the vignette, and
+the estimated curves cross close to it. To the left of that line bortezomib leads;
+to the right daratumumab does. A single component ranking, quoted without a
+population, is not a well-posed answer to any question; it is an answer to the
+question of what happens at one unstated point on this axis.
+
+## Model checking
+
+None of the above means anything if the posterior was not explored. Two standard
+checks, and one that matters more than usual here.
+
+```{r mcmc-trace, eval = mcmc_fig_ok, fig.height = 5}
+plot(fit, type = "trace")
+```
+
+Trace plots of the component effects `beta` and the component by effect-modifier
+interactions `gamma`. The four chains should be indistinguishable and stationary.
+Note that the chains for the unidentified interactions mix perfectly well; good
+mixing is evidence about the sampler, not about identification, and it is precisely
+why the identification analysis of Section 4 cannot be skipped.
+
+```{r mcmc-rhat, eval = mcmc_fig_ok, fig.height = 2.5}
+plot(fit, type = "rhat")
+```
+
+All potential scale reduction factors sit at the left of the scale, so the chains
+have converged.
+
+```{r prior-posterior-all, eval = fit_fig_ok, fig.height = 6.5}
+plot_prior_posterior(fit)
+```
+
+The full prior-against-posterior panel: study intercepts `mu`, component effects
+`beta`, the prognostic regression coefficient `breg`, and the interactions `gamma`.
+Read it as a map of what the data actually informed. The parameters whose
+posteriors have collapsed relative to their priors are the ones the network
+identifies; the two `gamma` panels that still reproduce their prior are the reason
+`R` and `I` are dropped from every hierarchy above.
 
 ## What to take away
 
 | Method | Adjusts the population | Bridges the disconnection | Cross-gap effect |
 |---|---|---|---|
 | Standard NMA | no | no | **not estimable** |
+| Aggregate cNMA | no | yes, via shared components | estimable, but population-free |
 | ML-NMR | yes | no | **prior-driven, not identified** |
 | cML-NMR | yes | yes, via shared components | estimable, and population-specific |
 
-Two warnings, which are not optional reading.
+Three warnings, which are not optional reading.
 
 1. **The bridging assumption is untestable.** Reconnecting through shared components
    requires the component effects, *and their interactions with the effect
    modifiers*, to be the same in both sub-networks. There is by construction no
    cross-gap evidence with which to test that; it must be defended clinically
-   [@Veroniki2026].
+   [@Veroniki2026]. In this network the additive model is saturated, so not even
+   its internal fit statistic has degrees of freedom to spend on the question.
 2. **Estimability is not automatic.** As `R` and `I` show above, a contrast can be
    perfectly estimable as an aggregate-data component contrast and still not be
-   estimable as a population-adjusted effect. Run `estimable_effects_at()` and
-   believe what it says.
+   estimable as a population-adjusted effect. The two league tables, one complete
+   and one mostly empty, are the same network under the two criteria. Run
+   `estimable_effects_at()` and `plot_estimability()`, and believe what they say.
+3. **Where the individual patient data sit decides what can be adjusted.** The
+   cross-gap contrast here is carried entirely by the two IPD edges, so population
+   adjustment can reach it. Put the same IPD on the other two edges and the
+   contrast becomes unadjustable, without any conventional diagnostic registering a
+   complaint. `plot_edge_influence()` is what shows this, and it should be consulted
+   before the analysis is designed, not after.
 
 ## References

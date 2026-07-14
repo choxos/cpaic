@@ -262,11 +262,34 @@ net <- cpaic_network(agd_contr, ipd = ipd, sm = "OR", family = "binomial",
 cpaic_connectivity(net)
 ```
 
-Two sub-networks, bridged by `CBT` and `NRT`, and the component design matrix
-$X = BC$ has full column rank. **Hold that thought.** Full rank means every
-component effect is identified *as an aggregate-data component NMA would define
-it* [@Wigle2026]. It does not mean every population-adjusted effect is
-identified, and the difference turns out to be the whole story.
+`plot()` draws the same verdict. Each sub-network is laid out on its own circle,
+so a disconnected network looks disconnected; edges are colored by whether the
+comparison carries any individual patient data, and their width is the number of
+studies contributing to it.
+
+```{r network-plot, fig.width = 8, fig.height = 4.8}
+# the panel is widened so that the outer treatment labels are not clipped
+plot(net)
+```
+
+Three things to read off it. First, the two groups sit side by side with **no
+edge between them**: no comparator, direct or indirect, joins `UC`, `NRT` and
+`CBT` to `CBT+NRT`, `CBT+VAR` and `CBT+BUP`. Second, every treatment except `UC`
+is drawn as a triangle, meaning it contains one of the two bridging components,
+`CBT` or `NRT`; it is through those shared components, and not through any
+comparator, that the additive model will carry information across the gap. Third,
+only two comparisons are green, the color reserved for a comparison on which at
+least one study holds individual patient data: `UC` versus `CBT`, which three
+studies inform but only `BRIEF-2` informs with patient records, and `CBT+NRT`
+versus `CBT+VAR`, where `COMBO-1` does the same. **Every adjustment the
+frequentist route can perform happens on those two edges.** The remaining five
+edges enter the analysis exactly as their publications reported them.
+
+The component design matrix $X = BC$ nevertheless has full column rank. **Hold
+that thought.** Full rank means every component effect is identified *as an
+aggregate-data component NMA would define it* [@Wigle2026]. It does not mean
+every population-adjusted effect is identified, and the difference turns out to
+be the whole story.
 
 ## Covariate balance
 
@@ -320,6 +343,21 @@ Matching costs information. The effective sample sizes above are what is left of
 each IPD trial after reweighting; `COMBO-1`, which is furthest from the target,
 pays the most. (We pass `target_sd` as well as the mean so that MAIC matches the
 target's *variance* too, not only its center.)
+
+`forest()` displays the bridged result. Read it once for the answers and once for
+what it does **not** say.
+
+```{r forest-stc, fig.width = 8, fig.height = 3.4}
+forest(fit_stc)
+```
+
+Every contrast against usual care receives a point estimate and an interval, the
+three that cross the gap included, and nothing on the plot distinguishes a
+contrast the data determine from one they do not. That is not a defect of
+`forest()`; it is a faithful rendering of what the frequentist bridge believes.
+The `NRT` versus `UC` row, which sits comfortably clear of the null, is the one
+to remember: we return to it once we have the machinery to see what is wrong with
+it.
 
 ### Two routes, two estimands
 
@@ -453,6 +491,24 @@ permissive; a normal(0, 1) on an interaction says that a one-unit change in
 `cpd` (10 cigarettes a day) is unlikely to swing a component's log odds ratio by
 more than about two.
 
+Stating a prior is not the same as knowing what it did. `plot_prior_posterior()`
+answers that: it draws each posterior as a histogram and its prior as a line, so
+a parameter the data informed is one whose histogram has pulled away from the
+line beneath it.
+
+```{r prior-posterior, fig.width = 8, fig.height = 7.5}
+plot_prior_posterior(fit)
+```
+
+The study intercepts `mu` and the component effects `beta` are sharp against
+broad priors, as they should be with several thousand patients. The components
+are indexed alphabetically, so `beta[1]` is bupropion, and it is conspicuously
+the widest of the four: bupropion is carried by a single aggregate trial. The
+telling panel, though, is `gamma[1,1]`, the bupropion by `cpd` interaction, whose
+histogram lies underneath its prior curve almost exactly. That is the visual
+signature of a parameter the likelihood does not constrain at all, and we take it
+up in earnest below.
+
 ### Convergence
 
 ```{r convergence}
@@ -464,6 +520,42 @@ data.frame(
                                               "tau"))$ess_bulk, na.rm = TRUE))
 )
 ```
+
+The trace plot shows the same thing chain by chain.
+
+```{r mcmc-trace, fig.width = 8, fig.height = 6}
+plot(fit, type = "trace")
+```
+
+```{r mcmc-rhat, fig.width = 6, fig.height = 2.6}
+plot(fit, type = "rhat")
+```
+
+All four chains overlap and are stationary in every panel, and every $\hat{R}$
+sits in the lowest band. Note that the *width* of a trace is not a convergence
+problem but an information statement: `beta[1]` and `gamma[1,1]`, bupropion and
+its interaction, wander over a range several times wider than the others, because
+one aggregate two-arm trial is all the evidence there is about bupropion. This is
+the distinction that governs the rest of the vignette: **convergence is a
+property of the sampler, not of the evidence.** A parameter the data say nothing
+about will converge perfectly well onto its prior.
+
+Sampling is not the only numerical approximation here. Each aggregate arm's
+likelihood is an integral of the individual model over that study's covariate
+distribution, evaluated at `n_int = 64` quasi-Monte-Carlo points, and
+`plot_integration_error()` traces how far the integral at `N` points sits from
+the integral at all 64.
+
+```{r integration-error, fig.width = 9, fig.height = 6.5}
+plot_integration_error(fit)
+```
+
+In every aggregate arm the error is already well inside the dashed `1/N` envelope
+by twenty points and keeps shrinking toward sixty-four, so `n_int = 64` is ample
+for this model. `COMBO-2`'s bupropion arm is the noisiest of the ten, which is
+consistent with it being the arm the model knows least about. Had any panel still
+been drifting at the right-hand edge, the remedy would have been to refit with
+more integration points, not to reinterpret the answer.
 
 ## Estimability: reconnecting is not identifying
 
@@ -496,6 +588,23 @@ Those two quantities are pinned down at *those trials' covariate means*, and 18
 cigarettes a day is neither of them. An aggregate two-arm trial gives you one
 equation; separating a component's main effect from its interaction takes two.
 
+That table is one target population. `plot_estimability()` runs the same algebra
+across a whole grid of them, which is the only way to see that estimability is
+not a fixed property of the network.
+
+```{r estimability-map, fig.width = 9, fig.height = 3.8}
+plot_estimability(fit, em = "cpd", values = seq(-1, 1, by = 0.25),
+                  reference = "NRT")
+```
+
+The good news is the two green rows, and they are the rows that matter: the
+headline contrast `CBT+VAR` versus `NRT` is identified from within-trial
+covariate variation at **every** target population in the plausible range, from
+5-a-day smokers to 25-a-day ones, and so is `CBT+NRT` versus `NRT`. The
+population-adjusted comparison across the gap is available wherever a guideline
+panel might want to stand. The three red rows are equally uniform, and equally
+informative: no choice of target rescues them.
+
 The dependence on the target is real, not a technicality. `BRIEF-1` enrolled
 8-a-day smokers; ask for **exactly that** population and `NRT` becomes estimable
 again. Note "exactly": the criterion holds at the trial's realized covariate mean,
@@ -512,6 +621,25 @@ That is the whole of what an aggregate two-arm trial can tell you: its own
 contrast, in its own population. Everything else is extrapolation through
 $\Gamma$, and $\Gamma$ has to come from somewhere.
 
+Redraw the map on a grid that passes exactly through `BRIEF-1`'s own covariate
+mean, and the point becomes a picture. This time we take the comparisons against
+usual care, which is where the aggregate `NRT` edge does its work.
+
+```{r estimability-own-map, fig.width = 9, fig.height = 4}
+plot_estimability(fit, em = "cpd", values = own$cpd + 0.25 * (-1:7))
+```
+
+One column of the map, and one only, is different: at `BRIEF-1`'s own population
+three further contrasts become estimable, and they come up **yellow**, not green.
+Yellow is `identified_by = "aggregate"`, which is to say identified
+*ecologically*, from between-study differences in covariate means rather than
+from randomized within-study variation. Randomization does not protect an
+ecological comparison, and `estimable_effects_at()` labels its basis a
+"first-order screen" precisely to warn that on a nonlinear link the criterion may
+be optimistic there. Estimability is therefore not one property but two: whether a
+contrast can be identified at all, and on what kind of evidence. One step either
+side of that column, every one of those three contrasts is red again.
+
 The same algebra reaches the component effects. In the target population, only
 `CBT` is separately identified; even `VAR` is not, because varenicline was only
 ever measured *against* nicotine replacement:
@@ -520,11 +648,52 @@ ever measured *against* nicotine replacement:
 component_effects(fit, newdata = target)
 ```
 
+`forest()` renders the same table, and renders the `NA`s as what they are.
+
+```{r forest-component, fig.width = 7, fig.height = 3}
+forest(fit, what = "component", newdata = target)
+```
+
+Three of the four components are printed as empty rows marked *not estimable*
+rather than dropped. Dropping them would leave a plot that looked complete when
+it was not, which is the single most consequential design decision in the
+package's plotting surface.
+
 That looks like a defeat and is not. The headline contrast does not need `VAR`
 alone: `CBT+VAR` versus `NRT` is `CBT` plus (`VAR` minus `NRT`), and *both of
 those pieces come from IPD*. cpaic returns `NA` for what it cannot identify and a
 number for what it can, which is the behavior you want from a tool that will
 otherwise hand you the prior with a straight face [@Wigle2026].
+
+### Which edges actually carry the answer
+
+The frequentist bridge has no `NA`s to return, but the same linear algebra still
+governs it, and `plot_edge_influence()` exposes it from the other side. A bridged
+contrast is a weighted combination of the observed edges, with weights chosen by
+the component design rather than by any path through the network. Those weights
+are worth looking at before trusting the contrast.
+
+```{r edge-influence, fig.width = 8, fig.height = 4}
+plot_edge_influence(fit_stc, treatment = "CBT+VAR")
+```
+
+Read the bars from the top. The edge that contributes **most** to `CBT+VAR`
+versus `UC` is `BRIEF-1`, the aggregate trial in 8-a-day smokers; it carries more
+weight than any other edge in the network. It reaches this contrast because
+varenicline was only ever measured *against* nicotine replacement, so the `NRT`
+component has to be supplied from somewhere, and `BRIEF-1` is the only place it
+exists. Yet `BRIEF-1` is aggregate, so neither `cstc()` nor `cmaic()` can touch
+it, and it enters the bridge in its own light-smoking population. Meanwhile the
+two edges that *were* adjusted, `COMBO-1` and `BRIEF-2`, are the green ones, and
+between them they carry a minority of the weight.
+
+The last bar is instructive in the opposite direction: `COMBO-2`, the bupropion
+trial, has an influence of exactly zero. `CBT+VAR` versus `UC` contains no
+bupropion, so no amount of evidence about bupropion can move it. This is the
+diagnostic that the conventional population-adjustment checks cannot perform: an
+effective sample size tells you how much of a trial survived reweighting, but it
+cannot tell you that reweighting that trial was incapable of changing your answer
+in the first place.
 
 ## Results
 
@@ -536,6 +705,17 @@ Here is the target population, against `NRT`:
 ```{r effects-target}
 relative_effects(fit, reference = "NRT", newdata = target)
 ```
+
+```{r forest-bayes, fig.width = 8, fig.height = 3.4}
+forest(fit, reference = "NRT", newdata = target)
+```
+
+Two contrasts, an interval each, and three rows that decline to answer. The
+headline result is the bottom row: `CBT+VAR` versus `NRT`, a comparison no trial
+in this network made and no comparator connects, estimated in a named population
+with an interval that reflects how much the data actually say. Compare this plot
+with the frequentist forest above, which had five filled rows and no empty ones.
+Same network, same target, same question.
 
 And the same network in a lighter-smoking population:
 
@@ -582,6 +762,28 @@ out above: the estimand gap lives on the two IPD edges, and the bridge dilutes i
 with unadjusted aggregate evidence on the same contrasts. The place to look for
 the difference is the edge table, not the league table.
 
+`league_table()` lays out every pairwise comparison at the target population. It
+is worth printing in full, because what it leaves out is as informative as what it
+contains.
+
+```{r league}
+lg <- league_table(fit, newdata = target)
+knitr::kable(lg, caption = paste("League table at cpd = 0.3 (row versus column).",
+                                 "Empty cells are not estimable."))
+```
+
+```{r league-fill, include = FALSE}
+off <- lg[row(lg) != col(lg)]
+n_filled <- sum(nzchar(off))
+```
+
+Most of it is empty: of the `r length(off)` off-diagonal cells, `r n_filled` carry
+a number. A conventional league table built from this network would have been
+full, and every cell in it would have looked equally authoritative. Note also that
+the `CBT` versus `UC` cell and the `CBT+NRT` versus `NRT` cell agree to the last
+digit. That is not a coincidence: under an additive model both contrasts *are* the
+counseling component, reached by two different routes.
+
 The population dependence is recovered too:
 
 ```{r pop-curve, fig.height = 4}
@@ -607,6 +809,66 @@ ggplot(curve, aes(15 + 10 * cpd)) +
        subtitle = "The contrast no trial measured, recovered across a gap no comparator spans") +
   theme_minimal() + theme(legend.position = "top")
 ```
+
+### The hierarchy, and the refusal to build one
+
+A guideline panel will ask for a ranking. @Wigle2026 set out the workflow that
+answers it responsibly: state the set to be ranked, **determine which of the
+required relative effects are estimable**, refine the set to the estimable ones or
+decline to rank, and only then compute the metrics. `cpaic_ranks()` performs those
+steps and reports what it had to discard.
+
+```{r hierarchy, fig.width = 8, fig.height = 2.6}
+rk <- cpaic_ranks(fit, newdata = target)
+rk
+plot(rk)
+```
+
+Four of the six treatments are gone. What remains is a two-element hierarchy,
+`CBT` above `UC`, and the caption names the four that were dropped. This is not a
+failure of the ranking code; it is the estimability result of the previous section
+reaching the quantity a guideline panel is most likely to quote. A SUCRA is
+computed from a treatment's relative effect, so a treatment whose relative effect
+is not identified can only be ranked by ranking the prior, and no ranking metric
+would carry any trace of the substitution.
+
+The rankogram makes the point more sharply still, because it declines outright.
+`rank_probs()` ranks the non-reference treatments, and once the four
+non-estimable ones are dropped a single treatment is left, from which no
+hierarchy can be formed:
+
+```{r rankogram-refusal}
+tryCatch(rank_probs(fit, newdata = target),
+         error = function(e) cat("rank_probs() declined:\n ", conditionMessage(e)))
+```
+
+**An error is the correct output here.** A rankogram of this network at this
+target population would have been a picture of the prior, drawn with the same
+confident bars as a picture of the data, and no diagnostic downstream of it would
+have revealed the difference. Refusing is the whole point of Step 3.
+
+Within the set that *can* be ranked, the hierarchy is still population-specific,
+and `plot_rank_curve()` traces it across target populations.
+
+```{r rank-curve, fig.width = 9, fig.height = 4}
+rc <- rank_curve(fit, em = "cpd", values = seq(-1, 1, by = 0.25))
+plot_rank_curve(fit, em = "cpd", values = seq(-1, 1, by = 0.25))
+```
+
+```{r rank-curve-numbers, include = FALSE}
+sucra_cbt <- rc$sucra[rc$element == "CBT"]   # ordered by target, light to heavy
+```
+
+Two cautions in one figure. First, the curves do not cross here, so counseling
+beats usual care in every target population; but the margin erodes steadily, and
+`CBT`'s SUCRA falls from `r round(head(sucra_cbt, 1), 3)` in the lightest-smoking
+population to `r round(tail(sucra_cbt, 1), 3)` in the heaviest, which is what a
+component whose interaction with `cpd` is negative should do. In a network with
+more estimable contrasts the curves generally *do* cross, and a hierarchy quoted
+without a population is then not merely imprecise but wrong. Second, and more
+important: the plot shows two treatments because two is all that could be ranked.
+It gives no indication that four others exist. Read a rank curve only after
+`estimable_effects_at()`, never instead of it.
 
 ### The contrasts the frequentist bridge gets quietly wrong
 
@@ -655,6 +917,22 @@ two-stage route is getting wrong, and a number for exactly the row it is getting
 right.** That correspondence is not a coincidence: it is the same piece of linear
 algebra, read once as a warning and once as a silent assumption.
 
+Put the two forests side by side and the contrast is the argument of this
+vignette in one image. The frequentist bridge, plotted earlier in this section's
+own comparator, filled all five rows. Here is `cmlnmr()` asked the identical
+question, against the identical comparator, in the identical target population:
+
+```{r forest-bayes-uc, fig.width = 9, fig.height = 3.4}
+forest(fit, newdata = target)
+```
+
+One row survives, and it is the row the frequentist bridge also got right. The
+four blank rows are the four the `covers` column just convicted. A plot that
+refuses to draw four fifths of itself is an uncomfortable deliverable, and it is
+the correct one: the alternative is the plot above it, which is complete,
+confident, and wrong about `NRT` versus `UC` by a margin its confidence interval
+does not admit.
+
 ### Random effects and model comparison
 
 The random-effects model lets each study-arm deviate from the component-implied
@@ -691,6 +969,34 @@ study-arm noise, so the random-effects model is paying for flexibility it does n
 need. It remains the safer default, because in a real network you do not get to
 know that.
 
+A single DIC difference reduces the whole data set to one number. The dev-dev plot
+restores the detail: each point is one data point's contribution to the posterior
+mean deviance under each of the two models.
+
+```{r devdev, fig.width = 6.5, fig.height = 5}
+plot(dic(fit_fixed), dic(fit), labels = c("fixed", "random"))
+```
+
+The points lie along the line of equality with almost no scatter, so the two
+models are not merely tied on average; they fit essentially every arm and every
+patient the same way. A DIC tie that came instead from one model fitting some
+points much better and others much worse would look nothing like this, and would
+mean something quite different.
+
+The leverage plot asks the complementary question: is any single data point
+distorting the fit?
+
+```{r leverage, fig.width = 8, fig.height = 4.5}
+plot_leverage(fit)
+```
+
+No point lies outside the `DIC = 3` contour, so nothing is spoiling the fit. The
+structure worth noticing is the separation between the two colors. The individual
+patients (green) sit along leverage zero, each contributing almost nothing on its
+own; the aggregate arms (navy) sit an order of magnitude higher. That is exactly
+as it should be, and it is the same fact that the next paragraph reaches from the
+other direction.
+
 Two cautions on reading these numbers. First, LOO's Pareto-$k$ diagnostic flags
 several observations. It is right to: **each aggregate arm is a single
 "observation" that carries an entire trial's worth of information**, so leaving it
@@ -712,6 +1018,22 @@ of the gap. (In `vignette("count-outcomes")` the same statistic comes out large,
 for a reason that has nothing to do with additivity.)
 
 ### Prior sensitivity
+
+The interactions $\Gamma$ are where the identification problem lives, so look at
+them alone before perturbing anything.
+
+```{r prior-posterior-gamma, fig.width = 8, fig.height = 3.4}
+plot_prior_posterior(fit, prior = "gamma")
+```
+
+Three of the four posteriors have collapsed to a narrow spike well inside the
+`normal(0, 1)` prior: those are the interactions for `CBT`, `NRT` and `VAR`, the
+three components that the two IPD trials touch, and they are estimated from
+within-trial covariate variation. The fourth, `gamma[1,1]`, is bupropion, and its
+histogram traces the prior curve. **The prior is not a formality for that
+parameter; it is the entire posterior.** Whatever `prior_gamma_scale` we had
+chosen, the data would have returned it unchanged, and any contrast that leans on
+it inherits that property while continuing to look like an estimate.
 
 Prior movement is the empirical definition of identification: a contrast that
 moves when you change a prior it should not depend on was never data-driven.

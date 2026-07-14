@@ -359,11 +359,30 @@ net
 cpaic_connectivity(net)
 ```
 
+The network plot puts both halves of the problem in one picture.
+
+```{r netplot, fig.height = 4.6, fig.width = 9}
+plot(net)
+```
+
+Each sub-network is drawn on its own circle, so the disconnection is not something
+the reader has to take on trust: no edge crosses from the left group to the right.
+Edge color separates the trials that carry individual patient data from those
+that do not, and the outlined nodes are the treatments containing a bridging
+component. The subtitle names those components, and `cpaic_connectivity()` above
+names them too: `B` and `M`, the beta-blocker and the MRA, are the only treatment
+components that occur on both sides of the gap. They are the entire basis on which
+the additive component model reconnects the network.
+
 ### The target population
 
 ```{r targets}
 target_ckd  <- c(egfr_c = -1)   # eGFR 50: chronic kidney disease
 target_pres <- c(egfr_c =  1)   # eGFR 70: preserved renal function
+
+# The chronic-kidney-disease target again, as the one-row data frame that the
+# Bayesian model's `newdata` argument takes.
+target <- data.frame(egfr_c = -1)
 
 theta <- function(trt, x) sum(Cmat[trt, ] * (beta_true + gamma_true * x))
 truth <- function(t1, t2, x) theta(t1, x) - theta(t2, x)
@@ -396,6 +415,36 @@ relative_effects(maic_ckd, reference = "Std+B")
 effective_sample_size(maic_ckd)
 ```
 
+```{r freq-forest, fig.height = 3.2, fig.width = 9}
+forest(stc_ckd, reference = "Std+B")
+```
+
+The bridged network, adjusted to the chronic-kidney-disease target, on one axis.
+Every contrast comes back with an estimate, because the two-stage bridge asks only
+whether the component *design* has full rank, and it has. Hold that thought: the
+Bayesian model below will refuse three of these five, and it will be right to.
+
+Which trials actually pay for a given answer is a separate question, and
+`plot_edge_influence()` answers it.
+
+```{r edge-influence, fig.height = 3.4, fig.width = 9}
+plot_edge_influence(stc_ckd, treatment = "B+M+S")
+```
+
+Each bar is the weight with which one observed edge enters the estimate of `B+M+S`
+versus `Std`. That contrast decomposes into the components `B`, `M` and `S`, so it
+draws on trials from *both* sub-networks: `HF-1` is the only source of `B` and
+carries the whole weight of it, while `HF-3` and `HF-4` supply `S`, and `HF-2` and
+`HF-6` supply `M`. This is the bridge doing its work, and no Kaplan-Meier plot
+shows it. `HF-5` carries exactly zero weight, because the ARNI component `A` does
+not enter this contrast at all.
+
+The diagnostic bites hardest on IPD edges. An IPD trial with zero influence on the
+contrast you care about cannot move that contrast however carefully you reweight
+it, and no MAIC weight diagnostic will tell you so: the effective sample size can
+look perfectly healthy while the edge is contributing nothing. Such edges are drawn
+in red and named in the caption; there are none here.
+
 ### Route 2: the one-stage Bayesian model
 
 We fit a piecewise-exponential baseline and a cubic M-spline baseline, then
@@ -425,7 +474,12 @@ drawn from its arm's covariate distribution, so the aggregate cost scales with
 Sobol' sequence in one dimension is essentially a stratified grid and `n_int = 8`
 integrates a smooth function accurately. Do not copy that number into an analysis
 with several correlated covariates; the default of 64 exists for a reason, and
-integration error is cheap to check by refitting with more points.
+integration error is cheap to check by refitting with more points. Refitting is in
+fact the *only* check here: `plot_integration_error()`, which traces the error
+against the number of points for the other outcome families, is not available for
+a survival model, because an aggregate arm contributes a `log_sum_exp` of the
+likelihood over the integration points rather than an integrated mean outcome, and
+there is no single integrated quantity whose error could be plotted.
 
 ```{r fit-random}
 fit_re <- cmlnmr(ipd, agd, effect_modifiers = "egfr_c", inactive = "Std",
@@ -452,6 +506,26 @@ component whose interaction is informed only by aggregate arms has nothing but
 this prior holding it up, which is precisely why `estimable_effects_at()` exists
 and why we check `prior_sensitivity()` below.
 
+`plot_prior_posterior()` is the same statement as a picture: the posterior is the
+histogram, the prior is the red line, and where the two coincide the data have
+said nothing.
+
+```{r prior-post, fig.height = 7.5}
+plot_prior_posterior(fit_ms)
+```
+
+```{r prior-post-gamma, fig.height = 3.4}
+plot_prior_posterior(fit_ms, prior = "gamma")
+```
+
+The `gamma` panels are the four components in the order of `colnames(Cmat)`: `A`,
+`B`, `M`, `S`. The ARNI interaction, `gamma[1,1]`, is much the widest of the four,
+which is what it looks like when no trial varies eGFR against a component within
+its own arms. The MRA and SGLT2 interactions, `gamma[3,1]` and `gamma[4,1]`, are
+identified from within-trial covariate variation and are far tighter than their
+prior. A narrow posterior is not on its own a license to report a contrast, and
+the next two sections are about exactly that gap.
+
 ### Convergence
 
 ```{r convergence}
@@ -461,7 +535,51 @@ rbind(
   random    = unlist(fit_re$diagnostics))
 ```
 
+The summary is not a substitute for looking at the chains.
+
+```{r trace, fig.height = 5.4}
+plot(fit_ms, type = "trace")
+```
+
+```{r rhat, fig.height = 2.6}
+plot(fit_ms, type = "rhat")
+```
+
+`type = "trace"` draws the four chains for the component effects and their
+interactions; they should overlay each other and show neither drift nor
+stickiness. `type = "rhat"` collects the split-Rhat statistics for the same
+parameters, and the `max_rhat` column of the table above is the largest of them.
+These are gatekeepers rather than decoration: had the chains not mixed, nothing
+below would be worth reading, however narrow the credible intervals looked.
+
 ## Results
+
+### Does the model reproduce the observed curves?
+
+Before reading a hazard ratio off the model, check that the model can reproduce
+the data it was fitted to. `plot_survival()` draws the model-implied survival
+curve for each study arm, averaged over that arm's own covariate distribution (the
+individual covariates for an IPD arm, the integration points for an aggregate
+one), with a credible band that includes the uncertainty in the baseline hazard.
+`geom_km()` overlays the observed Kaplan-Meier curve.
+
+```{r km-overlay, fig.height = 7.5}
+plot_survival(fit_ms) + geom_km(fit_ms)
+```
+
+This is the check that the baseline hazards actually fit. Every study carries its
+**own** baseline hazard, smoothed by a first-order random-walk prior with a
+smoothing scale shared across studies, so these twelve panels are not twelve views
+of one curve: each study's hazard shape is free to be wrong on its own. A
+systematic departure of the step function from the band would mean the baseline is
+too rigid, and would put everything below it in doubt.
+
+One disagreement is guaranteed in advance, and it is `HF-6`. Thirty percent of its
+patients enter late; the model conditions on their entry times, and `geom_km()`
+draws the ordinary Kaplan-Meier estimator, which does not. The observed curve in
+those two panels therefore still carries the immortal time that left truncation
+removes, and sits above the fitted curve early on. That gap is an artifact of the
+comparison, not a failure of the model.
 
 ### What is actually estimable?
 
@@ -493,6 +611,22 @@ relative_effects(fit_ms, reference = "Std+B",
                  newdata = data.frame(egfr_c = -1))
 ```
 
+Estimability is a function of the target population, not a property of the network,
+so it is worth mapping rather than checking at a single point.
+
+```{r estimability-map, fig.height = 3.6, fig.width = 9}
+plot_estimability(fit_ms, em = "egfr_c", values = seq(-2, 2, by = 0.25),
+                  reference = "Std+B")
+```
+
+Green is a contrast identified by IPD, from within-trial covariate variation that
+randomization protects; red is a contrast the design cannot identify at that target
+at all. The two green bands run the full width of the plot: `B+M` and `B+M+S`
+versus `Std+B` are estimable in every population on the grid, which is what makes
+them reportable. The three red bands stay red everywhere. A component carried by a
+single aggregate contrast is pinned at that trial's own covariate mean and nowhere
+else, and no grid point is that mean.
+
 ### The cross-gap hazard ratio, in two named populations
 
 ```{r results-table}
@@ -515,9 +649,9 @@ knitr::kable(res, digits = 3, row.names = FALSE,
 
 All four credible intervals cover the truth, and the pattern the truth encodes is
 the pattern the model recovers. The MRA's contribution collapses as renal function
-improves: `B+M` versus `Std+B` goes from a hazard ratio of about 0.73 at eGFR 50
-to about 0.98 at eGFR 70. Adding the SGLT2 inhibitor holds the benefit roughly
-steady across the same range (about 0.56 and 0.69). One population-free hazard
+improves: `B+M` versus `Std+B` goes from a hazard ratio of about 0.74 at eGFR 50
+to about 0.97 at eGFR 70. Adding the SGLT2 inhibitor holds the benefit roughly
+steady across the same range (about 0.56 and 0.67). One population-free hazard
 ratio would have to average those, and would be wrong for at least one of them.
 
 Now be honest about the precision. Six studies and 641 events do not buy much.
@@ -530,6 +664,48 @@ population. A component by effect-modifier interaction is estimated from covaria
 variation **within** a trial, which is expensive information, and this is what the
 bill looks like. Reporting the point estimates without the intervals would be a
 lie of omission.
+
+### The rest of the network, at the same target
+
+The table above picks out two contrasts. `forest()` and `league_table()` report
+the rest of the network at the same target population, and they keep what they
+cannot estimate on the page instead of quietly dropping it.
+
+```{r forest-target, fig.height = 3.2, fig.width = 9}
+forest(fit_ms, newdata = target, reference = "Std+B")
+```
+
+Compare this with the frequentist forest above, which drew five estimates from the
+same network. Three of them are gone, replaced by the words "not estimable".
+Nothing has been lost: the three that vanished were never population-adjusted
+estimates in the first place, only prior-driven ones dressed as estimates, and the
+plot now says so.
+
+The same effects can be reported one component at a time.
+
+```{r forest-component, fig.height = 2.8, fig.width = 9}
+forest(fit_ms, what = "component", newdata = target)
+```
+
+Each row is the incremental log hazard ratio of adding one drug to whatever the
+patient is already taking, evaluated at eGFR 50. This is the level at which the
+additivity assumption lives, and it is also where the disconnection is repaired:
+`M` and `S` are estimated, `A` and `B` are not, and the two treatment contrasts
+that survive are exactly the two that can be written using only `M` and `S`.
+
+```{r league}
+knitr::kable(league_table(fit_ms, newdata = target),
+             caption = "League table of hazard ratios at eGFR 50 (row vs column)")
+```
+
+The empty cells are not missing data. They are the pairs this design cannot compare
+in this population, and a league table that filled them in with prior-driven
+numbers would be worse than one that leaves them blank.
+
+### Sweeping the target population
+
+Two named populations were a convenience. The estimand is defined at every value of
+the effect modifier, so vary it and plot the whole family at once.
 
 ```{r curve, fig.height = 4.4}
 grid <- seq(-2, 2, by = 0.2)
@@ -555,6 +731,64 @@ ggplot(curve, aes(60 + 10 * x, HR, color = treatment, fill = treatment)) +
   theme_minimal(base_size = 11) +
   theme(legend.position = "bottom")
 ```
+
+### The hierarchy, and what it refuses to rank
+
+A hazard ratio below one is a benefit, so on this scale **lower is better**, and
+that has to be said out loud: `cpaic_ranks()` and `rank_probs()` both default to
+the opposite convention.
+
+```{r hierarchy, fig.height = 2.4, fig.width = 9}
+plot(cpaic_ranks(fit_ms, newdata = target, lower_is_better = TRUE))
+```
+
+The warning is the figure's most important output. A treatment hierarchy is
+anchored at the network reference, here `Std`, and every treatment containing the
+beta-blocker is unidentifiable against `Std` as a *population-adjusted* effect, for
+the reason the estimability map gave. Four of the six treatments are therefore
+dropped, and the hierarchy that survives compares two. It is a thin answer, and it
+is the honest one.
+
+Pushed one step further, the rankogram declines to draw at all.
+
+```{r rankogram, fig.height = 2.6, fig.width = 9}
+tryCatch(
+  plot(rank_probs(fit_ms, newdata = target, lower_is_better = TRUE)),
+  error = function(e) message("rank_probs() refused: ", conditionMessage(e)))
+```
+
+`rank_probs()` ranks the non-reference treatments, so where `cpaic_ranks()` had two
+elements it has one, and it stops. This is not a defect to be worked around with
+an argument. It is Step 3 of the Wigle et al. hierarchy workflow [@Wigle2026]
+enforced in code: refine the ranking set to the elements the target population
+actually identifies, and if too few remain, say so. A rankogram of a prior-driven
+posterior would look exactly as confident as a real one.
+
+Rank the **components** instead and the picture comes back, because `M` and `S` are
+both identified from IPD.
+
+```{r rankogram-component, fig.height = 2.6, fig.width = 9}
+plot(rank_probs(fit_ms, newdata = target, what = "component",
+                lower_is_better = TRUE))
+```
+
+And because a component's effect is `beta_c + Gamma_c x`, its rank is a function of
+the target population. This is the figure the whole vignette has been building
+toward.
+
+```{r rank-curve, fig.height = 4.2, fig.width = 9}
+plot_rank_curve(fit_ms, em = "egfr_c", values = seq(-2, 2, by = 0.25),
+                what = "component", lower_is_better = TRUE)
+```
+
+With two components in the ranked set, SUCRA reduces to the posterior probability
+that a component is the better of the two, and the two curves **cross**. At the
+chronic-kidney-disease end of the grid the MRA leads; at the preserved-renal
+end the SGLT2 inhibitor leads, and by a wide margin. Near eGFR 50 the two are close
+enough to a coin toss that the ordering carries almost no information, which is
+what the SUCRA values say and what a bare list of ranks would hide. A component
+hierarchy quoted without a target population is not a wrong answer to the question;
+it is not an answer to any question.
 
 ### Conditional and marginal are not the same thing here
 
@@ -660,6 +894,30 @@ believe the hazard is piecewise constant, and report the comparison rather than
 the winner. DIC [@spiegelhalter2002dic] is reported alongside because an
 aggregate arm contributes highly influential observations, which is exactly the
 situation in which PSIS-LOO's Pareto $\hat{k}$ diagnostic complains.
+
+A model comparison summarized in one number hides *where* the two models differ.
+Passing both `dic()` objects to `plot()` gives the dev-dev plot, which compares
+them one data point at a time.
+
+```{r devdev, fig.height = 5.4}
+plot(dic(fit_pw), dic(fit_ms), labels = c("piecewise", "M-spline"))
+```
+
+Each point is one observation's posterior mean deviance under the two baselines.
+Points on the line of equality are fitted equally well by both; points below it are
+fitted better by the M-spline, points above it better by the step function, and the
+further a point lies from the line the more the choice of baseline matters to it.
+Read the spread against the numbers above, which are the same verdict arithmetically:
+the two DIC values differ by a fraction of a point, and the elpd difference is well
+inside its own standard error. Neither criterion can separate the baselines here, so
+the choice has to rest on what is plausible about the hazard rather than on what
+this much data can resolve.
+
+`plot_leverage()`, the other DIC diagnostic, is **not available** here and calling
+it raises an error rather than returning a plot. A leverage plot needs the
+saturated model, and a censored observation has no saturated reference, so there is
+no residual deviance to put on the axis; multinma declines the plot for a survival
+likelihood for the same reason. The dev-dev plot above is the substitute.
 
 ## What to take away
 

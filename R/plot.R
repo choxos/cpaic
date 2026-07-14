@@ -237,6 +237,17 @@ plot.cpaic_network <- function(x, ..., weight_edges = TRUE,
     grDevices::hcl.colors(max(length(subnets), 2L), "Set 2")[
       seq_along(subnets)], subnets)
 
+  # Treatment labels are nudged OUTWARD from their node and drawn with
+  # `clip = "off"`, so they sit outside the panel. The default plot margin is
+  # too narrow to hold them, and a long name on the leftmost or rightmost node
+  # is then silently cut off at the edge of the device: the label is simply
+  # missing, with no warning. Component treatments have long names by
+  # construction ("LABA+LAMA+ROF"), so this is the normal case here, not an edge
+  # case. Scale the horizontal margin with the longest label. `hjust = "outward"`
+  # right-aligns a left-hand label at its node, so the label extends outward by
+  # its full width, and the margin must cover that width.
+  label_pad <- 6 + 4.5 * max(nchar(nodes$.label), 0L)   # ~4.5 pt per character
+
   p +
     ggplot2::geom_text(
       data = nodes,
@@ -250,7 +261,8 @@ plot.cpaic_network <- function(x, ..., weight_edges = TRUE,
       axis.title = ggplot2::element_blank(),
       axis.text = ggplot2::element_blank(),
       axis.ticks = ggplot2::element_blank(),
-      panel.grid = ggplot2::element_blank()) +
+      panel.grid = ggplot2::element_blank(),
+      plot.margin = ggplot2::margin(6, label_pad, 6, label_pad)) +
     ggplot2::guides(
       fill = ggplot2::guide_legend(override.aes = list(shape = 21)))
 }

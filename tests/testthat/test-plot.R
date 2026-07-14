@@ -358,3 +358,24 @@ test_that("survival helpers reject non-survival fits", {
   expect_error(plot_survival(fit), "family = \"survival\"")
   expect_error(geom_km(fit), "family = \"survival\"")
 })
+
+test_that("the network plot reserves margin for long treatment labels", {
+  skip_if_no_ggplot()
+  # Component treatments have long names by construction. The labels are drawn
+  # outside the panel with clip = "off", so the plot margin must grow with the
+  # longest label; otherwise the label is silently cut off at the device edge.
+  short <- plot(bin_net())
+  m_short <- short$theme$plot.margin
+
+  long_net <- cpaic_network(
+    data.frame(studlab = c("S1", "S2"),
+               treat1 = c("Placebo", "LABA+LAMA+ROF+XYZ"),
+               treat2 = c("LABA", "LABA"),
+               TE = c(0.4, 0.3), seTE = c(0.1, 0.1)),
+    sm = "OR", inactive = "Placebo")
+  m_long <- plot(long_net)$theme$plot.margin
+
+  # Wider labels must reserve a wider horizontal margin.
+  expect_gt(as.numeric(m_long[2]), as.numeric(m_short[2]))
+  expect_gt(as.numeric(m_long[4]), as.numeric(m_short[4]))
+})

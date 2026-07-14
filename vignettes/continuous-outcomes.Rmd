@@ -307,6 +307,29 @@ Hold on to the phrase "component main effect"; it is not the same as the
 population-adjusted effect, and the difference is the subject of the Results
 section.
 
+`plot()` draws what those numbers assert.
+
+
+``` r
+plot(net)
+```
+
+<div class="figure" style="text-align: center">
+<img src="figure/continuous-netplot-1.png" alt="plot of chunk netplot" width="100%" />
+<p class="caption">plot of chunk netplot</p>
+</div>
+
+Each sub-network is laid out on its own circle, so a disconnected network looks
+disconnected: no edge crosses from one to the other, and no amount of standard
+network meta-analysis will make one appear. Edge color records the evidence
+behind each comparison, separating the three studies that carry IPD (`MONO-3`,
+`ADD-1`, `ADD-2`) from the three that report aggregate results only. The
+triangular nodes contain a bridging component; here that is every treatment
+except `Diet`, because every active regimen contains `Met` or `SU`, and those two
+components occur on both sides of the gap. They are what the reconstruction runs
+on. A shared component is a shared parameter, and a shared parameter carries
+information across a gap that no comparator spans.
+
 ### Two target populations
 
 Everything below is reported in a **named target population**. We use two,
@@ -316,6 +339,11 @@ chosen to straddle the crossover point:
 ``` r
 target_early <- c(bhba1c_c = -0.5)   # baseline HbA1c 7.5%: early intensification
 target_late  <- c(bhba1c_c =  1.0)   # baseline HbA1c 9.0%: late intensification
+
+# cstc() and cmaic() take the target as a named vector; the Bayesian model takes
+# it as a one-row data frame. Same two populations, two calling conventions.
+early <- data.frame(bhba1c_c = -0.5)
+late  <- data.frame(bhba1c_c =  1.0)
 
 theta <- function(trt, x) sum(Cmat[trt, ] * (beta_true + gamma_true * x))
 truth <- function(t1, t2, x) theta(t1, x) - theta(t2, x)
@@ -387,6 +415,59 @@ The add-on trials sit around a baseline HbA1c of 8.5% to 8.6% and the target is
 7.5%, so matching to the target throws away real information. The monotherapy
 IPD trial (`MONO-3`, mean 8.2%) is closer and loses less.
 
+`forest()` draws the two-stage answer.
+
+
+``` r
+forest(stc_early, reference = "Met")
+```
+
+<div class="figure" style="text-align: center">
+<img src="figure/continuous-stc-forest-1.png" alt="plot of chunk stc-forest" width="100%" />
+<p class="caption">plot of chunk stc-forest</p>
+</div>
+
+Every treatment is placed against metformin, and the subtitle records the target
+population, because a `cstc()` fit is defined only relative to one. Three of these
+rows cross the gap: `Met+SGLT2`, `Met+SU`, and `Met+DPP4` versus `Met`. No trial
+measured any of them, and they are on the page at all only because the component
+design supplies them. Every row is populated, because the bridge identifies all
+four component main effects. That will not survive the move to the Bayesian model,
+where the estimand is population-adjusted and the identification criterion is
+correspondingly stricter.
+
+A forest plot reports the answers but not their provenance. In a component bridge
+a contrast is a weighted combination of the observed edges, with weights chosen by
+the component design rather than by any path through the network, and it is worth
+knowing which edges actually carried the contrast you asked for.
+
+
+``` r
+suppressWarnings(
+  plot_edge_influence(stc_early, treatment = "Met+SGLT2", comparator = "Met"))
+```
+
+<div class="figure" style="text-align: center">
+<img src="figure/continuous-edge-influence-1.png" alt="plot of chunk edge-influence" width="100%" />
+<p class="caption">plot of chunk edge-influence</p>
+</div>
+
+This is the bridge written out edge by edge. `Met+SGLT2` versus `Met` reduces to
+the `SGLT2` component alone, and three edges carry it. The add-on trials `ADD-1`
+and `ADD-2` each supply `SGLT2` minus `SU`; the monotherapy trial `MONO-3` supplies
+`SU`, which cancels the unwanted `SU` term and leaves `SGLT2` by itself. All three
+edges hold IPD, and they straddle the gap: `MONO-3` sits in the monotherapy
+sub-network, `ADD-1` and `ADD-2` in the add-on sub-network. The two aggregate
+metformin trials receive no weight at all, because `Met` cancels out of this
+particular contrast, and `ADD-3` receives none either.
+
+Two things follow. The contrast we came for is carried entirely by edges we are
+able to adjust, which is the most favorable configuration population adjustment
+can be in. And the effective sample size above is worth reading precisely because
+the edges it describes have influence: reweighting an edge of zero influence
+cannot move the estimate, whatever its ESS reports, and no ESS will ever tell you
+so.
+
 ### Route 2: the one-stage Bayesian model
 
 `cmlnmr()` fits everything at once: the individual-level model to the IPD, the
@@ -400,12 +481,12 @@ fit <- cmlnmr(ipd, agd, effect_modifiers = "bhba1c_c", inactive = "Diet",
               family = "gaussian",
               chains = 4, iter_warmup = 500, iter_sampling = 500, seed = 2026)
 #> Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
-#> Chain 4 Exception: normal_lpdf: Scale parameter is 0, but must be positive! (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmp8L8af8/model-261e1fd2a36f.stan', line 122, column 19 to column 50)
+#> Chain 4 Exception: normal_lpdf: Scale parameter is 0, but must be positive! (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/RtmpRgTwMG/model-c021487aa276.stan', line 123, column 19 to column 50)
 #> Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
 #> Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
 #> Chain 4
 #> Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
-#> Chain 4 Exception: normal_lpdf: Scale parameter is 0, but must be positive! (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmp8L8af8/model-261e1fd2a36f.stan', line 122, column 19 to column 50)
+#> Chain 4 Exception: normal_lpdf: Scale parameter is 0, but must be positive! (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/RtmpRgTwMG/model-c021487aa276.stan', line 123, column 19 to column 50)
 #> Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
 #> Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
 #> Chain 4
@@ -417,10 +498,10 @@ fit
 #>   For a target population use relative_effects(fit, newdata = ...).
 #> 
 #>  component estimate    se  lower  upper
-#>       DPP4   -0.828 0.659 -2.136  0.422
-#>        Met   -1.092 0.079 -1.247 -0.940
-#>      SGLT2   -0.615 0.111 -0.835 -0.392
-#>         SU   -0.753 0.089 -0.931 -0.579
+#>       DPP4   -0.877 0.666 -2.126  0.469
+#>        Met   -1.095 0.083 -1.257 -0.928
+#>      SGLT2   -0.617 0.110 -0.825 -0.387
+#>         SU   -0.757 0.089 -0.926 -0.581
 ```
 
 
@@ -430,19 +511,19 @@ fit_re <- cmlnmr(ipd, agd, effect_modifiers = "bhba1c_c", inactive = "Diet",
                  chains = 4, iter_warmup = 500, iter_sampling = 500,
                  seed = 2026, adapt_delta = 0.95)
 #> Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
-#> Chain 4 Exception: normal_lpdf: Scale parameter is 0, but must be positive! (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmp8L8af8/model-261e1fd2a36f.stan', line 122, column 19 to column 50)
+#> Chain 4 Exception: normal_lpdf: Scale parameter is 0, but must be positive! (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/RtmpRgTwMG/model-c021487aa276.stan', line 123, column 19 to column 50)
 #> Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
 #> Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
 #> Chain 4
-#> Warning: 8 of 2000 (0.0%) transitions ended with a divergence.
+#> Warning: 4 of 2000 (0.0%) transitions ended with a divergence.
 #> See https://mc-stan.org/misc/warnings for details.
-#> Warning: 8 divergent transition(s) in cmlnmr(); results may be unreliable (consider
+#> Warning: 4 divergent transition(s) in cmlnmr(); results may be unreliable (consider
 #> higher adapt_delta or more iterations).
 fit_re$fit$summary("tau")
 #> # A tibble: 1 × 10
-#>   variable  mean median    sd   mad      q5   q95  rhat ess_bulk ess_tail
-#>   <chr>    <dbl>  <dbl> <dbl> <dbl>   <dbl> <dbl> <dbl>    <dbl>    <dbl>
-#> 1 tau[1]   0.170  0.104 0.194 0.110 0.00773 0.557  1.00     418.     347.
+#>   variable  mean median    sd    mad      q5   q95  rhat ess_bulk ess_tail
+#>   <chr>    <dbl>  <dbl> <dbl>  <dbl>   <dbl> <dbl> <dbl>    <dbl>    <dbl>
+#> 1 tau[1]   0.149  0.102 0.160 0.0997 0.00852 0.455  1.01     415.     563.
 ```
 
 The random-effects model adds study-arm deviations around the component-implied
@@ -462,9 +543,13 @@ $\int (\mu + x^\top b)\, f(x)\, dx = \mu + \bar{x}^\top b$. cpaic detects this
 and quietly sets `n_int = 1`; the standard deviation columns (`bhba1c_c_sd`) are
 carried in the aggregate data for completeness but are not used. This is
 collapsibility of the mean difference showing up in the machinery, and it is why
-the continuous family is the easy one. On a logit or a log link the same
-integral is not the mean, aggregation bias appears, and the quasi-Monte-Carlo
-grid earns its keep.
+the continuous family is the easy one. There is consequently no integration-error
+figure in this vignette: `plot_integration_error()`, which traces the
+quasi-Monte-Carlo error against the number of integration points in the binary,
+count, and survival vignettes, declines to draw anything for a Gaussian model with
+normal margins and says why, since with a single integration point there is no
+integration error to trace. On a logit or a log link the same integral is not the
+mean, aggregation bias appears, and the quasi-Monte-Carlo grid earns its keep.
 
 ### Priors
 
@@ -505,6 +590,27 @@ and on the prognostic regression, and half-normal(0, 1) on `tau`. The
 interaction prior is the one to watch, because a component whose interaction is
 informed only by aggregate data has little else holding it up.
 
+Whether a prior did any work is an empirical question, and `plot_prior_posterior()`
+answers it directly: each panel puts the posterior, as a histogram, against the
+prior it was given, as a line.
+
+
+``` r
+plot_prior_posterior(fit)
+```
+
+<div class="figure" style="text-align: center">
+<img src="figure/continuous-prior-posterior-1.png" alt="plot of chunk prior-posterior" width="100%" />
+<p class="caption">plot of chunk prior-posterior</p>
+</div>
+
+Where a posterior simply reproduces its prior, the data have said nothing about
+that parameter, and any quantity leaning on it restates the prior rather than
+estimating anything. The study intercepts `mu`, the component effects `beta`, and
+the prognostic coefficient `breg` are all far narrower than the priors drawn over
+them. So are three of the four interactions. The fourth is not, and identifying
+which one, and what follows from it, occupies much of the rest of this vignette.
+
 ### Convergence
 
 
@@ -516,8 +622,45 @@ data.frame(
   min_ess_bulk  = round(min(fit_re$fit$summary(
     c("beta", "gamma", "mu", "tau"))$ess_bulk, na.rm = TRUE)))
 #>   divergences max_treedepth max_rhat min_ess_bulk
-#> 1           8             0   1.0132          418
+#> 1           4             0   1.0144          415
 ```
+
+Those are the summaries. The chains themselves are the evidence.
+
+
+``` r
+plot(fit, type = "trace")
+```
+
+<div class="figure" style="text-align: center">
+<img src="figure/continuous-trace-1.png" alt="plot of chunk trace" width="100%" />
+<p class="caption">plot of chunk trace</p>
+</div>
+
+
+``` r
+plot(fit, type = "rhat")
+```
+
+<div class="figure" style="text-align: center">
+<img src="figure/continuous-rhat-1.png" alt="plot of chunk rhat" width="100%" />
+<p class="caption">plot of chunk rhat</p>
+</div>
+
+`plot()` on a `cmlnmr()` fit defaults to the parameters everything downstream is
+built from: the component effects `beta` and the component by effect-modifier
+interactions `gamma`. The four chains are indistinguishable from one another and
+show no drift, and every $\hat{R}$ falls in the lowest band of the scale, so the
+posterior has been explored.
+
+It has been explored, and that is the whole of what a traceplot can certify.
+Convergence is a property of the sampler, not of the evidence: a parameter about
+which the data say nothing converges perfectly well, and quickly, onto its prior.
+One of these eight parameters is exactly that, and because each panel is drawn on
+its own vertical scale, its trace is as clean, as stationary, and as convincing as
+any other on the page. Only the numbers on its axis give it away. Which parameter
+it is, and how to tell, is settled below by the estimability algebra and by the
+comparison of each prior with its posterior. No traceplot will ever settle it.
 
 ## Results
 
@@ -534,12 +677,17 @@ depends on the target population. Always check, and check *at the target*.
 ``` r
 estimable_effects_at(fit, newdata = data.frame(bhba1c_c = -0.5),
                      reference = "Met")
-#>   treatment comparator estimable identified_by
-#> 1      Diet        Met      TRUE     aggregate
-#> 2  Met+DPP4        Met     FALSE          none
-#> 3 Met+SGLT2        Met      TRUE           IPD
-#> 4    Met+SU        Met      TRUE           IPD
-#> 5        SU        Met      TRUE     aggregate
+#> Estimability of the population-adjusted relative effects
+#>   Target population: bhba1c_c = -0.5
+#>  treatment comparator estimable identified_by          basis
+#>       Diet        Met      TRUE     aggregate          exact
+#>   Met+DPP4        Met     FALSE          none not identified
+#>  Met+SGLT2        Met      TRUE           IPD          exact
+#>     Met+SU        Met      TRUE           IPD          exact
+#>         SU        Met      TRUE     aggregate          exact
+#> 
+#>   Rows marked "not identified" carry no first-order information; a number
+#>   reported for them would be the prior. relative_effects() returns NA there.
 ```
 
 Read the `identified_by` column; it is doing real work.
@@ -570,13 +718,46 @@ relative_effects(fit, reference = "Met",
 #> Relative effects (MD, link scale)
 #>   Target population: bhba1c_c = -0.5
 #>  treatment comparator estimate    se  lower  upper pr_gt0
-#>       Diet        Met    0.957 0.083  0.803  1.118  1.000
+#>       Diet        Met    0.962 0.087  0.790  1.139  1.000
 #>   Met+DPP4        Met       NA    NA     NA     NA     NA
-#>  Met+SGLT2        Met   -0.569 0.129 -0.825 -0.313  0.000
-#>     Met+SU        Met   -0.547 0.102 -0.752 -0.345  0.000
-#>         SU        Met    0.411 0.137  0.142  0.667  0.999
+#>  Met+SGLT2        Met   -0.567 0.127 -0.801 -0.310  0.000
+#>     Met+SU        Met   -0.549 0.101 -0.736 -0.337  0.000
+#>         SU        Met    0.413 0.140  0.145  0.701  0.997
 #>   NA = not uniquely estimable from this component design (see estimable_effects()).
 ```
+
+Estimability is not a property of the network alone. It is a property of the
+network *and* the target population, so a single check at a single target is not
+enough: it should be run across the range of populations anyone might reasonably
+ask about. `plot_estimability()` does that and tiles the result.
+
+
+``` r
+pop_grid <- seq(-1.0, 1.4, by = 0.2)
+plot_estimability(fit, em = "bhba1c_c", values = pop_grid, reference = "Met")
+```
+
+<div class="figure" style="text-align: center">
+<img src="figure/continuous-estimability-map-1.png" alt="plot of chunk estimability-map" width="100%" />
+<p class="caption">plot of chunk estimability-map</p>
+</div>
+
+The information is in the category of each tile, not in its presence. Three bands
+appear, and they correspond exactly to the three bullets above. `Met+SGLT2` and
+`Met+SU` are marked *IPD (within-study)* at every target: they rest on covariate
+variation inside a randomized trial. `Diet` and `SU` are marked *aggregate
+(ecological)* at every target: they rest on the gradient between two aggregate
+studies' covariate means, and nothing randomized those means. `Met+DPP4` is *not
+estimable* at every target.
+
+That last row is uniform for a reason worth stating precisely. The `DPP4`
+interaction enters through a single aggregate study, `ADD-3`, which pins the
+contrast at its own covariate mean and at no other population whatsoever. The one
+population in which `Met+DPP4` versus `Met` is identified is thus the population
+`ADD-3` happened to enroll, which is not a population anyone asked about, and no
+target on this axis coincides with it. A Bayesian model will return a
+healthy-looking posterior at every tile in that row. Every one of them would be
+the prior.
 
 ### The cross-gap contrast, in two target populations
 
@@ -608,10 +789,10 @@ Table: cML-NMR: recovered vs true mean differences
 
 |target     |contrast         | estimate|  lower|  upper| truth|
 |:----------|:----------------|--------:|------:|------:|-----:|
-|HbA1c 7.5% |Met+SGLT2 vs Met |   -0.569| -0.825| -0.313| -0.56|
-|HbA1c 7.5% |Met+SU vs Met    |   -0.547| -0.752| -0.345| -0.50|
-|HbA1c 9.0% |Met+SGLT2 vs Met |   -0.708| -0.934| -0.481| -0.68|
-|HbA1c 9.0% |Met+SU vs Met    |   -1.165| -1.360| -0.984| -1.10|
+|HbA1c 7.5% |Met+SGLT2 vs Met |   -0.567| -0.801| -0.310| -0.56|
+|HbA1c 7.5% |Met+SU vs Met    |   -0.549| -0.736| -0.337| -0.50|
+|HbA1c 9.0% |Met+SGLT2 vs Met |   -0.716| -0.941| -0.481| -0.68|
+|HbA1c 9.0% |Met+SU vs Met    |   -1.174| -1.364| -0.977| -1.10|
 
 
 
@@ -620,6 +801,77 @@ recovered; and it is recovered *differently* in the two target populations,
 which is the whole point. In the early-intensification population the SGLT2
 inhibitor adds a little more than the sulfonylurea; in the late-intensification
 population it adds substantially less.
+
+`forest()` shows the whole set of contrasts that table was drawn from.
+
+
+``` r
+forest(fit, newdata = early, reference = "Met")
+```
+
+<div class="figure" style="text-align: center">
+<img src="figure/continuous-mlnmr-forest-1.png" alt="plot of chunk mlnmr-forest" width="100%" />
+<p class="caption">plot of chunk mlnmr-forest</p>
+</div>
+
+`Met+SGLT2` and `Met+SU` sit close together in the early-intensification
+population, which is what the crossing of their component effects requires, and
+both lower HbA1c appreciably more than metformin alone. `Met+DPP4` is drawn as an
+empty row labeled *not estimable* rather than dropped from the figure. That
+choice is deliberate. A forest plot that silently omitted the row would look
+complete while concealing that the network cannot answer part of the question put
+to it, and a reader would have no way to tell the two situations apart.
+
+### Component effects and the full league table
+
+Treatments are sums of components, so the component effects are the more primitive
+object, and they are where the crossover actually lives.
+
+
+``` r
+forest(fit, what = "component", newdata = early)
+```
+
+<div class="figure" style="text-align: center">
+<img src="figure/continuous-component-forest-1.png" alt="plot of chunk component-forest" width="100%" />
+<p class="caption">plot of chunk component-forest</p>
+</div>
+
+Each row is the incremental effect of adding one component to a regimen, in the
+early-intensification population. `Met` contributes much the largest reduction,
+which is why it is the backbone. `SGLT2` and `SU` are nearly indistinguishable
+here, and the near-tie between `Met+SGLT2` and `Met+SU` in the forest above is
+inherited directly from them, since those two regimens differ only in which of the
+two is added to that backbone. `DPP4` is again *not estimable*, and it is worth
+being explicit that this is a statement about the evidence and not about the drug.
+
+The league table gives every pairwise contrast at once, in the same population.
+
+
+``` r
+knitr::kable(league_table(fit, newdata = early),
+             caption = "League table at baseline HbA1c 7.5%: mean difference (95% CrI) of the row treatment versus the column treatment")
+```
+
+
+
+Table: League table at baseline HbA1c 7.5%: mean difference (95% CrI) of the row treatment versus the column treatment
+
+|          |Diet                 |Met                  |Met+DPP4 |Met+SGLT2          |Met+SU              |SU                   |
+|:---------|:--------------------|:--------------------|:--------|:------------------|:-------------------|:--------------------|
+|Diet      |Diet                 |0.96 (0.79, 1.14)    |         |1.53 (1.24, 1.81)  |1.51 (1.26, 1.76)   |0.55 (0.34, 0.74)    |
+|Met       |-0.96 (-1.14, -0.79) |Met                  |         |0.57 (0.31, 0.80)  |0.55 (0.34, 0.74)   |-0.41 (-0.70, -0.14) |
+|Met+DPP4  |                     |                     |Met+DPP4 |                   |                    |                     |
+|Met+SGLT2 |-1.53 (-1.81, -1.24) |-0.57 (-0.80, -0.31) |         |Met+SGLT2          |-0.02 (-0.17, 0.13) |-0.98 (-1.20, -0.77) |
+|Met+SU    |-1.51 (-1.76, -1.26) |-0.55 (-0.74, -0.34) |         |0.02 (-0.13, 0.17) |Met+SU              |-0.96 (-1.14, -0.79) |
+|SU        |-0.55 (-0.74, -0.34) |0.41 (0.14, 0.70)    |         |0.98 (0.77, 1.20)  |0.96 (0.79, 1.14)   |SU                   |
+
+
+
+The `Met+DPP4` row and column are empty throughout. This is the same refusal as
+before, propagated to every comparison the treatment takes part in, and it is the
+correct behavior: an empty cell here is a finding about the evidence, not a
+failure of the table.
 
 ### The effect is a function of the target population
 
@@ -661,6 +913,89 @@ ggplot(curve, aes(8 + x, estimate, color = treatment, fill = treatment)) +
 The two curves cross close to where they should. Report a single mean difference
 for "adding an SGLT2 inhibitor" and you have quietly picked a population without
 saying so.
+
+### The hierarchy is a function of the target population too
+
+If the effects move with the target population, so does the ordering they induce.
+`cpaic_ranks()` builds the hierarchy in a named population, and builds it only
+over the treatments that population actually identifies. A lower HbA1c is better,
+so `lower_is_better = TRUE`.
+
+
+``` r
+ranks_early <- cpaic_ranks(fit, newdata = early, lower_is_better = TRUE)
+#> Warning: Dropped from the hierarchy as not estimable in this target population: Met+DPP4.
+#> Ranking them would rank the prior. See estimable_effects_at().
+ranks_early
+#> Population-adjusted treatment hierarchy
+#>   Target population: bhba1c_c = -0.5
+#>    element estimate p_best median_rank mean_rank sucra
+#>  Met+SGLT2   -1.530   0.59           1     1.411 0.897
+#>     Met+SU   -1.511   0.41           2     1.589 0.853
+#>        Met   -0.962   0.00           3     3.003 0.499
+#>         SU   -0.549   0.00           4     3.997 0.251
+#>       Diet    0.000   0.00           5     5.000 0.000
+#>   Not estimable in this population, so not ranked: Met+DPP4
+#>   Ranking metrics depend on the set ranked; report them with the effects, not instead.
+plot(ranks_early)
+```
+
+<div class="figure" style="text-align: center">
+<img src="figure/continuous-ranks-early-1.png" alt="plot of chunk ranks-early" width="100%" />
+<p class="caption">plot of chunk ranks-early</p>
+</div>
+
+The warning is not noise; it is the result. It implements Step 3 of the hierarchy
+workflow of @Wigle2026: `Met+DPP4` is not estimable at this target, so it is
+removed from the ranking set rather than ranked. Ranking it would rank the prior,
+and a SUCRA computed from a prior looks exactly like a SUCRA computed from data
+while carrying none of the evidence. The plot's caption records what was dropped,
+so a reader who sees only the figure is not misled by its absence.
+
+Ranking metrics compress a whole distribution into one number, so it is worth
+looking at the distribution.
+
+
+``` r
+plot(rank_probs(fit, newdata = early, lower_is_better = TRUE))
+```
+
+<div class="figure" style="text-align: center">
+<img src="figure/continuous-rankogram-1.png" alt="plot of chunk rankogram" width="100%" />
+<p class="caption">plot of chunk rankogram</p>
+</div>
+
+The rankogram gives the posterior probability that each treatment takes each rank.
+`Met+SGLT2` and `Met+SU` divide the top two ranks between them and take no other
+rank; `Met`, `SU`, and `Diet` are nearly certain of ranks three, four, and five.
+The lower part of the hierarchy is therefore settled and uninteresting, and all
+of the uncertainty that matters is concentrated in the contest for first place,
+which is precisely the contest the crossover governs.
+
+So the hierarchy cannot be quoted without its population either. Tracing SUCRA
+across target populations shows how much of it is at stake.
+
+
+``` r
+plot_rank_curve(fit, em = "bhba1c_c", values = pop_grid, lower_is_better = TRUE)
+```
+
+<div class="figure" style="text-align: center">
+<img src="figure/continuous-rank-curve-1.png" alt="plot of chunk rank-curve" width="100%" />
+<p class="caption">plot of chunk rank-curve</p>
+</div>
+
+The `Met+SGLT2` and `Met+SU` curves cross. In lower-baseline target populations the
+SGLT2 inhibitor leads; in higher-baseline ones the sulfonylurea does, and by the
+top of the range its SUCRA has reached the ceiling. The crossing sits close to the
+crossover of the component effects, where it has to be, because the contrast
+between the two regimens is exactly `SGLT2` minus `SU`. `Met+DPP4` appears nowhere
+on this figure at any target, for the reason the estimability map gave.
+
+A treatment hierarchy quoted without a target population is therefore not a
+cautious summary of this network. It is a claim about a population that has not
+been named, and which of these two regimens it endorses is decided by that
+unnamed choice rather than by the evidence.
 
 ### Conditional, marginal, and why they agree here
 
@@ -707,7 +1042,7 @@ Table: Met+SGLT2 vs Met at baseline HbA1c 7.5%: three routes, one estimand
 |:---------------------|--------:|------:|------:|-----:|
 |cSTC (conditional)    |   -0.567| -1.177|  0.043| -0.56|
 |cMAIC (marginal)      |   -0.541| -1.316|  0.235| -0.56|
-|cML-NMR (conditional) |   -0.569| -0.825| -0.313| -0.56|
+|cML-NMR (conditional) |   -0.567| -0.801| -0.310| -0.56|
 
 
 
@@ -785,7 +1120,7 @@ Table: cSTC component effects vs the truth at baseline HbA1c 7.5%
 additivity_test(stc_early)
 #> Additive component model: fit statistics
 #>   Total lack of fit (Q.additive): Q = 10.209, df = 2, p = 0.00607
-#>   Additivity restrictions (Q.diff): not available -- no standard NMA
+#>   Additivity restrictions (Q.diff): not available; no standard NMA
 #>     is estimable on a disconnected network.
 #>   Note: neither statistic tests whether component effects are constant
 #>   ACROSS sub-networks, which is the assumption that bridges the gap.
@@ -822,11 +1157,11 @@ ps <- prior_sensitivity(fit, newdata = data.frame(bhba1c_c = -0.5),
 ps
 #> cML-NMR prior sensitivity: gamma prior
 #>  treatment comparator estimate tighter looser move_tighter move_looser max_movement
-#>       Diet        Met    0.957   0.956  0.963        0.001       0.006        0.006
-#>   Met+DPP4        Met   -0.743  -0.906 -0.711        0.163       0.032        0.163
-#>  Met+SGLT2        Met   -0.569  -0.566 -0.572        0.003       0.003        0.003
-#>     Met+SU        Met   -0.547  -0.546 -0.551        0.001       0.005        0.005
-#>         SU        Met    0.411   0.410  0.412        0.000       0.001        0.001
+#>       Diet        Met    0.962   0.960  0.956        0.003       0.006        0.006
+#>   Met+DPP4        Met   -0.819  -0.961 -0.476        0.142       0.344        0.344
+#>  Met+SGLT2        Met   -0.567  -0.579 -0.572        0.012       0.005        0.012
+#>     Met+SU        Met   -0.549  -0.552 -0.547        0.003       0.002        0.003
+#>         SU        Met    0.413   0.407  0.409        0.006       0.004        0.006
 #>  estimable
 #>       TRUE
 #>      FALSE
@@ -841,6 +1176,32 @@ estimable, and its raw number moves by an order of magnitude more, which is what
 "prior-driven" looks like from the outside. This is the empirical counterpart of
 the algebraic check in `estimable_effects_at()`, and the two agree.
 
+The same conclusion can be reached without refitting anything, by looking at the
+interaction priors against their posteriors.
+
+
+``` r
+plot_prior_posterior(fit, prior = "gamma")
+```
+
+<div class="figure" style="text-align: center">
+<img src="figure/continuous-prior-posterior-gamma-1.png" alt="plot of chunk prior-posterior-gamma" width="100%" />
+<p class="caption">plot of chunk prior-posterior-gamma</p>
+</div>
+
+Each panel is one component by effect-modifier interaction, indexed by component in
+the order of the columns of $C$: `DPP4`, `Met`, `SGLT2`, `SU`. Three of the four
+posteriors are far tighter than the normal(0, 1) prior drawn over them. The `DPP4`
+interaction, `gamma[1,1]`, is the exception: its posterior lies almost exactly on
+top of its prior, which is the algebraic non-identification of the previous
+sections finally made visible. The aggregate study `ADD-3` constrains a
+*combination* of the `DPP4` main effect and its interaction, and leaves the
+interaction itself to the prior. This is the parameter promised in the Convergence
+section, whose traceplot was as well behaved as any other on the page and told us
+nothing. Everything downstream that depends on `gamma[1,1]`, including the
+entirely respectable-looking posterior a naive model would report for `Met+DPP4`,
+inherits it.
+
 ### Model comparison
 
 
@@ -851,22 +1212,22 @@ loo_random <- loo::loo(fit_re)
 #> Warning: Some Pareto k diagnostic values are too high. See help('pareto-k-diagnostic') for details.
 loo::loo_compare(list(fixed = loo_fixed, random = loo_random))
 #>   model elpd_diff se_diff p_worse       diag_diff      diag_elpd
-#>   fixed       0.0     0.0      NA                 2 k_psis > 0.7
-#>  random      -1.7     0.8    0.99 |elpd_diff| < 4 4 k_psis > 0.7
+#>   fixed       0.0     0.0      NA                 4 k_psis > 0.7
+#>  random      -0.5     0.6    0.81 |elpd_diff| < 4 4 k_psis > 0.7
 #> 
 #> Diagnostic flags present.
 #> See ?`loo-glossary` (sections `diag_diff` and `diag_elpd`)
 #> or https://mc-stan.org/loo/reference/loo-glossary.html.
 dic(fit)
 #> Deviance information criterion
-#>   DIC: 3053.4
-#>   Mean deviance: 3038.8
-#>   Effective parameters (pV): 14.6
+#>   DIC: 3054.7
+#>   Mean deviance: 3039.2
+#>   Effective parameters (pV): 15.6
 dic(fit_re)
 #> Deviance information criterion
-#>   DIC: 3056.1
-#>   Mean deviance: 3039.8
-#>   Effective parameters (pV): 16.4
+#>   DIC: 3056
+#>   Mean deviance: 3039.3
+#>   Effective parameters (pV): 16.7
 ```
 
 Two things to say honestly here.
@@ -903,14 +1264,65 @@ Table: Met+SGLT2 vs Met at HbA1c 7.5%: the price of random effects
 
 |model  | estimate|  lower|  upper| width|
 |:------|--------:|------:|------:|-----:|
-|fixed  |   -0.569| -0.825| -0.313| 0.512|
-|random |   -0.537| -1.070|  0.152| 1.222|
+|fixed  |   -0.567| -0.801| -0.310| 0.491|
+|random |   -0.574| -1.035| -0.072| 0.962|
 
 
 
 Prefer the random-effects model only if you are willing to defend the
 half-normal(0, 1) prior on `tau`, because with two degrees of freedom that prior
 is doing much of the work.
+
+LOO and DIC are summaries. The comparison can also be made without one, point by
+point: the dev-dev plot puts each data point's posterior mean deviance under the
+fixed model against its deviance under the random-effects model.
+
+
+``` r
+plot(dic(fit), dic(fit_re), labels = c("fixed", "random"))
+```
+
+<div class="figure" style="text-align: center">
+<img src="figure/continuous-devdev-1.png" alt="plot of chunk devdev" width="100%" />
+<p class="caption">plot of chunk devdev</p>
+</div>
+
+The cloud lies on the line of equality. Not one of the 1206 data points is fitted
+appreciably better by the extra parameters, which is what "statistically
+indistinguishable" looks like before it is compressed into a single number. It is
+worth having in its own right, because the LOO comparison that reaches the same
+conclusion is itself compromised by those high Pareto-$\hat{k}$ values. The next
+figure shows exactly where they come from.
+
+
+``` r
+plot_leverage(fit)
+```
+
+<div class="figure" style="text-align: center">
+<img src="figure/continuous-leverage-1.png" alt="plot of chunk leverage" width="100%" />
+<p class="caption">plot of chunk leverage</p>
+</div>
+
+The six aggregate arms separate cleanly from everything else: **every one of them
+has higher leverage than all 1200 individual patients**. That is the arithmetic of
+mixing IPD with aggregate data. An aggregate arm is a single observation standing
+in for hundreds of patients, so it pulls the fit toward itself far harder than any
+patient can, and leaving it out changes the posterior a great deal. High leverage
+is not misfit, and none of the six lies outside the `DIC = 3` contour; they are
+influential without being fitted badly. But influence of that kind is exactly what
+breaks leave-one-out importance sampling, which is why the $\hat{k}$ warning
+appears and why it should be read as a description of the design rather than a
+defect of this model.
+
+One caution about the individual patient points. A good number of them fall beyond
+the outer contours, and that is exactly what 1200 draws from a correctly specified
+normal likelihood should do: an individual's residual deviance is a squared
+standard normal, so roughly one point in twelve exceeds 3 on its own, with no
+misfit involved. The NICE reading of these contours, in which a point outside
+`DIC = 3` is spoiling the fit, was calibrated for study-level data points, of which
+there are a few dozen. Applied one patient at a time it would condemn a perfectly
+healthy model.
 
 ## What to take away
 

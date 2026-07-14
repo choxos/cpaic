@@ -273,6 +273,27 @@ net <- cpaic_network(agd_contr, ipd = ipd, sm = "IRR", family = "poisson",
 cpaic_connectivity(net)
 ```
 
+```{r network-plot, fig.height = 4.8}
+# plot() returns a ggplot object, so the usual verbs apply; here they move the
+# four legends below the panel and give the treatment labels room to breathe.
+plot(net) +
+  theme(legend.position = "bottom", legend.box = "vertical",
+        legend.margin = margin(0, 0, 0, 0),
+        legend.title = element_text(size = 8),
+        legend.text = element_text(size = 7)) +
+  scale_x_continuous(expand = expansion(mult = 0.22)) +
+  scale_y_continuous(expand = expansion(mult = 0.22))
+```
+
+`plot()` draws each sub-network on its own circle, so the disconnection is
+visible rather than inferred: the `MONO-*` trials sit around `PBO` on one circle,
+the `ADD-*` trials on the other, and no edge runs between them. Edge color
+separates the two IPD trials from the five aggregate ones, and node shape marks
+the treatments that contain a bridging component. Every treatment except `PBO`
+contains `LABA` or `LAMA`, which is precisely why the additive model has anything
+to bridge with; a network whose sub-networks shared no component could not be
+reconnected at all, and `plot()` would say so in its subtitle.
+
 Two sub-networks, bridged by `LABA` and `LAMA`, and the component design matrix
 $X = BC$ has **full column rank**: an aggregate-data component NMA would identify
 every component effect and every relative effect [@rucker2020cnma; @Wigle2026].
@@ -342,6 +363,44 @@ most of its patients receive very little weight, because the target population
 barely resembles them. That number is a warning, not a diagnostic to be
 optimized away; a small ESS means the adjusted contrast rests on a handful of
 patients [@phillippo2018].
+
+An effective sample size says that the weights are well behaved. It does not say
+that the reweighted edge carries the contrast you care about, and if it does not,
+then adjusting that edge cannot move the answer however healthy its ESS looks.
+`plot_edge_influence()` asks the second question directly: it decomposes the
+bridged estimate of one contrast into the weight each observed edge receives.
+
+```{r edge-influence, fig.height = 3.4}
+plot_edge_influence(fit_stc, treatment = "LABA+ICS", comparator = "LAMA")
+```
+
+Both IPD edges carry weight, so the population adjustment done to them is not
+wasted. The reason is worth spelling out, because it is the whole logic of the
+bridge: `LABA+ICS` versus `LAMA` decomposes into the `LABA` direction, which
+`MONO-1`, `MONO-3` and `MONO-4` measure, plus the `LAMA` minus `ICS` direction,
+which `ADD-1` and `ADD-3` measure. `MONO-1` and `ADD-1` are the IPD trials, and
+they sit one in each of those directions.
+
+Two edges get nothing. `ADD-2` is the easy case: the headline contrast contains no
+`ROF` component, so the roflumilast trial is irrelevant to it. `MONO-2` is the
+instructive one. It measures `LAMA` against `PBO`, so its edge points along `LAMA`
+*alone*, and that is not one of the two directions the contrast decomposes into;
+the bridge therefore takes nothing from it, despite its being the only trial in the
+network that studied `LAMA` on its own. Had either of those zero-weight edges been
+an IPD trial, it would have been drawn in red: reweighting an edge of no influence
+cannot change the answer, whatever its effective sample size reports.
+
+The two-stage answer, as a forest plot, with `LAMA` as the comparator throughout:
+
+```{r forest-freq, fig.height = 3}
+forest(fit_stc, reference = "LAMA")
+```
+
+The bridge estimates all five contrasts against `LAMA` and flags none of them.
+That is not an oversight: the component design matrix has full column rank, so
+from the bridge's point of view every relative effect is identified. Keep this
+figure in mind. The Bayesian forest in the Results section, fitted to the same
+seven trials, declines to report three of these five rows.
 
 ### Two routes, two estimands
 
@@ -434,6 +493,26 @@ therefore very permissive relative to the effects we are estimating, and it does
 real regularizing work only where $\Gamma$ is weakly identified. That is exactly
 where we will need `prior_sensitivity()` below.
 
+`plot_prior_posterior()` shows the same thing without a refit, overlaying each
+parameter's posterior (histogram) on the prior it was given (red line). A
+posterior that reproduces its prior was not estimated from the data.
+
+```{r prior-posterior, fig.height = 8}
+plot_prior_posterior(fit)
+```
+
+The seven study intercepts `mu` and the two prognostic coefficients `breg` are
+spikes against a broad prior: the likelihood moved them, and hard. Three of the
+four component main effects `beta` do the same. The interactions `gamma` split
+into two groups, and the indexing is what makes the panels readable: the first
+index runs over the components in the order `ICS`, `LABA`, `LAMA`, `ROF`, the
+second over the modifiers `eos` and `freqex`. Six of the eight interactions are
+pulled well inside their prior. The two that are not, `gamma[4,1]` and
+`gamma[4,2]`, sit squarely on top of the red curve, and the one `beta` that barely
+moved is `beta[4]`. All three belong to roflumilast. We return to them under prior
+sensitivity, and they will turn up again, uninvited, in the integration
+diagnostics below.
+
 ### Convergence
 
 ```{r convergence}
@@ -451,6 +530,68 @@ iterations saturate the maximum tree depth, which costs efficiency rather than
 correctness; it is the signature of the mild funnel that any random-effects model
 has when `tau` is only weakly informed. Raising `max_treedepth` (passed through
 `...` to `cmdstanr`) removes it at the cost of runtime.
+
+The same conclusion, drawn rather than tabulated. `plot()` on a `cmlnmr()` fit
+hands the draws to `bayesplot`; `type = "trace"` shows the four chains for the
+component effects, the interactions, and the heterogeneity.
+
+```{r trace, fig.height = 6.5}
+plot(fit, type = "trace")
+```
+
+```{r rhat, fig.height = 2.6}
+plot(fit, type = "rhat")
+```
+
+The chains overlay one another and sweep the whole support of each parameter,
+with no drift and no chain exploring a region of its own; every $\hat R$ sits in
+the lowest band. Now notice what these two figures **cannot** tell you. Compare
+the `gamma[4, ]` panels, which range across roughly plus or minus 3, with
+`gamma[2, ]`, which barely leave a tenth of that. The wide pair belongs to
+roflumilast, whose interactions no trial in this network identifies; the narrow
+pair belongs to `LABA`, which two IPD arms pin down. Both mix beautifully.
+Sampling from a prior is easy, and a sampler has no way of minding that it is
+doing so. Convergence diagnostics certify that the posterior was explored; they
+say nothing whatever about whether it was informed, and the rest of this vignette
+is about the difference.
+
+### Integration accuracy
+
+The aggregate likelihood is a quasi-Monte-Carlo integral, so it carries a
+numerical error on top of the statistical one. `plot_integration_error()` traces
+it: for each aggregate arm it recomputes the integrated rate from the first $N$
+integration points, subtracts the value at all 64, and compares the residual
+against the $1/N$ envelope that quasi-Monte-Carlo integration is expected to
+follow.
+
+```{r integration-error, fig.height = 6}
+plot_integration_error(fit)
+```
+
+Nine of the ten aggregate arms behave as they should: the error collapses onto
+zero well inside the envelope, long before 64 points. The tenth does not, and it
+is worth knowing which one. `ADD-2`'s `LABA+LAMA+ROF` arm has an error an order of
+magnitude larger than any other arm's, still smeared across the envelope at the
+right-hand edge.
+
+More integration points would not fix it, because the spread is not really across
+integration points: it is across **posterior draws**. Roflumilast's interactions
+are the ones no trial identifies, and their posterior therefore runs over the
+whole prior, as the prior-versus-posterior figure above already showed. A draw
+with a large `gamma[4, ]` makes the integrand $\exp(x^\top(b + \Gamma^\top C_k))$
+vary enormously across the covariate distribution, and any Monte-Carlo average of
+a wildly varying integrand converges slowly. The control is sitting right beside it:
+`ADD-2`'s **other** arm, `LABA+LAMA`, integrates perfectly cleanly. Same trial,
+same patients, same covariate distribution, same 64 points. The only difference
+between the two arms is the `ROF` component.
+
+So the numerical diagnostic has independently fingered the same component the
+estimability algebra refuses to report, and that is the lesson worth carrying
+away: a badly behaved integration facet is sometimes a symptom of a badly
+identified parameter rather than of too few integration points. Nothing here
+contaminates the results, because every contrast involving `ROF` is returned as
+`NA` in any case. Had a facet misbehaved on an arm whose contrasts we *do* report,
+the remedy would be to refit with a larger `n_int` before reading the estimates.
 
 ## Estimability: more effect modifiers, fewer estimable effects
 
@@ -492,6 +633,32 @@ That is the whole of what an aggregate two-arm trial can tell you: its own
 contrast, in its own population. Everything else is extrapolation through $\Gamma$,
 and $\Gamma$ has to come from somewhere.
 
+`plot_estimability()` makes that statement into a picture. It sweeps the target
+population along one effect modifier and re-asks the estimability question at
+every point. We sweep `eos` through a grid that passes exactly through `MONO-2`'s
+own eosinophil mean, holding `freqex` at `MONO-2`'s own prevalence, so that one
+column of the map, and only one, *is* `MONO-2`'s own population.
+
+```{r estimability-map, fig.height = 3.4}
+eos_grid <- own$eos + seq(-1, 3, by = 0.5)
+plot_estimability(fit, em = "eos", values = eos_grid,
+                  at = c(freqex = own$freqex), reference = "LAMA") +
+  theme(plot.caption = element_text(size = 6.5))
+```
+
+Three colors, three regimes. Two rows are green across the entire axis: the
+headline contrast `LABA+ICS` versus `LAMA`, and `LABA+LAMA` versus `LAMA`. Both
+are identified by IPD, from within-study arm-by-covariate variation, and are
+therefore identified in **every** target population; that within-study variation
+is exactly what anchored STC and MAIC consume. Two more rows, `PBO` versus `LAMA`
+and `LABA` versus `LAMA`, are red everywhere except at the single column that is
+`MONO-2`'s own population, where they turn yellow. There, and nowhere else, the
+aggregate `LAMA` trial identifies its own contrast, and anything that can be built
+from it; and it does so **ecologically**, from a between-study covariate mean
+rather than from a within-study slope [@berlin2002ecological]. The roflumilast row
+is red throughout, because `ADD-2`'s own population does not lie on this axis. A
+one-column island of estimability is what an aggregate two-arm trial buys you.
+
 The same algebra reaches the component effects:
 
 ```{r comp-effects}
@@ -505,6 +672,16 @@ cannot identify rather than a prior-driven number, which is the behavior you wan
 from a tool that would otherwise hand you the prior with a straight face
 [@Wigle2026].
 
+```{r comp-forest, fig.height = 2.6}
+forest(fit, what = "component", newdata = target)
+```
+
+The component forest reports the same four numbers, on the log rate-ratio scale,
+and it *keeps* the three it cannot compute, drawn as labelled empty rows rather
+than dropped. A reader shown only `LABA` would have no way of telling that three
+components had been quietly removed; a reader shown three blanks knows exactly
+what the network could not answer.
+
 ## Results
 
 ### Recovered against the truth
@@ -512,6 +689,18 @@ from a tool that would otherwise hand you the prior with a straight face
 ```{r effects-target}
 relative_effects(fit, reference = "LAMA", newdata = target)
 ```
+
+```{r forest-bayes, fig.height = 2.8}
+forest(fit, newdata = target, reference = "LAMA") +
+  theme(plot.caption = element_text(size = 6.5))
+```
+
+The same table as a figure, and the refusals are now impossible to miss: `PBO`,
+`LABA` and `LABA+LAMA+ROF` versus `LAMA` are drawn as labelled empty rows. Set
+this beside the frequentist forest from the previous section, which put a point
+estimate and a confidence interval on all five. Same seven trials, same additive
+component structure, same target population. The difference is that one model
+knows which of its own answers this target identifies and the other does not.
 
 ```{r effects-low}
 relative_effects(fit, reference = "LAMA", newdata = target_low)
@@ -573,6 +762,25 @@ Third, the credible interval covers the truth. So, here, does the confidence
 interval; but it is aimed slightly off, and in a network with more aggregate
 evidence on that edge it would miss.
 
+The whole set of pairwise answers, for completeness:
+
+```{r league}
+knitr::kable(league_table(fit, newdata = target),
+  caption = paste("League table in the target population: rate ratio of the row",
+                  "treatment versus the column treatment, with its 95% credible",
+                  "interval. Blank cells are not identified at this target."))
+```
+
+A league table with holes in it. Only two blocks of cells carry numbers: `PBO`
+against `LABA`, and the three-way block among `LAMA`, `LABA+ICS` and
+`LABA+LAMA`. Every blank cell is one whose contrast would need the effect of
+`LAMA`, or of `ROF`, *on its own*, and neither is pinned down at this target.
+`LABA+LAMA+ROF` has an entirely empty row and an entirely empty column: no other
+treatment in the network differs from it by a set of components the design can
+resolve here. A conventional league table would have printed all thirty numbers
+and told the reader nothing about which twenty-two of them the design cannot
+identify at this target.
+
 ```{r pop-curve, fig.height = 4}
 grid <- seq(-1, 3, by = 0.2)
 curve <- do.call(rbind, lapply(grid, function(e) {
@@ -633,6 +841,79 @@ happens in `vignette("binary-outcomes")`, where the aggregate-only component
 fitting a model that can tell you.** The `NA` is not the tool being unhelpful; it
 is the tool declining to pretend.
 
+### The hierarchy the network can support
+
+Everyone wants the ranking. Wigle et al. [-@Wigle2026] set out a four-step
+workflow for producing one honestly, and its third step is the one that bites
+here: **refine the ranked set to the elements that are actually estimable, or
+decline to rank**. cpaic performs that refinement automatically. Because the
+outcome is a rate of exacerbations, fewer is better, so every ranking call below
+is passed `lower_is_better = TRUE`.
+
+```{r ranks-target, fig.height = 2.4}
+plot(cpaic_ranks(fit, newdata = target, lower_is_better = TRUE))
+```
+
+Step 3 is drastic in this network. Four of the six treatments leave the
+hierarchy, and the caption names them. What survives is a two-element comparison
+between placebo and `LABA`, which is not a question anybody asked. The
+alternative was to rank all six, in which case four of the six ranks would have
+been functions of the interaction prior rather than of any trial, and the figure
+would have looked complete.
+
+The rankogram is stricter still, and it is worth seeing it refuse:
+
+```{r rankogram-refusal}
+tryCatch(
+  plot(rank_probs(fit, newdata = target, lower_is_better = TRUE)),
+  error = function(e) cat(strwrap(conditionMessage(e), 76), sep = "\n"))
+```
+
+`rank_probs()` ranks the treatments *other than* the reference, so, unlike
+`cpaic_ranks()`, it has no placebo to fall back on; after Step 3 only `LABA`
+remains, and one element is not a hierarchy. It therefore stops rather than
+draw one. That refusal is the intended behavior and not a defect: a rankogram
+computed from a prior-driven posterior is a picture of the prior, and it is
+indistinguishable, to the eye, from a picture of evidence.
+
+Move the target to `MONO-2`'s own population, the one place on the eosinophil
+axis where the aggregate `LAMA` evidence bites, and the hierarchy returns:
+
+```{r rankogram-own, fig.height = 4.5}
+plot(rank_probs(fit, newdata = own, lower_is_better = TRUE))
+```
+
+Four treatments are now estimable and therefore ranked, each panel giving the
+posterior probability that the treatment takes each rank, with rank 1 the fewest
+exacerbations. The dual bronchodilator `LABA+LAMA` takes first place with high
+probability, and `LABA` alone is most likely to come last, which is what one would
+expect of the weakest active regimen in a low-eosinophil population where the
+steroid has little to offer. `LABA+LAMA+ROF` is still absent, because nothing
+identifies roflumilast in this population either. The point is not that `MONO-2`'s
+population is a better one to decide in; it is that the hierarchy, exactly like
+the estimable set and the relative effects themselves, is a property of the
+target population and not of the network.
+
+The rank curve is designed to show that dependence directly, tracing each
+element's SUCRA as the target moves:
+
+```{r rank-curve, fig.height = 3.5}
+plot_rank_curve(fit, em = "eos", values = seq(-1, 3, by = 0.5),
+                at = c(freqex = 0.55), lower_is_better = TRUE) +
+  theme(plot.subtitle = element_text(size = 7.5))
+```
+
+Two lines, a wide gap apart, that never come close to crossing, and it would be a
+serious misreading to take that as reassurance. The plot's own subtitle offers to
+show you where the ordering reverses, and nothing reverses; but the reason is not
+that the hierarchy is stable. It is that at every target on this axis Step 3
+leaves the *same two-element set*, placebo and `LABA`, and a two-element hierarchy
+contains nothing that could cross. What the curve actually traces is the posterior
+probability that `LABA` beats placebo. A rank curve that refuses to move means
+something only once the estimability map beside it has confirmed that there was
+more than one thing there to move. The figure this one is failing to be is a set
+of curves that cross; the failure is a property of the evidence, not of the plot.
+
 ### Random effects and model comparison
 
 `tau` is the study-arm heterogeneity around the component-implied effects. With
@@ -669,6 +950,45 @@ carrying an entire trial's worth of information**, so leaving one out is a large
 perturbation and the importance-sampling approximation strains. Read LOO here as
 indicative, alongside DIC. Second, neither criterion tests the assumption that
 bridges the gap.
+
+Two `dic()` objects passed to `plot()` give the dev-dev plot, which compares the
+models point by point instead of in aggregate:
+
+```{r devdev, fig.height = 4.4}
+plot(dic(fit_fixed), dic(fit), labels = c("fixed", "random"))
+```
+
+Each dot is one data point's posterior mean deviance under the fixed-effect model
+against its deviance under the random-effects model; below the line of equality
+the random-effects model fits it better, above it the fixed-effect model does.
+Nothing is below the line and nothing is above it. All 2410 points, the 2400
+individual patients in the dense lower-left mass and the 10 aggregate arms
+trailing out to the upper right, are fitted identically by the two models. That is
+the DIC and LOO comparison drawn point by point rather than summed: `tau` is small
+enough that permitting study-arm heterogeneity changes no individual fit, which is
+why neither criterion can separate the models and why the choice between them here
+has to be made on grounds other than fit.
+
+`plot_leverage()` asks which data points are buying that fit, plotting each
+point's leverage (its contribution to the effective number of parameters) against
+its signed square root residual deviance, with contours of constant DIC
+contribution:
+
+```{r leverage, fig.height = 4.4}
+plot_leverage(fit)
+```
+
+An individual patient carries almost no leverage, so the IPD lie in a flat band
+along the bottom. Their residual deviances fan out to either side, and a few sit
+beyond the outermost contour; that is expected rather than alarming, because a
+single Poisson count has irreducible deviance and no model fits one patient
+exactly. The contours are calibrated for arm-level points, and there the reading
+is clean: the aggregate arms sit an order of magnitude higher, at a leverage near
+one apiece, each being an entire trial compressed into a single count, and every
+one of them falls inside the `DIC = 3` contour. No aggregate arm is spoiling the
+fit. (This plot needs a saturated model to measure residual deviance against.
+Poisson counts have one; censored survival times do not, which is why a survival
+model cannot be given a leverage plot at all.)
 
 The frequentist bridge offers a Cochran $Q$. Read `Q.diff`, not `Q`: only the
 former tests the additivity restrictions, and on a disconnected network it does
@@ -710,6 +1030,37 @@ doubling the interaction prior's scale swings its posterior mean by more than a
 log unit, because roflumilast's interactions are informed by nothing except that
 prior. That is what "not identified" means. No likelihood ridge holds it in place,
 and yet the posterior looks perfectly healthy while the prior fills the vacuum.
+
+`plot_prior_posterior(fit, prior = "gamma")` reaches the same verdict for the cost
+of no refit at all, by overlaying each interaction's posterior on the normal(0, 1)
+prior it was handed:
+
+```{r prior-posterior-gamma, fig.height = 4.4}
+plot_prior_posterior(fit, prior = "gamma")
+```
+
+Recall the indexing: components in the order `ICS`, `LABA`, `LAMA`, `ROF`,
+modifiers in the order `eos`, `freqex`. Two panels are unlike the rest, and they
+are `gamma[4,1]` and `gamma[4,2]`: roflumilast's interactions with each modifier
+reproduce the normal(0, 1) prior almost exactly. Nothing in seven trials touched
+them, which is why doubling that prior's scale swings `LABA+LAMA+ROF` by more
+than a log unit in the table above. A well-mixed chain sampling a prior is still
+sampling a prior, and no convergence diagnostic will ever say otherwise.
+
+The other six interactions are pulled well inside their prior, and that deserves a
+word, because it is not the same statement as "estimable". `ICS` and `LAMA` have
+tightly determined interactions here, and cpaic still reports their contrasts as
+`NA`. The two are consistent. Each of those components appears in an arm of an IPD
+trial, so the within-arm covariate slopes do constrain it, but only by borrowing
+the prognostic surface `breg` from `MONO-1` to interpret `ADD-1`, which is to say
+only by assuming that the prognostic effects are the same in both trials. The
+criterion behind `estimable_effects_at()` is built from within-study *arm
+contrasts*, in which that surface cancels, so it never leans on the assumption and
+never claims the identification it would buy. The two diagnostics ask different
+questions: `plot_prior_posterior()` asks what the likelihood touched, and
+`estimable_effects_at()` asks what the design proves without extra assumptions.
+Roflumilast fails both. `ICS` and `LAMA` fail only the second, and it is on the
+strength of that failure, not of a wide posterior, that they are returned as `NA`.
 
 Notice that this is true even though those same contrasts came out fairly close to
 the truth in the table above. **Being right by luck and being identified are
