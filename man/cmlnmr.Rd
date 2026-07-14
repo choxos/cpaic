@@ -113,7 +113,7 @@ evaluated once per (aggregate row x integration point): the work grows as
 several hundred reconstructed patients. Sampling is otherwise well behaved
 (no divergences and no treedepth saturation in our checks), so if a survival
 fit is slow, reduce \code{n_int} before suspecting the geometry, and confirm the
-answer is stable with \code{\link[=integration_error]{integration_error()}}.}
+answer is stable with \code{\link[=plot_integration_error]{plot_integration_error()}}.}
 
 \item{QR}{Logical scalar. If \code{TRUE}, apply the scaled thin QR
 reparameterization used by \code{multinma} to the complete fixed-effects design
