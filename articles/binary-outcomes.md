@@ -327,12 +327,43 @@ cpaic_connectivity(net)
 #>   Estimable effects: 5 / 5 vs UC
 ```
 
-Two sub-networks, bridged by `CBT` and `NRT`, and the component design
-matrix $`X = BC`$ has full column rank. **Hold that thought.** Full rank
-means every component effect is identified *as an aggregate-data
-component NMA would define it* ([Wigle et al. 2026](#ref-Wigle2026)). It
-does not mean every population-adjusted effect is identified, and the
-difference turns out to be the whole story.
+[`plot()`](https://rdrr.io/r/graphics/plot.default.html) draws the same
+verdict. Each sub-network is laid out on its own circle, so a
+disconnected network looks disconnected; edges are colored by whether
+the comparison carries any individual patient data, and their width is
+the number of studies contributing to it.
+
+``` r
+
+# the panel is widened so that the outer treatment labels are not clipped
+plot(net)
+```
+
+![plot of chunk network-plot](figure/binary-network-plot-1.png)
+
+plot of chunk network-plot
+
+Three things to read off it. First, the two groups sit side by side with
+**no edge between them**: no comparator, direct or indirect, joins `UC`,
+`NRT` and `CBT` to `CBT+NRT`, `CBT+VAR` and `CBT+BUP`. Second, every
+treatment except `UC` is drawn as a triangle, meaning it contains one of
+the two bridging components, `CBT` or `NRT`; it is through those shared
+components, and not through any comparator, that the additive model will
+carry information across the gap. Third, only two comparisons are green,
+the color reserved for a comparison on which at least one study holds
+individual patient data: `UC` versus `CBT`, which three studies inform
+but only `BRIEF-2` informs with patient records, and `CBT+NRT` versus
+`CBT+VAR`, where `COMBO-1` does the same. **Every adjustment the
+frequentist route can perform happens on those two edges.** The
+remaining five edges enter the analysis exactly as their publications
+reported them.
+
+The component design matrix $`X = BC`$ nevertheless has full column
+rank. **Hold that thought.** Full rank means every component effect is
+identified *as an aggregate-data component NMA would define it* ([Wigle
+et al. 2026](#ref-Wigle2026)). It does not mean every
+population-adjusted effect is identified, and the difference turns out
+to be the whole story.
 
 ## Covariate balance
 
@@ -409,6 +440,29 @@ Matching costs information. The effective sample sizes above are what is
 left of each IPD trial after reweighting; `COMBO-1`, which is furthest
 from the target, pays the most. (We pass `target_sd` as well as the mean
 so that MAIC matches the target’s *variance* too, not only its center.)
+
+[`forest()`](https://choxos.github.io/cpaic/reference/forest.md)
+displays the bridged result. Read it once for the answers and once for
+what it does **not** say.
+
+``` r
+
+forest(fit_stc)
+```
+
+![plot of chunk forest-stc](figure/binary-forest-stc-1.png)
+
+plot of chunk forest-stc
+
+Every contrast against usual care receives a point estimate and an
+interval, the three that cross the gap included, and nothing on the plot
+distinguishes a contrast the data determine from one they do not. That
+is not a defect of
+[`forest()`](https://choxos.github.io/cpaic/reference/forest.md); it is
+a faithful rendering of what the frequentist bridge believes. The `NRT`
+versus `UC` row, which sits comfortably clear of the null, is the one to
+remember: we return to it once we have the machinery to see what is
+wrong with it.
 
 ### Two routes, two estimands
 
@@ -547,10 +601,10 @@ fit
 #>   For a target population use relative_effects(fit, newdata = ...).
 #> 
 #>  component estimate    se  lower upper
-#>        BUP    0.365 0.886 -1.418 1.974
-#>        CBT    0.476 0.121  0.206 0.686
-#>        NRT    0.567 0.233  0.079 0.997
-#>        VAR    0.991 0.292  0.378 1.543
+#>        BUP    0.377 0.887 -1.533 1.950
+#>        CBT    0.484 0.121  0.213 0.699
+#>        NRT    0.553 0.240  0.008 0.954
+#>        VAR    0.980 0.304  0.282 1.502
 ```
 
 Note what the print method insists on: those component effects are at
@@ -589,6 +643,31 @@ normal(0, 2.5) is already permissive; a normal(0, 1) on an interaction
 says that a one-unit change in `cpd` (10 cigarettes a day) is unlikely
 to swing a component’s log odds ratio by more than about two.
 
+Stating a prior is not the same as knowing what it did.
+[`plot_prior_posterior()`](https://choxos.github.io/cpaic/reference/plot_prior_posterior.md)
+answers that: it draws each posterior as a histogram and its prior as a
+line, so a parameter the data informed is one whose histogram has pulled
+away from the line beneath it.
+
+``` r
+
+plot_prior_posterior(fit)
+```
+
+![plot of chunk prior-posterior](figure/binary-prior-posterior-1.png)
+
+plot of chunk prior-posterior
+
+The study intercepts `mu` and the component effects `beta` are sharp
+against broad priors, as they should be with several thousand patients.
+The components are indexed alphabetically, so `beta[1]` is bupropion,
+and it is conspicuously the widest of the four: bupropion is carried by
+a single aggregate trial. The telling panel, though, is `gamma[1,1]`,
+the bupropion by `cpd` interaction, whose histogram lies underneath its
+prior curve almost exactly. That is the visual signature of a parameter
+the likelihood does not constrain at all, and we take it up in earnest
+below.
+
 ### Convergence
 
 ``` r
@@ -601,8 +680,64 @@ data.frame(
                                               "tau"))$ess_bulk, na.rm = TRUE))
 )
 #>   divergences max_treedepth max_rhat min_ess_bulk
-#> 1           0             0   1.0168          361
+#> 1           2             0   1.0168          425
 ```
+
+The trace plot shows the same thing chain by chain.
+
+``` r
+
+plot(fit, type = "trace")
+```
+
+![plot of chunk mcmc-trace](figure/binary-mcmc-trace-1.png)
+
+plot of chunk mcmc-trace
+
+``` r
+
+plot(fit, type = "rhat")
+```
+
+![plot of chunk mcmc-rhat](figure/binary-mcmc-rhat-1.png)
+
+plot of chunk mcmc-rhat
+
+All four chains overlap and are stationary in every panel, and every
+$`\hat{R}`$ sits in the lowest band. Note that the *width* of a trace is
+not a convergence problem but an information statement: `beta[1]` and
+`gamma[1,1]`, bupropion and its interaction, wander over a range several
+times wider than the others, because one aggregate two-arm trial is all
+the evidence there is about bupropion. This is the distinction that
+governs the rest of the vignette: **convergence is a property of the
+sampler, not of the evidence.** A parameter the data say nothing about
+will converge perfectly well onto its prior.
+
+Sampling is not the only numerical approximation here. Each aggregate
+arm’s likelihood is an integral of the individual model over that
+study’s covariate distribution, evaluated at `n_int = 64`
+quasi-Monte-Carlo points, and
+[`plot_integration_error()`](https://choxos.github.io/cpaic/reference/plot_integration_error.md)
+traces how far the integral at `N` points sits from the integral at all
+64.
+
+``` r
+
+plot_integration_error(fit)
+```
+
+![plot of chunk
+integration-error](figure/binary-integration-error-1.png)
+
+plot of chunk integration-error
+
+In every aggregate arm the error is already well inside the dashed `1/N`
+envelope by twenty points and keeps shrinking toward sixty-four, so
+`n_int = 64` is ample for this model. `COMBO-2`’s bupropion arm is the
+noisiest of the ten, which is consistent with it being the arm the model
+knows least about. Had any panel still been drifting at the right-hand
+edge, the remedy would have been to refit with more integration points,
+not to reinterpret the answer.
 
 ## Estimability: reconnecting is not identifying
 
@@ -623,12 +758,17 @@ runs that algebra for a named target population.
 ``` r
 
 estimable_effects_at(fit, newdata = target, reference = "NRT")
-#>   treatment comparator estimable identified_by
-#> 1       CBT        NRT     FALSE          none
-#> 2   CBT+BUP        NRT     FALSE          none
-#> 3   CBT+NRT        NRT      TRUE           IPD
-#> 4   CBT+VAR        NRT      TRUE           IPD
-#> 5        UC        NRT     FALSE          none
+#> Estimability of the population-adjusted relative effects
+#>   Target population: cpd = 0.3
+#>  treatment comparator estimable identified_by          basis
+#>        CBT        NRT     FALSE          none not identified
+#>    CBT+BUP        NRT     FALSE          none not identified
+#>    CBT+NRT        NRT      TRUE           IPD          exact
+#>    CBT+VAR        NRT      TRUE           IPD          exact
+#>         UC        NRT     FALSE          none not identified
+#> 
+#>   Rows marked "not identified" carry no first-order information; a number
+#>   reported for them would be the prior. relative_effects() returns NA there.
 ```
 
 Read the `identified_by` column. `CBT+NRT` and `CBT+VAR` are identified
@@ -647,6 +787,30 @@ and 18 cigarettes a day is neither of them. An aggregate two-arm trial
 gives you one equation; separating a component’s main effect from its
 interaction takes two.
 
+That table is one target population.
+[`plot_estimability()`](https://choxos.github.io/cpaic/reference/plot_estimability.md)
+runs the same algebra across a whole grid of them, which is the only way
+to see that estimability is not a fixed property of the network.
+
+``` r
+
+plot_estimability(fit, em = "cpd", values = seq(-1, 1, by = 0.25),
+                  reference = "NRT")
+```
+
+![plot of chunk estimability-map](figure/binary-estimability-map-1.png)
+
+plot of chunk estimability-map
+
+The good news is the two green rows, and they are the rows that matter:
+the headline contrast `CBT+VAR` versus `NRT` is identified from
+within-trial covariate variation at **every** target population in the
+plausible range, from 5-a-day smokers to 25-a-day ones, and so is
+`CBT+NRT` versus `NRT`. The population-adjusted comparison across the
+gap is available wherever a guideline panel might want to stand. The
+three red rows are equally uniform, and equally informative: no choice
+of target rescues them.
+
 The dependence on the target is real, not a technicality. `BRIEF-1`
 enrolled 8-a-day smokers; ask for **exactly that** population and `NRT`
 becomes estimable again. Note “exactly”: the criterion holds at the
@@ -660,17 +824,54 @@ own
 #>          cpd
 #> 1 -0.7061574
 estimable_effects_at(fit, newdata = own, reference = "UC")
-#>   treatment comparator estimable identified_by
-#> 1       CBT         UC      TRUE           IPD
-#> 2   CBT+BUP         UC     FALSE          none
-#> 3   CBT+NRT         UC      TRUE     aggregate
-#> 4   CBT+VAR         UC      TRUE     aggregate
-#> 5       NRT         UC      TRUE     aggregate
+#> Estimability of the population-adjusted relative effects
+#>   Target population: cpd = -0.706
+#>  treatment comparator estimable identified_by              basis
+#>        CBT         UC      TRUE           IPD              exact
+#>    CBT+BUP         UC     FALSE          none     not identified
+#>    CBT+NRT         UC      TRUE     aggregate first-order screen
+#>    CBT+VAR         UC      TRUE     aggregate first-order screen
+#>        NRT         UC      TRUE     aggregate first-order screen
+#> 
+#>   Rows marked "first-order screen" are identified only through aggregate arms
+#>   under a nonlinear link, where the criterion can be optimistic. Check them
+#>   with prior_sensitivity().
+#> 
+#>   Rows marked "not identified" carry no first-order information; a number
+#>   reported for them would be the prior. relative_effects() returns NA there.
 ```
 
 That is the whole of what an aggregate two-arm trial can tell you: its
 own contrast, in its own population. Everything else is extrapolation
 through $`\Gamma`$, and $`\Gamma`$ has to come from somewhere.
+
+Redraw the map on a grid that passes exactly through `BRIEF-1`’s own
+covariate mean, and the point becomes a picture. This time we take the
+comparisons against usual care, which is where the aggregate `NRT` edge
+does its work.
+
+``` r
+
+plot_estimability(fit, em = "cpd", values = own$cpd + 0.25 * (-1:7))
+```
+
+![plot of chunk
+estimability-own-map](figure/binary-estimability-own-map-1.png)
+
+plot of chunk estimability-own-map
+
+One column of the map, and one only, is different: at `BRIEF-1`’s own
+population three further contrasts become estimable, and they come up
+**yellow**, not green. Yellow is `identified_by = "aggregate"`, which is
+to say identified *ecologically*, from between-study differences in
+covariate means rather than from randomized within-study variation.
+Randomization does not protect an ecological comparison, and
+[`estimable_effects_at()`](https://choxos.github.io/cpaic/reference/estimable_effects_at.md)
+labels its basis a “first-order screen” precisely to warn that on a
+nonlinear link the criterion may be optimistic there. Estimability is
+therefore not one property but two: whether a contrast can be identified
+at all, and on what kind of evidence. One step either side of that
+column, every one of those three contrasts is red again.
 
 The same algebra reaches the component effects. In the target
 population, only `CBT` is separately identified; even `VAR` is not,
@@ -680,12 +881,29 @@ replacement:
 ``` r
 
 component_effects(fit, newdata = target)
-#>   component  estimate        se     lower     upper
-#> 1       BUP        NA        NA        NA        NA
-#> 2       CBT 0.4011016 0.1324179 0.1089317 0.6305528
-#> 3       NRT        NA        NA        NA        NA
-#> 4       VAR        NA        NA        NA        NA
+#>   component estimate        se    lower     upper
+#> 1       BUP       NA        NA       NA        NA
+#> 2       CBT 0.406458 0.1309455 0.122849 0.6495137
+#> 3       NRT       NA        NA       NA        NA
+#> 4       VAR       NA        NA       NA        NA
 ```
+
+[`forest()`](https://choxos.github.io/cpaic/reference/forest.md) renders
+the same table, and renders the `NA`s as what they are.
+
+``` r
+
+forest(fit, what = "component", newdata = target)
+```
+
+![plot of chunk forest-component](figure/binary-forest-component-1.png)
+
+plot of chunk forest-component
+
+Three of the four components are printed as empty rows marked *not
+estimable* rather than dropped. Dropping them would leave a plot that
+looked complete when it was not, which is the single most consequential
+design decision in the package’s plotting surface.
 
 That looks like a defeat and is not. The headline contrast does not need
 `VAR` alone: `CBT+VAR` versus `NRT` is `CBT` plus (`VAR` minus `NRT`),
@@ -693,6 +911,47 @@ and *both of those pieces come from IPD*. cpaic returns `NA` for what it
 cannot identify and a number for what it can, which is the behavior you
 want from a tool that will otherwise hand you the prior with a straight
 face ([Wigle et al. 2026](#ref-Wigle2026)).
+
+### Which edges actually carry the answer
+
+The frequentist bridge has no `NA`s to return, but the same linear
+algebra still governs it, and
+[`plot_edge_influence()`](https://choxos.github.io/cpaic/reference/plot_edge_influence.md)
+exposes it from the other side. A bridged contrast is a weighted
+combination of the observed edges, with weights chosen by the component
+design rather than by any path through the network. Those weights are
+worth looking at before trusting the contrast.
+
+``` r
+
+plot_edge_influence(fit_stc, treatment = "CBT+VAR")
+```
+
+![plot of chunk edge-influence](figure/binary-edge-influence-1.png)
+
+plot of chunk edge-influence
+
+Read the bars from the top. The edge that contributes **most** to
+`CBT+VAR` versus `UC` is `BRIEF-1`, the aggregate trial in 8-a-day
+smokers; it carries more weight than any other edge in the network. It
+reaches this contrast because varenicline was only ever measured
+*against* nicotine replacement, so the `NRT` component has to be
+supplied from somewhere, and `BRIEF-1` is the only place it exists. Yet
+`BRIEF-1` is aggregate, so neither
+[`cstc()`](https://choxos.github.io/cpaic/reference/cstc.md) nor
+[`cmaic()`](https://choxos.github.io/cpaic/reference/cmaic.md) can touch
+it, and it enters the bridge in its own light-smoking population.
+Meanwhile the two edges that *were* adjusted, `COMBO-1` and `BRIEF-2`,
+are the green ones, and between them they carry a minority of the
+weight.
+
+The last bar is instructive in the opposite direction: `COMBO-2`, the
+bupropion trial, has an influence of exactly zero. `CBT+VAR` versus `UC`
+contains no bupropion, so no amount of evidence about bupropion can move
+it. This is the diagnostic that the conventional population-adjustment
+checks cannot perform: an effective sample size tells you how much of a
+trial survived reweighting, but it cannot tell you that reweighting that
+trial was incapable of changing your answer in the first place.
 
 ## Results
 
@@ -710,11 +969,28 @@ relative_effects(fit, reference = "NRT", newdata = target)
 #>  treatment comparator estimate    se lower upper pr_gt0
 #>        CBT        NRT       NA    NA    NA    NA     NA
 #>    CBT+BUP        NRT       NA    NA    NA    NA     NA
-#>    CBT+NRT        NRT    1.506 0.132 1.115 1.879  0.994
-#>    CBT+VAR        NRT    2.795 0.202 1.797 3.915  0.998
+#>    CBT+NRT        NRT    1.514 0.131 1.131 1.915  0.992
+#>    CBT+VAR        NRT    2.820 0.193 1.860 3.956  1.000
 #>         UC        NRT       NA    NA    NA    NA     NA
 #>   NA = not uniquely estimable from this component design (see estimable_effects()).
 ```
+
+``` r
+
+forest(fit, reference = "NRT", newdata = target)
+```
+
+![plot of chunk forest-bayes](figure/binary-forest-bayes-1.png)
+
+plot of chunk forest-bayes
+
+Two contrasts, an interval each, and three rows that decline to answer.
+The headline result is the bottom row: `CBT+VAR` versus `NRT`, a
+comparison no trial in this network made and no comparator connects,
+estimated in a named population with an interval that reflects how much
+the data actually say. Compare this plot with the frequentist forest
+above, which had five filled rows and no empty ones. Same network, same
+target, same question.
 
 And the same network in a lighter-smoking population:
 
@@ -726,8 +1002,8 @@ relative_effects(fit, reference = "NRT", newdata = target_light)
 #>  treatment comparator estimate    se lower upper pr_gt0
 #>        CBT        NRT       NA    NA    NA    NA     NA
 #>    CBT+BUP        NRT       NA    NA    NA    NA     NA
-#>    CBT+NRT        NRT    1.796 0.136 1.338 2.249  0.998
-#>    CBT+VAR        NRT    2.188 0.234 1.334 3.322  0.994
+#>    CBT+NRT        NRT    1.818 0.137 1.324 2.298  0.997
+#>    CBT+VAR        NRT    2.220 0.231 1.359 3.323  0.997
 #>         UC        NRT       NA    NA    NA    NA     NA
 #>   NA = not uniquely estimable from this component design (see estimable_effects()).
 ```
@@ -767,8 +1043,8 @@ knitr::kable(recovery, digits = 2, row.names = FALSE,
 
 | Contrast       | True_OR | cSTC | cMAIC | cML-NMR | cML-NMR 95% CrI |
 |:---------------|--------:|-----:|------:|--------:|:----------------|
-| CBT+NRT vs NRT |    1.63 | 1.66 |  1.68 |    1.51 | (1.12, 1.88)    |
-| CBT+VAR vs NRT |    3.21 | 3.23 |  3.25 |    2.79 | (1.80, 3.92)    |
+| CBT+NRT vs NRT |    1.63 | 1.66 |  1.68 |    1.51 | (1.13, 1.91)    |
+| CBT+VAR vs NRT |    3.21 | 3.23 |  3.25 |    2.82 | (1.86, 3.96)    |
 
 Odds ratios in the target population (cpd = 0.3), against the truth
 {.table}
@@ -782,6 +1058,38 @@ reason set out above: the estimand gap lives on the two IPD edges, and
 the bridge dilutes it with unadjusted aggregate evidence on the same
 contrasts. The place to look for the difference is the edge table, not
 the league table.
+
+[`league_table()`](https://choxos.github.io/cpaic/reference/league_table.md)
+lays out every pairwise comparison at the target population. It is worth
+printing in full, because what it leaves out is as informative as what
+it contains.
+
+``` r
+
+lg <- league_table(fit, newdata = target)
+knitr::kable(lg, caption = paste("League table at cpd = 0.3 (row versus column).",
+                                 "Empty cells are not estimable."))
+```
+
+|  | CBT | CBT+BUP | CBT+NRT | CBT+VAR | NRT | UC |
+|:---|:---|:---|:---|:---|:---|:---|
+| CBT | CBT |  |  |  |  | 1.51 (1.13, 1.91) |
+| CBT+BUP |  | CBT+BUP |  |  |  |  |
+| CBT+NRT |  |  | CBT+NRT | 0.55 (0.41, 0.73) | 1.51 (1.13, 1.91) |  |
+| CBT+VAR |  |  | 1.86 (1.37, 2.43) | CBT+VAR | 2.82 (1.86, 3.96) |  |
+| NRT |  |  | 0.67 (0.52, 0.88) | 0.37 (0.25, 0.54) | NRT |  |
+| UC | 0.67 (0.52, 0.88) |  |  |  |  | UC |
+
+League table at cpd = 0.3 (row versus column). Empty cells are not
+estimable. {.table style="width:100%;"}
+
+Most of it is empty: of the 30 off-diagonal cells, 8 carry a number. A
+conventional league table built from this network would have been full,
+and every cell in it would have looked equally authoritative. Note also
+that the `CBT` versus `UC` cell and the `CBT+NRT` versus `NRT` cell
+agree to the last digit. That is not a coincidence: under an additive
+model both contrasts *are* the counseling component, reached by two
+different routes.
 
 The population dependence is recovered too:
 
@@ -813,6 +1121,92 @@ ggplot(curve, aes(15 + 10 * cpd)) +
 ![plot of chunk pop-curve](figure/binary-pop-curve-1.png)
 
 plot of chunk pop-curve
+
+### The hierarchy, and the refusal to build one
+
+A guideline panel will ask for a ranking. Wigle et al.
+([2026](#ref-Wigle2026)) set out the workflow that answers it
+responsibly: state the set to be ranked, **determine which of the
+required relative effects are estimable**, refine the set to the
+estimable ones or decline to rank, and only then compute the metrics.
+[`cpaic_ranks()`](https://choxos.github.io/cpaic/reference/cpaic_ranks.md)
+performs those steps and reports what it had to discard.
+
+``` r
+
+rk <- cpaic_ranks(fit, newdata = target)
+rk
+#> Population-adjusted treatment hierarchy
+#>   Target population: cpd = 0.3
+#>  element estimate p_best median_rank mean_rank sucra
+#>      CBT    0.406  0.992           1     1.008 0.992
+#>       UC    0.000  0.008           2     1.992 0.008
+#>   Not estimable in this population, so not ranked: CBT+BUP, CBT+NRT, CBT+VAR, NRT
+#>   Ranking metrics depend on the set ranked; report them with the effects, not instead.
+plot(rk)
+```
+
+![plot of chunk hierarchy](figure/binary-hierarchy-1.png)
+
+plot of chunk hierarchy
+
+Four of the six treatments are gone. What remains is a two-element
+hierarchy, `CBT` above `UC`, and the caption names the four that were
+dropped. This is not a failure of the ranking code; it is the
+estimability result of the previous section reaching the quantity a
+guideline panel is most likely to quote. A SUCRA is computed from a
+treatment’s relative effect, so a treatment whose relative effect is not
+identified can only be ranked by ranking the prior, and no ranking
+metric would carry any trace of the substitution.
+
+The rankogram makes the point more sharply still, because it declines
+outright.
+[`rank_probs()`](https://choxos.github.io/cpaic/reference/rank_probs.md)
+ranks the non-reference treatments, and once the four non-estimable ones
+are dropped a single treatment is left, from which no hierarchy can be
+formed:
+
+``` r
+
+tryCatch(rank_probs(fit, newdata = target),
+         error = function(e) cat("rank_probs() declined:\n ", conditionMessage(e)))
+#> rank_probs() declined:
+#>   Fewer than two elements are estimable in this target population, so no hierarchy can be formed. See estimable_effects_at().
+```
+
+**An error is the correct output here.** A rankogram of this network at
+this target population would have been a picture of the prior, drawn
+with the same confident bars as a picture of the data, and no diagnostic
+downstream of it would have revealed the difference. Refusing is the
+whole point of Step 3.
+
+Within the set that *can* be ranked, the hierarchy is still
+population-specific, and
+[`plot_rank_curve()`](https://choxos.github.io/cpaic/reference/plot_rank_curve.md)
+traces it across target populations.
+
+``` r
+
+rc <- rank_curve(fit, em = "cpd", values = seq(-1, 1, by = 0.25))
+plot_rank_curve(fit, em = "cpd", values = seq(-1, 1, by = 0.25))
+```
+
+![plot of chunk rank-curve](figure/binary-rank-curve-1.png)
+
+plot of chunk rank-curve
+
+Two cautions in one figure. First, the curves do not cross here, so
+counseling beats usual care in every target population; but the margin
+erodes steadily, and `CBT`’s SUCRA falls from 0.997 in the
+lightest-smoking population to 0.863 in the heaviest, which is what a
+component whose interaction with `cpd` is negative should do. In a
+network with more estimable contrasts the curves generally *do* cross,
+and a hierarchy quoted without a population is then not merely imprecise
+but wrong. Second, and more important: the plot shows two treatments
+because two is all that could be ranked. It gives no indication that
+four others exist. Read a rank curve only after
+[`estimable_effects_at()`](https://choxos.github.io/cpaic/reference/estimable_effects_at.md),
+never instead of it.
 
 ### The contrasts the frequentist bridge gets quietly wrong
 
@@ -878,6 +1272,29 @@ and a number for exactly the row it is getting right.** That
 correspondence is not a coincidence: it is the same piece of linear
 algebra, read once as a warning and once as a silent assumption.
 
+Put the two forests side by side and the contrast is the argument of
+this vignette in one image. The frequentist bridge, plotted earlier in
+this section’s own comparator, filled all five rows. Here is
+[`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md) asked
+the identical question, against the identical comparator, in the
+identical target population:
+
+``` r
+
+forest(fit, newdata = target)
+```
+
+![plot of chunk forest-bayes-uc](figure/binary-forest-bayes-uc-1.png)
+
+plot of chunk forest-bayes-uc
+
+One row survives, and it is the row the frequentist bridge also got
+right. The four blank rows are the four the `covers` column just
+convicted. A plot that refuses to draw four fifths of itself is an
+uncomfortable deliverable, and it is the correct one: the alternative is
+the plot above it, which is complete, confident, and wrong about `NRT`
+versus `UC` by a margin its confidence interval does not admit.
+
 ### Random effects and model comparison
 
 The random-effects model lets each study-arm deviate from the
@@ -894,7 +1311,7 @@ knitr::kable(fit$fit$summary("tau")[, c("variable", "mean", "sd", "q5", "q95",
 
 | variable |  mean |    sd |    q5 |   q95 |  rhat | ess_bulk |
 |:---------|------:|------:|------:|------:|------:|---------:|
-| tau\[1\] | 0.129 | 0.138 | 0.007 | 0.382 | 1.015 |  361.171 |
+| tau\[1\] | 0.126 | 0.121 | 0.009 | 0.352 | 1.008 |  442.099 |
 
 Compare the random-effects fit against a fixed-effect one by
 leave-one-out cross-validation ([Vehtari et al. 2017](#ref-vehtari2017))
@@ -909,8 +1326,8 @@ fit_fixed <- cmlnmr(ipd, agd, effect_modifiers = "cpd", inactive = "UC",
 
 loo::loo_compare(list(random = loo::loo(fit), fixed = loo::loo(fit_fixed)))
 #>   model elpd_diff se_diff p_worse       diag_diff      diag_elpd
-#>   fixed       0.0     0.0      NA                 7 k_psis > 0.7
-#>  random      -0.9     0.6    0.94 |elpd_diff| < 4 6 k_psis > 0.7
+#>   fixed       0.0     0.0      NA                 6 k_psis > 0.7
+#>  random      -1.7     0.7    0.99 |elpd_diff| < 4 8 k_psis > 0.7
 
 knitr::kable(data.frame(
   model = c("random", "fixed"),
@@ -921,8 +1338,8 @@ knitr::kable(data.frame(
 
 | model  |    DIC | p_eff |
 |:-------|-------:|------:|
-| random | 3018.9 |  16.1 |
-| fixed  | 3018.4 |  15.9 |
+| random | 3019.4 |  16.3 |
+| fixed  | 3017.1 |  14.7 |
 
 Deviance information criterion {.table}
 
@@ -931,6 +1348,45 @@ should happen: the data really were generated by an additive component
 model with no extra study-arm noise, so the random-effects model is
 paying for flexibility it does not need. It remains the safer default,
 because in a real network you do not get to know that.
+
+A single DIC difference reduces the whole data set to one number. The
+dev-dev plot restores the detail: each point is one data point’s
+contribution to the posterior mean deviance under each of the two
+models.
+
+``` r
+
+plot(dic(fit_fixed), dic(fit), labels = c("fixed", "random"))
+```
+
+![plot of chunk devdev](figure/binary-devdev-1.png)
+
+plot of chunk devdev
+
+The points lie along the line of equality with almost no scatter, so the
+two models are not merely tied on average; they fit essentially every
+arm and every patient the same way. A DIC tie that came instead from one
+model fitting some points much better and others much worse would look
+nothing like this, and would mean something quite different.
+
+The leverage plot asks the complementary question: is any single data
+point distorting the fit?
+
+``` r
+
+plot_leverage(fit)
+```
+
+![plot of chunk leverage](figure/binary-leverage-1.png)
+
+plot of chunk leverage
+
+No point lies outside the `DIC = 3` contour, so nothing is spoiling the
+fit. The structure worth noticing is the separation between the two
+colors. The individual patients (green) sit along leverage zero, each
+contributing almost nothing on its own; the aggregate arms (navy) sit an
+order of magnitude higher. That is exactly as it should be, and it is
+the same fact that the next paragraph reaches from the other direction.
 
 Two cautions on reading these numbers. First, LOO’s Pareto-$`k`$
 diagnostic flags several observations. It is right to: **each aggregate
@@ -949,7 +1405,7 @@ says so out loud:
 additivity_test(fit_stc)
 #> Additive component model: fit statistics
 #>   Total lack of fit (Q.additive): Q = 3.101, df = 3, p = 0.376
-#>   Additivity restrictions (Q.diff): not available -- no standard NMA
+#>   Additivity restrictions (Q.diff): not available; no standard NMA
 #>     is estimable on a disconnected network.
 #>   Note: neither statistic tests whether component effects are constant
 #>   ACROSS sub-networks, which is the assumption that bridges the gap.
@@ -968,6 +1424,29 @@ with additivity.)
 
 ### Prior sensitivity
 
+The interactions $`\Gamma`$ are where the identification problem lives,
+so look at them alone before perturbing anything.
+
+``` r
+
+plot_prior_posterior(fit, prior = "gamma")
+```
+
+![plot of chunk
+prior-posterior-gamma](figure/binary-prior-posterior-gamma-1.png)
+
+plot of chunk prior-posterior-gamma
+
+Three of the four posteriors have collapsed to a narrow spike well
+inside the `normal(0, 1)` prior: those are the interactions for `CBT`,
+`NRT` and `VAR`, the three components that the two IPD trials touch, and
+they are estimated from within-trial covariate variation. The fourth,
+`gamma[1,1]`, is bupropion, and its histogram traces the prior curve.
+**The prior is not a formality for that parameter; it is the entire
+posterior.** Whatever `prior_gamma_scale` we had chosen, the data would
+have returned it unchanged, and any contrast that leans on it inherits
+that property while continuing to look like an estimate.
+
 Prior movement is the empirical definition of identification: a contrast
 that moves when you change a prior it should not depend on was never
 data-driven.
@@ -985,11 +1464,11 @@ ps <- prior_sensitivity(fit, newdata = target, reference = "NRT",
 ps
 #> cML-NMR prior sensitivity: gamma prior
 #>  treatment comparator estimate tighter looser move_tighter move_looser max_movement estimable
-#>        CBT        NRT   -0.096  -0.047 -0.043        0.049       0.052        0.052     FALSE
-#>    CBT+BUP        NRT    0.273   0.293  0.268        0.020       0.005        0.020     FALSE
-#>    CBT+NRT        NRT    0.401   0.412  0.398        0.011       0.003        0.011      TRUE
-#>    CBT+VAR        NRT    1.008   1.019  1.008        0.011       0.000        0.011      TRUE
-#>         UC        NRT   -0.497  -0.459 -0.442        0.038       0.055        0.055     FALSE
+#>        CBT        NRT   -0.076  -0.087 -0.066        0.012       0.010        0.012     FALSE
+#>    CBT+BUP        NRT    0.294   0.366  0.158        0.073       0.135        0.135     FALSE
+#>    CBT+NRT        NRT    0.406   0.405  0.416        0.001       0.009        0.009      TRUE
+#>    CBT+VAR        NRT    1.018   1.022  1.026        0.004       0.008        0.008      TRUE
+#>         UC        NRT   -0.482  -0.493 -0.482        0.010       0.001        0.010     FALSE
 ```
 
 Read the `max_movement` column against `estimable`. Every contrast the

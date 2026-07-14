@@ -625,21 +625,50 @@ says so, along with the components that could bridge it:</p>
 <span><span class="co">#&gt;   Bridging components: CBT, NRT</span></span>
 <span><span class="co">#&gt;   Component design:  rank(X) = 4 / 4 components -&gt; all component effects identified</span></span>
 <span><span class="co">#&gt;   Estimable effects: 5 / 5 vs UC</span></span></code></pre></div>
-<p>Two sub-networks, bridged by <code>CBT</code> and <code>NRT</code>,
-and the component design matrix
+<p><code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> draws the same verdict. Each sub-network is laid
+out on its own circle, so a disconnected network looks disconnected;
+edges are colored by whether the comparison carries any individual
+patient data, and their width is the number of studies contributing to
+it.</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># the panel is widened so that the outer treatment labels are not clipped</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">net</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/binary-network-plot-1.png" alt="plot of chunk network-plot"><p class="caption">
+plot of chunk network-plot
+</p>
+</div>
+<p>Three things to read off it. First, the two groups sit side by side
+with <strong>no edge between them</strong>: no comparator, direct or
+indirect, joins <code>UC</code>, <code>NRT</code> and <code>CBT</code>
+to <code>CBT+NRT</code>, <code>CBT+VAR</code> and <code>CBT+BUP</code>.
+Second, every treatment except <code>UC</code> is drawn as a triangle,
+meaning it contains one of the two bridging components, <code>CBT</code>
+or <code>NRT</code>; it is through those shared components, and not
+through any comparator, that the additive model will carry information
+across the gap. Third, only two comparisons are green, the color
+reserved for a comparison on which at least one study holds individual
+patient data: <code>UC</code> versus <code>CBT</code>, which three
+studies inform but only <code>BRIEF-2</code> informs with patient
+records, and <code>CBT+NRT</code> versus <code>CBT+VAR</code>, where
+<code>COMBO-1</code> does the same. <strong>Every adjustment the
+frequentist route can perform happens on those two edges.</strong> The
+remaining five edges enter the analysis exactly as their publications
+reported them.</p>
+<p>The component design matrix
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>X</mi><mo>=</mo><mi>B</mi><mi>C</mi></mrow><annotation encoding="application/x-tex">X = BC</annotation></semantics></math>
-has full column rank. <strong>Hold that thought.</strong> Full rank
-means every component effect is identified <em>as an aggregate-data
-component NMA would define it</em> <span class="citation">(<a href="#ref-Wigle2026">Wigle et al. 2026</a>)</span>. It does not mean
-every population-adjusted effect is identified, and the difference turns
-out to be the whole story.</p>
+nevertheless has full column rank. <strong>Hold that thought.</strong>
+Full rank means every component effect is identified <em>as an
+aggregate-data component NMA would define it</em> <span class="citation">(<a href="#ref-Wigle2026">Wigle et al.
+2026</a>)</span>. It does not mean every population-adjusted effect is
+identified, and the difference turns out to be the whole story.</p>
 </div>
 <div class="section level2">
 <h2 id="covariate-balance">Covariate balance<a class="anchor" aria-label="anchor" href="#covariate-balance"></a>
 </h2>
 <p>Population adjustment exists because the trial populations differ.
 They do:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">balance</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">rbind</span>, <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/split.html" class="external-link">split</a></span><span class="op">(</span><span class="va">patients</span>, <span class="va">patients</span><span class="op">$</span><span class="va">.study</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">d</span><span class="op">)</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>Study <span class="op">=</span> <span class="va">d</span><span class="op">$</span><span class="va">.study</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>,</span>
 <span>             Cigarettes_per_day <span class="op">=</span> <span class="fl">15</span> <span class="op">+</span> <span class="fl">10</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">d</span><span class="op">$</span><span class="va">cpd</span><span class="op">)</span>,</span>
@@ -716,7 +745,7 @@ caseload a stop-smoking service actually sees: a mean of 18 cigarettes a
 day, i.e. <code>cpd = 0.3</code>. We will also ask for a lighter-smoking
 population, <code>cpd = -0.4</code> (11 a day), to show that the answer
 moves.</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">target</span>      <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>cpd <span class="op">=</span> <span class="fl">0.3</span><span class="op">)</span>    <span class="co"># 18 cigarettes/day: the decision population</span></span>
 <span><span class="va">target_light</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>cpd <span class="op">=</span> <span class="op">-</span><span class="fl">0.4</span><span class="op">)</span>  <span class="co"># 11 cigarettes/day</span></span></code></pre></div>
 </div>
@@ -736,7 +765,7 @@ effect-modifier distribution matches the target <span class="citation">(<a href=
 2010</a>)</span> and refits. Both then hand their adjusted contrasts to
 <code><a href="../reference/cnma_bridge.html">cnma_bridge()</a></code>, which combines everything through the
 additive component model <span class="citation">(<a href="#ref-rucker2020cnma">Rücker et al. 2020</a>)</span>.</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit_stc</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cstc.html">cstc</a></span><span class="op">(</span><span class="va">net</span>, target <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>cpd <span class="op">=</span> <span class="fl">0.3</span><span class="op">)</span>, effect_modifiers <span class="op">=</span> <span class="st">"cpd"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">fit_maic</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cmaic.html">cmaic</a></span><span class="op">(</span><span class="va">net</span>, target <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>cpd <span class="op">=</span> <span class="fl">0.3</span><span class="op">)</span>, target_sd <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>cpd <span class="op">=</span> <span class="fl">0.7</span><span class="op">)</span>,</span>
@@ -749,6 +778,23 @@ is left of each IPD trial after reweighting; <code>COMBO-1</code>, which
 is furthest from the target, pays the most. (We pass
 <code>target_sd</code> as well as the mean so that MAIC matches the
 target’s <em>variance</em> too, not only its center.)</p>
+<p><code><a href="../reference/forest.html">forest()</a></code> displays the bridged result. Read it once for
+the answers and once for what it does <strong>not</strong> say.</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/forest.html">forest</a></span><span class="op">(</span><span class="va">fit_stc</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/binary-forest-stc-1.png" alt="plot of chunk forest-stc"><p class="caption">
+plot of chunk forest-stc
+</p>
+</div>
+<p>Every contrast against usual care receives a point estimate and an
+interval, the three that cross the gap included, and nothing on the plot
+distinguishes a contrast the data determine from one they do not. That
+is not a defect of <code><a href="../reference/forest.html">forest()</a></code>; it is a faithful rendering of
+what the frequentist bridge believes. The <code>NRT</code> versus
+<code>UC</code> row, which sits comfortably clear of the null, is the
+one to remember: we return to it once we have the machinery to see what
+is wrong with it.</p>
 </div>
 <div class="section level3">
 <h3 id="two-routes-two-estimands">Two routes, two estimands<a class="anchor" aria-label="anchor" href="#two-routes-two-estimands"></a>
@@ -785,7 +831,7 @@ reweighting a normal covariate returns exactly a normal, so the target
 really is
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">N</mi><mo stretchy="false" form="prefix">(</mo><mn>0.3</mn><mo>,</mo><mspace width="0.167em"></mspace><msup><mn>0.7</mn><mn>2</mn></msup><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\mathrm{N}(0.3,\,0.7^2)</annotation></semantics></math>
 and this Monte Carlo is exact.)</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">edge</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">fitobj</span>, <span class="va">study</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">a</span> <span class="op">&lt;-</span> <span class="va">fitobj</span><span class="op">$</span><span class="va">bridge</span><span class="op">$</span><span class="va">network</span><span class="op">$</span><span class="va">agd</span></span>
 <span>  <span class="va">a</span><span class="op">$</span><span class="va">TE</span><span class="op">[</span><span class="va">a</span><span class="op">$</span><span class="va">studlab</span> <span class="op">==</span> <span class="va">study</span><span class="op">]</span></span>
@@ -896,7 +942,7 @@ which matters because the logit link is nonlinear:
 <p>We use <code>trt_effects = "random"</code>, which adds a study-arm
 deviation around the component-implied effect, so the component model is
 not forced to fit every trial exactly.</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cmlnmr.html">cmlnmr</a></span><span class="op">(</span><span class="va">ipd</span>, <span class="va">agd</span>,</span>
 <span>              effect_modifiers <span class="op">=</span> <span class="st">"cpd"</span>,</span>
 <span>              inactive <span class="op">=</span> <span class="st">"UC"</span>, family <span class="op">=</span> <span class="st">"binomial"</span>,</span>
@@ -911,10 +957,10 @@ not forced to fit every trial exactly.</p>
 <span><span class="co">#&gt;   For a target population use relative_effects(fit, newdata = ...).</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt;  component estimate    se  lower upper</span></span>
-<span><span class="co">#&gt;        BUP    0.365 0.886 -1.418 1.974</span></span>
-<span><span class="co">#&gt;        CBT    0.476 0.121  0.206 0.686</span></span>
-<span><span class="co">#&gt;        NRT    0.567 0.233  0.079 0.997</span></span>
-<span><span class="co">#&gt;        VAR    0.991 0.292  0.378 1.543</span></span></code></pre></div>
+<span><span class="co">#&gt;        BUP    0.377 0.887 -1.533 1.950</span></span>
+<span><span class="co">#&gt;        CBT    0.484 0.121  0.213 0.699</span></span>
+<span><span class="co">#&gt;        NRT    0.553 0.240  0.008 0.954</span></span>
+<span><span class="co">#&gt;        VAR    0.980 0.304  0.282 1.502</span></span></code></pre></div>
 <p>Note what the print method insists on: those component effects are at
 the covariate <strong>origin</strong>, not in any population you care
 about.</p>
@@ -927,7 +973,7 @@ identified
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi mathvariant="normal">Γ</mi><annotation encoding="application/x-tex">\Gamma</annotation></semantics></math>
 the interaction prior does real work and you should be able to see
 exactly how much:</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">rbind</span>, <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">priors</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">p</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">s</span> <span class="op">&lt;-</span> <span class="va">fit</span><span class="op">$</span><span class="va">priors</span><span class="op">[[</span><span class="va">p</span><span class="op">]</span><span class="op">]</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>parameter <span class="op">=</span> <span class="va">p</span>, distribution <span class="op">=</span> <span class="va">s</span><span class="op">$</span><span class="va">distribution</span>,</span>
@@ -982,11 +1028,33 @@ a normal(0, 2.5) is already permissive; a normal(0, 1) on an interaction
 says that a one-unit change in <code>cpd</code> (10 cigarettes a day) is
 unlikely to swing a component’s log odds ratio by more than about
 two.</p>
+<p>Stating a prior is not the same as knowing what it did.
+<code><a href="../reference/plot_prior_posterior.html">plot_prior_posterior()</a></code> answers that: it draws each
+posterior as a histogram and its prior as a line, so a parameter the
+data informed is one whose histogram has pulled away from the line
+beneath it.</p>
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_prior_posterior.html">plot_prior_posterior</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/binary-prior-posterior-1.png" alt="plot of chunk prior-posterior"><p class="caption">
+plot of chunk prior-posterior
+</p>
+</div>
+<p>The study intercepts <code>mu</code> and the component effects
+<code>beta</code> are sharp against broad priors, as they should be with
+several thousand patients. The components are indexed alphabetically, so
+<code>beta[1]</code> is bupropion, and it is conspicuously the widest of
+the four: bupropion is carried by a single aggregate trial. The telling
+panel, though, is <code>gamma[1,1]</code>, the bupropion by
+<code>cpd</code> interaction, whose histogram lies underneath its prior
+curve almost exactly. That is the visual signature of a parameter the
+likelihood does not constrain at all, and we take it up in earnest
+below.</p>
 </div>
 <div class="section level3">
 <h3 id="convergence">Convergence<a class="anchor" aria-label="anchor" href="#convergence"></a>
 </h3>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  divergences   <span class="op">=</span> <span class="va">fit</span><span class="op">$</span><span class="va">diagnostics</span><span class="op">$</span><span class="va">divergences</span>,</span>
 <span>  max_treedepth <span class="op">=</span> <span class="va">fit</span><span class="op">$</span><span class="va">diagnostics</span><span class="op">$</span><span class="va">max_treedepth</span>,</span>
@@ -995,7 +1063,54 @@ two.</p>
 <span>                                              <span class="st">"tau"</span><span class="op">)</span><span class="op">)</span><span class="op">$</span><span class="va">ess_bulk</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="co">#&gt;   divergences max_treedepth max_rhat min_ess_bulk</span></span>
-<span><span class="co">#&gt; 1           0             0   1.0168          361</span></span></code></pre></div>
+<span><span class="co">#&gt; 1           2             0   1.0168          425</span></span></code></pre></div>
+<p>The trace plot shows the same thing chain by chain.</p>
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">fit</span>, type <span class="op">=</span> <span class="st">"trace"</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/binary-mcmc-trace-1.png" alt="plot of chunk mcmc-trace"><p class="caption">
+plot of chunk mcmc-trace
+</p>
+</div>
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">fit</span>, type <span class="op">=</span> <span class="st">"rhat"</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/binary-mcmc-rhat-1.png" alt="plot of chunk mcmc-rhat"><p class="caption">
+plot of chunk mcmc-rhat
+</p>
+</div>
+<p>All four chains overlap and are stationary in every panel, and every
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>R</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat{R}</annotation></semantics></math>
+sits in the lowest band. Note that the <em>width</em> of a trace is not
+a convergence problem but an information statement: <code>beta[1]</code>
+and <code>gamma[1,1]</code>, bupropion and its interaction, wander over
+a range several times wider than the others, because one aggregate
+two-arm trial is all the evidence there is about bupropion. This is the
+distinction that governs the rest of the vignette: <strong>convergence
+is a property of the sampler, not of the evidence.</strong> A parameter
+the data say nothing about will converge perfectly well onto its
+prior.</p>
+<p>Sampling is not the only numerical approximation here. Each aggregate
+arm’s likelihood is an integral of the individual model over that
+study’s covariate distribution, evaluated at <code>n_int = 64</code>
+quasi-Monte-Carlo points, and <code><a href="../reference/plot_integration_error.html">plot_integration_error()</a></code>
+traces how far the integral at <code>N</code> points sits from the
+integral at all 64.</p>
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_integration_error.html">plot_integration_error</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/binary-integration-error-1.png" alt="plot of chunk integration-error"><p class="caption">
+plot of chunk integration-error
+</p>
+</div>
+<p>In every aggregate arm the error is already well inside the dashed
+<code>1/N</code> envelope by twenty points and keeps shrinking toward
+sixty-four, so <code>n_int = 64</code> is ample for this model.
+<code>COMBO-2</code>’s bupropion arm is the noisiest of the ten, which
+is consistent with it being the arm the model knows least about. Had any
+panel still been drifting at the right-hand edge, the remedy would have
+been to refit with more integration points, not to reinterpret the
+answer.</p>
 </div>
 </div>
 <div class="section level2">
@@ -1021,14 +1136,19 @@ from
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>m</mi><mi>⊤</mi></msup><mi mathvariant="normal">Γ</mi></mrow><annotation encoding="application/x-tex">m^\top\Gamma</annotation></semantics></math>.
 <code><a href="../reference/estimable_effects_at.html">estimable_effects_at()</a></code> runs that algebra for a named target
 population.</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/estimable_effects_at.html">estimable_effects_at</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="va">target</span>, reference <span class="op">=</span> <span class="st">"NRT"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;   treatment comparator estimable identified_by</span></span>
-<span><span class="co">#&gt; 1       CBT        NRT     FALSE          none</span></span>
-<span><span class="co">#&gt; 2   CBT+BUP        NRT     FALSE          none</span></span>
-<span><span class="co">#&gt; 3   CBT+NRT        NRT      TRUE           IPD</span></span>
-<span><span class="co">#&gt; 4   CBT+VAR        NRT      TRUE           IPD</span></span>
-<span><span class="co">#&gt; 5        UC        NRT     FALSE          none</span></span></code></pre></div>
+<span><span class="co">#&gt; Estimability of the population-adjusted relative effects</span></span>
+<span><span class="co">#&gt;   Target population: cpd = 0.3</span></span>
+<span><span class="co">#&gt;  treatment comparator estimable identified_by          basis</span></span>
+<span><span class="co">#&gt;        CBT        NRT     FALSE          none not identified</span></span>
+<span><span class="co">#&gt;    CBT+BUP        NRT     FALSE          none not identified</span></span>
+<span><span class="co">#&gt;    CBT+NRT        NRT      TRUE           IPD          exact</span></span>
+<span><span class="co">#&gt;    CBT+VAR        NRT      TRUE           IPD          exact</span></span>
+<span><span class="co">#&gt;         UC        NRT     FALSE          none not identified</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt;   Rows marked "not identified" carry no first-order information; a number</span></span>
+<span><span class="co">#&gt;   reported for them would be the prior. relative_effects() returns NA there.</span></span></code></pre></div>
 <p>Read the <code>identified_by</code> column. <code>CBT+NRT</code> and
 <code>CBT+VAR</code> are identified <strong>from IPD</strong>, meaning
 from covariate variation <em>within</em> a trial. The other three are
@@ -1049,24 +1169,53 @@ day.</li>
 means</em>, and 18 cigarettes a day is neither of them. An aggregate
 two-arm trial gives you one equation; separating a component’s main
 effect from its interaction takes two.</p>
+<p>That table is one target population. <code><a href="../reference/plot_estimability.html">plot_estimability()</a></code>
+runs the same algebra across a whole grid of them, which is the only way
+to see that estimability is not a fixed property of the network.</p>
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_estimability.html">plot_estimability</a></span><span class="op">(</span><span class="va">fit</span>, em <span class="op">=</span> <span class="st">"cpd"</span>, values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1</span>, <span class="fl">1</span>, by <span class="op">=</span> <span class="fl">0.25</span><span class="op">)</span>,</span>
+<span>                  reference <span class="op">=</span> <span class="st">"NRT"</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/binary-estimability-map-1.png" alt="plot of chunk estimability-map"><p class="caption">
+plot of chunk estimability-map
+</p>
+</div>
+<p>The good news is the two green rows, and they are the rows that
+matter: the headline contrast <code>CBT+VAR</code> versus
+<code>NRT</code> is identified from within-trial covariate variation at
+<strong>every</strong> target population in the plausible range, from
+5-a-day smokers to 25-a-day ones, and so is <code>CBT+NRT</code> versus
+<code>NRT</code>. The population-adjusted comparison across the gap is
+available wherever a guideline panel might want to stand. The three red
+rows are equally uniform, and equally informative: no choice of target
+rescues them.</p>
 <p>The dependence on the target is real, not a technicality.
 <code>BRIEF-1</code> enrolled 8-a-day smokers; ask for <strong>exactly
 that</strong> population and <code>NRT</code> becomes estimable again.
 Note “exactly”: the criterion holds at the trial’s realized covariate
 mean, so we read that mean off the aggregate data rather than typing in
 the nominal <code>-0.7</code> we simulated from.</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">own</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>cpd <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">agd</span><span class="op">$</span><span class="va">cpd_mean</span><span class="op">[</span><span class="va">agd</span><span class="op">$</span><span class="va">.study</span> <span class="op">==</span> <span class="st">"BRIEF-1"</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">own</span></span>
 <span><span class="co">#&gt;          cpd</span></span>
 <span><span class="co">#&gt; 1 -0.7061574</span></span>
 <span><span class="fu"><a href="../reference/estimable_effects_at.html">estimable_effects_at</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="va">own</span>, reference <span class="op">=</span> <span class="st">"UC"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;   treatment comparator estimable identified_by</span></span>
-<span><span class="co">#&gt; 1       CBT         UC      TRUE           IPD</span></span>
-<span><span class="co">#&gt; 2   CBT+BUP         UC     FALSE          none</span></span>
-<span><span class="co">#&gt; 3   CBT+NRT         UC      TRUE     aggregate</span></span>
-<span><span class="co">#&gt; 4   CBT+VAR         UC      TRUE     aggregate</span></span>
-<span><span class="co">#&gt; 5       NRT         UC      TRUE     aggregate</span></span></code></pre></div>
+<span><span class="co">#&gt; Estimability of the population-adjusted relative effects</span></span>
+<span><span class="co">#&gt;   Target population: cpd = -0.706</span></span>
+<span><span class="co">#&gt;  treatment comparator estimable identified_by              basis</span></span>
+<span><span class="co">#&gt;        CBT         UC      TRUE           IPD              exact</span></span>
+<span><span class="co">#&gt;    CBT+BUP         UC     FALSE          none     not identified</span></span>
+<span><span class="co">#&gt;    CBT+NRT         UC      TRUE     aggregate first-order screen</span></span>
+<span><span class="co">#&gt;    CBT+VAR         UC      TRUE     aggregate first-order screen</span></span>
+<span><span class="co">#&gt;        NRT         UC      TRUE     aggregate first-order screen</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt;   Rows marked "first-order screen" are identified only through aggregate arms</span></span>
+<span><span class="co">#&gt;   under a nonlinear link, where the criterion can be optimistic. Check them</span></span>
+<span><span class="co">#&gt;   with prior_sensitivity().</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt;   Rows marked "not identified" carry no first-order information; a number</span></span>
+<span><span class="co">#&gt;   reported for them would be the prior. relative_effects() returns NA there.</span></span></code></pre></div>
 <p>That is the whole of what an aggregate two-arm trial can tell you:
 its own contrast, in its own population. Everything else is
 extrapolation through
@@ -1074,17 +1223,54 @@ extrapolation through
 and
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi mathvariant="normal">Γ</mi><annotation encoding="application/x-tex">\Gamma</annotation></semantics></math>
 has to come from somewhere.</p>
+<p>Redraw the map on a grid that passes exactly through
+<code>BRIEF-1</code>’s own covariate mean, and the point becomes a
+picture. This time we take the comparisons against usual care, which is
+where the aggregate <code>NRT</code> edge does its work.</p>
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_estimability.html">plot_estimability</a></span><span class="op">(</span><span class="va">fit</span>, em <span class="op">=</span> <span class="st">"cpd"</span>, values <span class="op">=</span> <span class="va">own</span><span class="op">$</span><span class="va">cpd</span> <span class="op">+</span> <span class="fl">0.25</span> <span class="op">*</span> <span class="op">(</span><span class="op">-</span><span class="fl">1</span><span class="op">:</span><span class="fl">7</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/binary-estimability-own-map-1.png" alt="plot of chunk estimability-own-map"><p class="caption">
+plot of chunk estimability-own-map
+</p>
+</div>
+<p>One column of the map, and one only, is different: at
+<code>BRIEF-1</code>’s own population three further contrasts become
+estimable, and they come up <strong>yellow</strong>, not green. Yellow
+is <code>identified_by = "aggregate"</code>, which is to say identified
+<em>ecologically</em>, from between-study differences in covariate means
+rather than from randomized within-study variation. Randomization does
+not protect an ecological comparison, and
+<code><a href="../reference/estimable_effects_at.html">estimable_effects_at()</a></code> labels its basis a “first-order
+screen” precisely to warn that on a nonlinear link the criterion may be
+optimistic there. Estimability is therefore not one property but two:
+whether a contrast can be identified at all, and on what kind of
+evidence. One step either side of that column, every one of those three
+contrasts is red again.</p>
 <p>The same algebra reaches the component effects. In the target
 population, only <code>CBT</code> is separately identified; even
 <code>VAR</code> is not, because varenicline was only ever measured
 <em>against</em> nicotine replacement:</p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/component_effects.html">component_effects</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="va">target</span><span class="op">)</span></span>
-<span><span class="co">#&gt;   component  estimate        se     lower     upper</span></span>
-<span><span class="co">#&gt; 1       BUP        NA        NA        NA        NA</span></span>
-<span><span class="co">#&gt; 2       CBT 0.4011016 0.1324179 0.1089317 0.6305528</span></span>
-<span><span class="co">#&gt; 3       NRT        NA        NA        NA        NA</span></span>
-<span><span class="co">#&gt; 4       VAR        NA        NA        NA        NA</span></span></code></pre></div>
+<span><span class="co">#&gt;   component estimate        se    lower     upper</span></span>
+<span><span class="co">#&gt; 1       BUP       NA        NA       NA        NA</span></span>
+<span><span class="co">#&gt; 2       CBT 0.406458 0.1309455 0.122849 0.6495137</span></span>
+<span><span class="co">#&gt; 3       NRT       NA        NA       NA        NA</span></span>
+<span><span class="co">#&gt; 4       VAR       NA        NA       NA        NA</span></span></code></pre></div>
+<p><code><a href="../reference/forest.html">forest()</a></code> renders the same table, and renders the
+<code>NA</code>s as what they are.</p>
+<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/forest.html">forest</a></span><span class="op">(</span><span class="va">fit</span>, what <span class="op">=</span> <span class="st">"component"</span>, newdata <span class="op">=</span> <span class="va">target</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/binary-forest-component-1.png" alt="plot of chunk forest-component"><p class="caption">
+plot of chunk forest-component
+</p>
+</div>
+<p>Three of the four components are printed as empty rows marked <em>not
+estimable</em> rather than dropped. Dropping them would leave a plot
+that looked complete when it was not, which is the single most
+consequential design decision in the package’s plotting surface.</p>
 <p>That looks like a defeat and is not. The headline contrast does not
 need <code>VAR</code> alone: <code>CBT+VAR</code> versus
 <code>NRT</code> is <code>CBT</code> plus (<code>VAR</code> minus
@@ -1093,6 +1279,44 @@ cpaic returns <code>NA</code> for what it cannot identify and a number
 for what it can, which is the behavior you want from a tool that will
 otherwise hand you the prior with a straight face <span class="citation">(<a href="#ref-Wigle2026">Wigle et al.
 2026</a>)</span>.</p>
+<div class="section level3">
+<h3 id="which-edges-actually-carry-the-answer">Which edges actually carry the answer<a class="anchor" aria-label="anchor" href="#which-edges-actually-carry-the-answer"></a>
+</h3>
+<p>The frequentist bridge has no <code>NA</code>s to return, but the
+same linear algebra still governs it, and
+<code><a href="../reference/plot_edge_influence.html">plot_edge_influence()</a></code> exposes it from the other side. A
+bridged contrast is a weighted combination of the observed edges, with
+weights chosen by the component design rather than by any path through
+the network. Those weights are worth looking at before trusting the
+contrast.</p>
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_edge_influence.html">plot_edge_influence</a></span><span class="op">(</span><span class="va">fit_stc</span>, treatment <span class="op">=</span> <span class="st">"CBT+VAR"</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/binary-edge-influence-1.png" alt="plot of chunk edge-influence"><p class="caption">
+plot of chunk edge-influence
+</p>
+</div>
+<p>Read the bars from the top. The edge that contributes
+<strong>most</strong> to <code>CBT+VAR</code> versus <code>UC</code> is
+<code>BRIEF-1</code>, the aggregate trial in 8-a-day smokers; it carries
+more weight than any other edge in the network. It reaches this contrast
+because varenicline was only ever measured <em>against</em> nicotine
+replacement, so the <code>NRT</code> component has to be supplied from
+somewhere, and <code>BRIEF-1</code> is the only place it exists. Yet
+<code>BRIEF-1</code> is aggregate, so neither <code><a href="../reference/cstc.html">cstc()</a></code> nor
+<code><a href="../reference/cmaic.html">cmaic()</a></code> can touch it, and it enters the bridge in its own
+light-smoking population. Meanwhile the two edges that <em>were</em>
+adjusted, <code>COMBO-1</code> and <code>BRIEF-2</code>, are the green
+ones, and between them they carry a minority of the weight.</p>
+<p>The last bar is instructive in the opposite direction:
+<code>COMBO-2</code>, the bupropion trial, has an influence of exactly
+zero. <code>CBT+VAR</code> versus <code>UC</code> contains no bupropion,
+so no amount of evidence about bupropion can move it. This is the
+diagnostic that the conventional population-adjustment checks cannot
+perform: an effective sample size tells you how much of a trial survived
+reweighting, but it cannot tell you that reweighting that trial was
+incapable of changing your answer in the first place.</p>
+</div>
 </div>
 <div class="section level2">
 <h2 id="results">Results<a class="anchor" aria-label="anchor" href="#results"></a>
@@ -1103,27 +1327,41 @@ otherwise hand you the prior with a straight face <span class="citation">(<a hre
 <p><code><a href="../reference/relative_effects.html">relative_effects()</a></code> needs <code>newdata</code>, because
 there is no population-free answer. Here is the target population,
 against <code>NRT</code>:</p>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">fit</span>, reference <span class="op">=</span> <span class="st">"NRT"</span>, newdata <span class="op">=</span> <span class="va">target</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Relative effects (OR, back-transformed)</span></span>
 <span><span class="co">#&gt;   Target population: cpd = 0.3</span></span>
 <span><span class="co">#&gt;  treatment comparator estimate    se lower upper pr_gt0</span></span>
 <span><span class="co">#&gt;        CBT        NRT       NA    NA    NA    NA     NA</span></span>
 <span><span class="co">#&gt;    CBT+BUP        NRT       NA    NA    NA    NA     NA</span></span>
-<span><span class="co">#&gt;    CBT+NRT        NRT    1.506 0.132 1.115 1.879  0.994</span></span>
-<span><span class="co">#&gt;    CBT+VAR        NRT    2.795 0.202 1.797 3.915  0.998</span></span>
+<span><span class="co">#&gt;    CBT+NRT        NRT    1.514 0.131 1.131 1.915  0.992</span></span>
+<span><span class="co">#&gt;    CBT+VAR        NRT    2.820 0.193 1.860 3.956  1.000</span></span>
 <span><span class="co">#&gt;         UC        NRT       NA    NA    NA    NA     NA</span></span>
 <span><span class="co">#&gt;   NA = not uniquely estimable from this component design (see estimable_effects()).</span></span></code></pre></div>
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/forest.html">forest</a></span><span class="op">(</span><span class="va">fit</span>, reference <span class="op">=</span> <span class="st">"NRT"</span>, newdata <span class="op">=</span> <span class="va">target</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/binary-forest-bayes-1.png" alt="plot of chunk forest-bayes"><p class="caption">
+plot of chunk forest-bayes
+</p>
+</div>
+<p>Two contrasts, an interval each, and three rows that decline to
+answer. The headline result is the bottom row: <code>CBT+VAR</code>
+versus <code>NRT</code>, a comparison no trial in this network made and
+no comparator connects, estimated in a named population with an interval
+that reflects how much the data actually say. Compare this plot with the
+frequentist forest above, which had five filled rows and no empty ones.
+Same network, same target, same question.</p>
 <p>And the same network in a lighter-smoking population:</p>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">fit</span>, reference <span class="op">=</span> <span class="st">"NRT"</span>, newdata <span class="op">=</span> <span class="va">target_light</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Relative effects (OR, back-transformed)</span></span>
 <span><span class="co">#&gt;   Target population: cpd = -0.4</span></span>
 <span><span class="co">#&gt;  treatment comparator estimate    se lower upper pr_gt0</span></span>
 <span><span class="co">#&gt;        CBT        NRT       NA    NA    NA    NA     NA</span></span>
 <span><span class="co">#&gt;    CBT+BUP        NRT       NA    NA    NA    NA     NA</span></span>
-<span><span class="co">#&gt;    CBT+NRT        NRT    1.796 0.136 1.338 2.249  0.998</span></span>
-<span><span class="co">#&gt;    CBT+VAR        NRT    2.188 0.234 1.334 3.322  0.994</span></span>
+<span><span class="co">#&gt;    CBT+NRT        NRT    1.818 0.137 1.324 2.298  0.997</span></span>
+<span><span class="co">#&gt;    CBT+VAR        NRT    2.220 0.231 1.359 3.323  0.997</span></span>
 <span><span class="co">#&gt;         UC        NRT       NA    NA    NA    NA     NA</span></span>
 <span><span class="co">#&gt;   NA = not uniquely estimable from this component design (see estimable_effects()).</span></span></code></pre></div>
 <p>Now put every method next to the truth we planted. The truth is the
@@ -1132,7 +1370,7 @@ conditional log odds ratio
 which is what <code><a href="../reference/cstc.html">cstc()</a></code> and <code><a href="../reference/cmlnmr.html">cmlnmr()</a></code> target;
 <code><a href="../reference/cmaic.html">cmaic()</a></code> targets the marginal effect, so it is expected to
 sit closer to the null.</p>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># pull one cell (as plain numbers) out of a relative_effects() table</span></span>
 <span><span class="va">grab</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">tab</span>, <span class="va">t1</span>, <span class="va">ref</span>, <span class="va">what</span> <span class="op">=</span> <span class="st">"estimate"</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">tab</span><span class="op">[[</span><span class="va">what</span><span class="op">]</span><span class="op">]</span><span class="op">[</span><span class="va">tab</span><span class="op">$</span><span class="va">treatment</span> <span class="op">==</span> <span class="va">t1</span> <span class="op">&amp;</span> <span class="va">tab</span><span class="op">$</span><span class="va">comparator</span> <span class="op">==</span> <span class="va">ref</span><span class="op">]</span><span class="op">)</span></span>
@@ -1173,15 +1411,15 @@ truth</caption>
 <td align="right">1.66</td>
 <td align="right">1.68</td>
 <td align="right">1.51</td>
-<td align="left">(1.12, 1.88)</td>
+<td align="left">(1.13, 1.91)</td>
 </tr>
 <tr class="even">
 <td align="left">CBT+VAR vs NRT</td>
 <td align="right">3.21</td>
 <td align="right">3.23</td>
 <td align="right">3.25</td>
-<td align="right">2.79</td>
-<td align="left">(1.80, 3.92)</td>
+<td align="right">2.82</td>
+<td align="left">(1.86, 3.96)</td>
 </tr>
 </tbody>
 </table>
@@ -1194,8 +1432,101 @@ close together, for the reason set out above: the estimand gap lives on
 the two IPD edges, and the bridge dilutes it with unadjusted aggregate
 evidence on the same contrasts. The place to look for the difference is
 the edge table, not the league table.</p>
+<p><code><a href="../reference/league_table.html">league_table()</a></code> lays out every pairwise comparison at the
+target population. It is worth printing in full, because what it leaves
+out is as informative as what it contains.</p>
+<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">lg</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/league_table.html">league_table</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="va">target</span><span class="op">)</span></span>
+<span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="va">lg</span>, caption <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="st">"League table at cpd = 0.3 (row versus column)."</span>,</span>
+<span>                                 <span class="st">"Empty cells are not estimable."</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<table style="width:100%;" class="table">
+<caption>League table at cpd = 0.3 (row versus column). Empty cells are
+not estimable.</caption>
+<colgroup>
+<col width="7%">
+<col width="16%">
+<col width="7%">
+<col width="16%">
+<col width="16%">
+<col width="16%">
+<col width="16%">
+</colgroup>
+<thead><tr class="header">
+<th align="left"></th>
+<th align="left">CBT</th>
+<th align="left">CBT+BUP</th>
+<th align="left">CBT+NRT</th>
+<th align="left">CBT+VAR</th>
+<th align="left">NRT</th>
+<th align="left">UC</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="left">CBT</td>
+<td align="left">CBT</td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left">1.51 (1.13, 1.91)</td>
+</tr>
+<tr class="even">
+<td align="left">CBT+BUP</td>
+<td align="left"></td>
+<td align="left">CBT+BUP</td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left">CBT+NRT</td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left">CBT+NRT</td>
+<td align="left">0.55 (0.41, 0.73)</td>
+<td align="left">1.51 (1.13, 1.91)</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left">CBT+VAR</td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left">1.86 (1.37, 2.43)</td>
+<td align="left">CBT+VAR</td>
+<td align="left">2.82 (1.86, 3.96)</td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left">NRT</td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left">0.67 (0.52, 0.88)</td>
+<td align="left">0.37 (0.25, 0.54)</td>
+<td align="left">NRT</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left">UC</td>
+<td align="left">0.67 (0.52, 0.88)</td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left">UC</td>
+</tr>
+</tbody>
+</table>
+<p>Most of it is empty: of the 30 off-diagonal cells, 8 carry a number.
+A conventional league table built from this network would have been
+full, and every cell in it would have looked equally authoritative. Note
+also that the <code>CBT</code> versus <code>UC</code> cell and the
+<code>CBT+NRT</code> versus <code>NRT</code> cell agree to the last
+digit. That is not a coincidence: under an additive model both contrasts
+<em>are</em> the counseling component, reached by two different
+routes.</p>
 <p>The population dependence is recovered too:</p>
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">grid</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="op">-</span><span class="fl">0.8</span>, <span class="fl">1.2</span>, by <span class="op">=</span> <span class="fl">0.1</span><span class="op">)</span></span>
 <span><span class="va">curve</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">rbind</span>, <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">grid</span>, <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">re</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">fit</span>, reference <span class="op">=</span> <span class="st">"NRT"</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>cpd <span class="op">=</span> <span class="va">x</span><span class="op">)</span><span class="op">)</span></span>
@@ -1224,6 +1555,76 @@ plot of chunk pop-curve
 </div>
 </div>
 <div class="section level3">
+<h3 id="the-hierarchy-and-the-refusal-to-build-one">The hierarchy, and the refusal to build one<a class="anchor" aria-label="anchor" href="#the-hierarchy-and-the-refusal-to-build-one"></a>
+</h3>
+<p>A guideline panel will ask for a ranking. <span class="citation">Wigle et al. (<a href="#ref-Wigle2026">2026</a>)</span>
+set out the workflow that answers it responsibly: state the set to be
+ranked, <strong>determine which of the required relative effects are
+estimable</strong>, refine the set to the estimable ones or decline to
+rank, and only then compute the metrics. <code><a href="../reference/cpaic_ranks.html">cpaic_ranks()</a></code>
+performs those steps and reports what it had to discard.</p>
+<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">rk</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cpaic_ranks.html">cpaic_ranks</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="va">target</span><span class="op">)</span></span>
+<span><span class="va">rk</span></span>
+<span><span class="co">#&gt; Population-adjusted treatment hierarchy</span></span>
+<span><span class="co">#&gt;   Target population: cpd = 0.3</span></span>
+<span><span class="co">#&gt;  element estimate p_best median_rank mean_rank sucra</span></span>
+<span><span class="co">#&gt;      CBT    0.406  0.992           1     1.008 0.992</span></span>
+<span><span class="co">#&gt;       UC    0.000  0.008           2     1.992 0.008</span></span>
+<span><span class="co">#&gt;   Not estimable in this population, so not ranked: CBT+BUP, CBT+NRT, CBT+VAR, NRT</span></span>
+<span><span class="co">#&gt;   Ranking metrics depend on the set ranked; report them with the effects, not instead.</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">rk</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/binary-hierarchy-1.png" alt="plot of chunk hierarchy"><p class="caption">
+plot of chunk hierarchy
+</p>
+</div>
+<p>Four of the six treatments are gone. What remains is a two-element
+hierarchy, <code>CBT</code> above <code>UC</code>, and the caption names
+the four that were dropped. This is not a failure of the ranking code;
+it is the estimability result of the previous section reaching the
+quantity a guideline panel is most likely to quote. A SUCRA is computed
+from a treatment’s relative effect, so a treatment whose relative effect
+is not identified can only be ranked by ranking the prior, and no
+ranking metric would carry any trace of the substitution.</p>
+<p>The rankogram makes the point more sharply still, because it declines
+outright. <code><a href="../reference/rank_probs.html">rank_probs()</a></code> ranks the non-reference treatments,
+and once the four non-estimable ones are dropped a single treatment is
+left, from which no hierarchy can be formed:</p>
+<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch</a></span><span class="op">(</span><span class="fu"><a href="../reference/rank_probs.html">rank_probs</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="va">target</span><span class="op">)</span>,</span>
+<span>         error <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">e</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"rank_probs() declined:\n "</span>, <span class="fu"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">conditionMessage</a></span><span class="op">(</span><span class="va">e</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; rank_probs() declined:</span></span>
+<span><span class="co">#&gt;   Fewer than two elements are estimable in this target population, so no hierarchy can be formed. See estimable_effects_at().</span></span></code></pre></div>
+<p><strong>An error is the correct output here.</strong> A rankogram of
+this network at this target population would have been a picture of the
+prior, drawn with the same confident bars as a picture of the data, and
+no diagnostic downstream of it would have revealed the difference.
+Refusing is the whole point of Step 3.</p>
+<p>Within the set that <em>can</em> be ranked, the hierarchy is still
+population-specific, and <code><a href="../reference/plot_rank_curve.html">plot_rank_curve()</a></code> traces it across
+target populations.</p>
+<div class="sourceCode" id="cb36"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">rc</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/rank_curve.html">rank_curve</a></span><span class="op">(</span><span class="va">fit</span>, em <span class="op">=</span> <span class="st">"cpd"</span>, values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1</span>, <span class="fl">1</span>, by <span class="op">=</span> <span class="fl">0.25</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/plot_rank_curve.html">plot_rank_curve</a></span><span class="op">(</span><span class="va">fit</span>, em <span class="op">=</span> <span class="st">"cpd"</span>, values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1</span>, <span class="fl">1</span>, by <span class="op">=</span> <span class="fl">0.25</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/binary-rank-curve-1.png" alt="plot of chunk rank-curve"><p class="caption">
+plot of chunk rank-curve
+</p>
+</div>
+<p>Two cautions in one figure. First, the curves do not cross here, so
+counseling beats usual care in every target population; but the margin
+erodes steadily, and <code>CBT</code>’s SUCRA falls from 0.997 in the
+lightest-smoking population to 0.863 in the heaviest, which is what a
+component whose interaction with <code>cpd</code> is negative should do.
+In a network with more estimable contrasts the curves generally
+<em>do</em> cross, and a hierarchy quoted without a population is then
+not merely imprecise but wrong. Second, and more important: the plot
+shows two treatments because two is all that could be ranked. It gives
+no indication that four others exist. Read a rank curve only after
+<code><a href="../reference/estimable_effects_at.html">estimable_effects_at()</a></code>, never instead of it.</p>
+</div>
+<div class="section level3">
 <h3 id="the-contrasts-the-frequentist-bridge-gets-quietly-wrong">The contrasts the frequentist bridge gets quietly wrong<a class="anchor" aria-label="anchor" href="#the-contrasts-the-frequentist-bridge-gets-quietly-wrong"></a>
 </h3>
 <p>Now the uncomfortable part, and the reason the estimability check is
@@ -1234,7 +1635,7 @@ contrasts enter <code><a href="../reference/cnma_bridge.html">cnma_bridge()</a><
 populations</strong>. Nothing warns you. Compare against
 <code>UC</code>, where the <code>NRT</code> edge (<code>BRIEF-1</code>,
 8-a-day smokers) is doing the work:</p>
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb37"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">re_stc_uc</span>  <span class="op">&lt;-</span> <span class="fu"><a href="../reference/relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">fit_stc</span>,  reference <span class="op">=</span> <span class="st">"UC"</span><span class="op">)</span></span>
 <span><span class="va">re_maic_uc</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">fit_maic</span>, reference <span class="op">=</span> <span class="st">"UC"</span><span class="op">)</span></span>
 <span><span class="va">re_bay_uc</span>  <span class="op">&lt;-</span> <span class="fu"><a href="../reference/relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">fit</span>, reference <span class="op">=</span> <span class="st">"UC"</span>, newdata <span class="op">=</span> <span class="va">target</span><span class="op">)</span></span>
@@ -1332,6 +1733,25 @@ interval misses the truth.</p>
 wrong, and a number for exactly the row it is getting right.</strong>
 That correspondence is not a coincidence: it is the same piece of linear
 algebra, read once as a warning and once as a silent assumption.</p>
+<p>Put the two forests side by side and the contrast is the argument of
+this vignette in one image. The frequentist bridge, plotted earlier in
+this section’s own comparator, filled all five rows. Here is
+<code><a href="../reference/cmlnmr.html">cmlnmr()</a></code> asked the identical question, against the
+identical comparator, in the identical target population:</p>
+<div class="sourceCode" id="cb38"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/forest.html">forest</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="va">target</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/binary-forest-bayes-uc-1.png" alt="plot of chunk forest-bayes-uc"><p class="caption">
+plot of chunk forest-bayes-uc
+</p>
+</div>
+<p>One row survives, and it is the row the frequentist bridge also got
+right. The four blank rows are the four the <code>covers</code> column
+just convicted. A plot that refuses to draw four fifths of itself is an
+uncomfortable deliverable, and it is the correct one: the alternative is
+the plot above it, which is complete, confident, and wrong about
+<code>NRT</code> versus <code>UC</code> by a margin its confidence
+interval does not admit.</p>
 </div>
 <div class="section level3">
 <h3 id="random-effects-and-model-comparison">Random effects and model comparison<a class="anchor" aria-label="anchor" href="#random-effects-and-model-comparison"></a>
@@ -1341,7 +1761,7 @@ component-implied effect; <code>tau</code> measures how much. With five
 contrasts and four components there is very little information about
 <code>tau</code>, so its posterior leans on the half-normal(0, 1) prior.
 Say so, rather than reporting it as a finding.</p>
-<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb39"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">fit</span><span class="op">$</span><span class="fu">summary</span><span class="op">(</span><span class="st">"tau"</span><span class="op">)</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"variable"</span>, <span class="st">"mean"</span>, <span class="st">"sd"</span>, <span class="st">"q5"</span>, <span class="st">"q95"</span>,</span>
 <span>                                        <span class="st">"rhat"</span>, <span class="st">"ess_bulk"</span><span class="op">)</span><span class="op">]</span>, digits <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span></code></pre></div>
 <table class="table">
@@ -1356,18 +1776,18 @@ Say so, rather than reporting it as a finding.</p>
 </tr></thead>
 <tbody><tr class="odd">
 <td align="left">tau[1]</td>
-<td align="right">0.129</td>
-<td align="right">0.138</td>
-<td align="right">0.007</td>
-<td align="right">0.382</td>
-<td align="right">1.015</td>
-<td align="right">361.171</td>
+<td align="right">0.126</td>
+<td align="right">0.121</td>
+<td align="right">0.009</td>
+<td align="right">0.352</td>
+<td align="right">1.008</td>
+<td align="right">442.099</td>
 </tr></tbody>
 </table>
 <p>Compare the random-effects fit against a fixed-effect one by
 leave-one-out cross-validation <span class="citation">(<a href="#ref-vehtari2017">Vehtari et al. 2017</a>)</span> and DIC <span class="citation">(<a href="#ref-spiegelhalter2002dic">Spiegelhalter et
 al. 2002</a>)</span>:</p>
-<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb40"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit_fixed</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cmlnmr.html">cmlnmr</a></span><span class="op">(</span><span class="va">ipd</span>, <span class="va">agd</span>, effect_modifiers <span class="op">=</span> <span class="st">"cpd"</span>, inactive <span class="op">=</span> <span class="st">"UC"</span>,</span>
 <span>                    family <span class="op">=</span> <span class="st">"binomial"</span>, trt_effects <span class="op">=</span> <span class="st">"fixed"</span>,</span>
 <span>                    chains <span class="op">=</span> <span class="fl">4</span>, iter_warmup <span class="op">=</span> <span class="fl">500</span>, iter_sampling <span class="op">=</span> <span class="fl">500</span>,</span>
@@ -1375,8 +1795,8 @@ al. 2002</a>)</span>:</p>
 <span></span>
 <span><span class="fu">loo</span><span class="fu">::</span><span class="fu"><a href="https://mc-stan.org/loo/reference/loo_compare.html" class="external-link">loo_compare</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>random <span class="op">=</span> <span class="fu">loo</span><span class="fu">::</span><span class="fu"><a href="https://mc-stan.org/loo/reference/loo.html" class="external-link">loo</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span>, fixed <span class="op">=</span> <span class="fu">loo</span><span class="fu">::</span><span class="fu"><a href="https://mc-stan.org/loo/reference/loo.html" class="external-link">loo</a></span><span class="op">(</span><span class="va">fit_fixed</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;   model elpd_diff se_diff p_worse       diag_diff      diag_elpd</span></span>
-<span><span class="co">#&gt;   fixed       0.0     0.0      NA                 7 k_psis &gt; 0.7</span></span>
-<span><span class="co">#&gt;  random      -0.9     0.6    0.94 |elpd_diff| &lt; 4 6 k_psis &gt; 0.7</span></span>
+<span><span class="co">#&gt;   fixed       0.0     0.0      NA                 6 k_psis &gt; 0.7</span></span>
+<span><span class="co">#&gt;  random      -1.7     0.7    0.99 |elpd_diff| &lt; 4 8 k_psis &gt; 0.7</span></span>
 <span></span>
 <span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  model <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"random"</span>, <span class="st">"fixed"</span><span class="op">)</span>,</span>
@@ -1393,13 +1813,13 @@ al. 2002</a>)</span>:</p>
 <tbody>
 <tr class="odd">
 <td align="left">random</td>
-<td align="right">3018.9</td>
-<td align="right">16.1</td>
+<td align="right">3019.4</td>
+<td align="right">16.3</td>
 </tr>
 <tr class="even">
 <td align="left">fixed</td>
-<td align="right">3018.4</td>
-<td align="right">15.9</td>
+<td align="right">3017.1</td>
+<td align="right">14.7</td>
 </tr>
 </tbody>
 </table>
@@ -1408,6 +1828,39 @@ should happen: the data really were generated by an additive component
 model with no extra study-arm noise, so the random-effects model is
 paying for flexibility it does not need. It remains the safer default,
 because in a real network you do not get to know that.</p>
+<p>A single DIC difference reduces the whole data set to one number. The
+dev-dev plot restores the detail: each point is one data point’s
+contribution to the posterior mean deviance under each of the two
+models.</p>
+<div class="sourceCode" id="cb41"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="fu"><a href="../reference/dic.html">dic</a></span><span class="op">(</span><span class="va">fit_fixed</span><span class="op">)</span>, <span class="fu"><a href="../reference/dic.html">dic</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span>, labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"fixed"</span>, <span class="st">"random"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/binary-devdev-1.png" alt="plot of chunk devdev"><p class="caption">
+plot of chunk devdev
+</p>
+</div>
+<p>The points lie along the line of equality with almost no scatter, so
+the two models are not merely tied on average; they fit essentially
+every arm and every patient the same way. A DIC tie that came instead
+from one model fitting some points much better and others much worse
+would look nothing like this, and would mean something quite
+different.</p>
+<p>The leverage plot asks the complementary question: is any single data
+point distorting the fit?</p>
+<div class="sourceCode" id="cb42"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_leverage.html">plot_leverage</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/binary-leverage-1.png" alt="plot of chunk leverage"><p class="caption">
+plot of chunk leverage
+</p>
+</div>
+<p>No point lies outside the <code>DIC = 3</code> contour, so nothing is
+spoiling the fit. The structure worth noticing is the separation between
+the two colors. The individual patients (green) sit along leverage zero,
+each contributing almost nothing on its own; the aggregate arms (navy)
+sit an order of magnitude higher. That is exactly as it should be, and
+it is the same fact that the next paragraph reaches from the other
+direction.</p>
 <p>Two cautions on reading these numbers. First, LOO’s
 Pareto-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math>
 diagnostic flags several observations. It is right to: <strong>each
@@ -1420,11 +1873,11 @@ actually bridges the gap; nor can the Cochran
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Q</mi><annotation encoding="application/x-tex">Q</annotation></semantics></math>
 of the frequentist bridge, which is why <code><a href="../reference/additivity_test.html">additivity_test()</a></code>
 says so out loud:</p>
-<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb43"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/additivity_test.html">additivity_test</a></span><span class="op">(</span><span class="va">fit_stc</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Additive component model: fit statistics</span></span>
 <span><span class="co">#&gt;   Total lack of fit (Q.additive): Q = 3.101, df = 3, p = 0.376</span></span>
-<span><span class="co">#&gt;   Additivity restrictions (Q.diff): not available -- no standard NMA</span></span>
+<span><span class="co">#&gt;   Additivity restrictions (Q.diff): not available; no standard NMA</span></span>
 <span><span class="co">#&gt;     is estimable on a disconnected network.</span></span>
 <span><span class="co">#&gt;   Note: neither statistic tests whether component effects are constant</span></span>
 <span><span class="co">#&gt;   ACROSS sub-networks, which is the assumption that bridges the gap.</span></span>
@@ -1442,6 +1895,28 @@ additivity.)</p>
 <div class="section level3">
 <h3 id="prior-sensitivity">Prior sensitivity<a class="anchor" aria-label="anchor" href="#prior-sensitivity"></a>
 </h3>
+<p>The interactions
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi mathvariant="normal">Γ</mi><annotation encoding="application/x-tex">\Gamma</annotation></semantics></math>
+are where the identification problem lives, so look at them alone before
+perturbing anything.</p>
+<div class="sourceCode" id="cb44"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_prior_posterior.html">plot_prior_posterior</a></span><span class="op">(</span><span class="va">fit</span>, prior <span class="op">=</span> <span class="st">"gamma"</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/binary-prior-posterior-gamma-1.png" alt="plot of chunk prior-posterior-gamma"><p class="caption">
+plot of chunk prior-posterior-gamma
+</p>
+</div>
+<p>Three of the four posteriors have collapsed to a narrow spike well
+inside the <code>normal(0, 1)</code> prior: those are the interactions
+for <code>CBT</code>, <code>NRT</code> and <code>VAR</code>, the three
+components that the two IPD trials touch, and they are estimated from
+within-trial covariate variation. The fourth, <code>gamma[1,1]</code>,
+is bupropion, and its histogram traces the prior curve. <strong>The
+prior is not a formality for that parameter; it is the entire
+posterior.</strong> Whatever <code>prior_gamma_scale</code> we had
+chosen, the data would have returned it unchanged, and any contrast that
+leans on it inherits that property while continuing to look like an
+estimate.</p>
 <p>Prior movement is the empirical definition of identification: a
 contrast that moves when you change a prior it should not depend on was
 never data-driven. <code><a href="../reference/prior_sensitivity.html">prior_sensitivity()</a></code> refits under a
@@ -1449,18 +1924,18 @@ tighter and a looser interaction prior and reports how far each contrast
 travels. <strong>It deliberately reports movement for non-estimable
 contrasts too</strong>, bypassing the <code>NA</code> mask, so you can
 see the mechanism rather than take it on trust.</p>
-<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb45"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">ps</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/prior_sensitivity.html">prior_sensitivity</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="va">target</span>, reference <span class="op">=</span> <span class="st">"NRT"</span>,</span>
 <span>                        prior <span class="op">=</span> <span class="st">"gamma"</span>, tighter <span class="op">=</span> <span class="fl">0.5</span>, looser <span class="op">=</span> <span class="fl">2</span>,</span>
 <span>                        chains <span class="op">=</span> <span class="fl">2</span>, iter_warmup <span class="op">=</span> <span class="fl">250</span>, iter_sampling <span class="op">=</span> <span class="fl">250</span><span class="op">)</span></span>
 <span><span class="va">ps</span></span>
 <span><span class="co">#&gt; cML-NMR prior sensitivity: gamma prior</span></span>
 <span><span class="co">#&gt;  treatment comparator estimate tighter looser move_tighter move_looser max_movement estimable</span></span>
-<span><span class="co">#&gt;        CBT        NRT   -0.096  -0.047 -0.043        0.049       0.052        0.052     FALSE</span></span>
-<span><span class="co">#&gt;    CBT+BUP        NRT    0.273   0.293  0.268        0.020       0.005        0.020     FALSE</span></span>
-<span><span class="co">#&gt;    CBT+NRT        NRT    0.401   0.412  0.398        0.011       0.003        0.011      TRUE</span></span>
-<span><span class="co">#&gt;    CBT+VAR        NRT    1.008   1.019  1.008        0.011       0.000        0.011      TRUE</span></span>
-<span><span class="co">#&gt;         UC        NRT   -0.497  -0.459 -0.442        0.038       0.055        0.055     FALSE</span></span></code></pre></div>
+<span><span class="co">#&gt;        CBT        NRT   -0.076  -0.087 -0.066        0.012       0.010        0.012     FALSE</span></span>
+<span><span class="co">#&gt;    CBT+BUP        NRT    0.294   0.366  0.158        0.073       0.135        0.135     FALSE</span></span>
+<span><span class="co">#&gt;    CBT+NRT        NRT    0.406   0.405  0.416        0.001       0.009        0.009      TRUE</span></span>
+<span><span class="co">#&gt;    CBT+VAR        NRT    1.018   1.022  1.026        0.004       0.008        0.008      TRUE</span></span>
+<span><span class="co">#&gt;         UC        NRT   -0.482  -0.493 -0.482        0.010       0.001        0.010     FALSE</span></span></code></pre></div>
 <p>Read the <code>max_movement</code> column against
 <code>estimable</code>. Every contrast the criterion calls estimable is
 prior-insensitive; every contrast it rejects moves with the prior. That

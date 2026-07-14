@@ -188,9 +188,250 @@ cross: <code>theta_V(x) = 0.55 - 0.50x</code> while
 <p>Two components, so there is no path from <code>R+D</code> to
 <code>R</code>. A standard NMA cannot estimate the contrast at all. It
 is not that the estimate is imprecise; it does not exist.</p>
+<div class="section level3">
+<h3 id="the-same-network-read-as-components">The same network, read as components<a class="anchor" aria-label="anchor" href="#the-same-network-read-as-components"></a>
+</h3>
+<p>A standard NMA sees nodes and edges, and nothing else. cpaic reads
+the treatment labels as <em>components</em>, and so sees what the
+treatment graph cannot: the two sub-networks are disjoint as sets of
+treatments but overlapping as sets of components. Build the network
+object from the contrast-level data, one unadjusted log-odds ratio per
+trial, together with the individual patient data.</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">arms</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">rbind</span>,</span>
+<span>          <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/split.html" class="external-link">split</a></span><span class="op">(</span><span class="va">ipd</span>, <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">ipd</span><span class="op">$</span><span class="va">.study</span>, <span class="va">ipd</span><span class="op">$</span><span class="va">.trt</span><span class="op">)</span>, drop <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>, <span class="va">agg</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  <span class="va">agd</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># The unadjusted within-trial contrast, for each of the four trials.</span></span>
+<span><span class="va">unadjusted</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">study</span>, <span class="va">t1</span>, <span class="va">t2</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">a</span> <span class="op">&lt;-</span> <span class="va">arms</span><span class="op">[</span><span class="va">arms</span><span class="op">$</span><span class="va">.study</span> <span class="op">==</span> <span class="va">study</span> <span class="op">&amp;</span> <span class="va">arms</span><span class="op">$</span><span class="va">.trt</span> <span class="op">==</span> <span class="va">t1</span>, <span class="op">]</span></span>
+<span>  <span class="va">b</span> <span class="op">&lt;-</span> <span class="va">arms</span><span class="op">[</span><span class="va">arms</span><span class="op">$</span><span class="va">.study</span> <span class="op">==</span> <span class="va">study</span> <span class="op">&amp;</span> <span class="va">arms</span><span class="op">$</span><span class="va">.trt</span> <span class="op">==</span> <span class="va">t2</span>, <span class="op">]</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>studlab <span class="op">=</span> <span class="va">study</span>, treat1 <span class="op">=</span> <span class="va">t1</span>, treat2 <span class="op">=</span> <span class="va">t2</span>,</span>
+<span>             TE <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">log</a></span><span class="op">(</span><span class="va">a</span><span class="op">$</span><span class="va">r</span> <span class="op">*</span> <span class="op">(</span><span class="va">b</span><span class="op">$</span><span class="va">n</span> <span class="op">-</span> <span class="va">b</span><span class="op">$</span><span class="va">r</span><span class="op">)</span> <span class="op">/</span> <span class="op">(</span><span class="op">(</span><span class="va">a</span><span class="op">$</span><span class="va">n</span> <span class="op">-</span> <span class="va">a</span><span class="op">$</span><span class="va">r</span><span class="op">)</span> <span class="op">*</span> <span class="va">b</span><span class="op">$</span><span class="va">r</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>             seTE <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="fl">1</span> <span class="op">/</span> <span class="va">a</span><span class="op">$</span><span class="va">r</span> <span class="op">+</span> <span class="fl">1</span> <span class="op">/</span> <span class="op">(</span><span class="va">a</span><span class="op">$</span><span class="va">n</span> <span class="op">-</span> <span class="va">a</span><span class="op">$</span><span class="va">r</span><span class="op">)</span> <span class="op">+</span> <span class="fl">1</span> <span class="op">/</span> <span class="va">b</span><span class="op">$</span><span class="va">r</span> <span class="op">+</span> <span class="fl">1</span> <span class="op">/</span> <span class="op">(</span><span class="va">b</span><span class="op">$</span><span class="va">n</span> <span class="op">-</span> <span class="va">b</span><span class="op">$</span><span class="va">r</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span><span class="va">contrasts</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span><span class="fu">unadjusted</span><span class="op">(</span><span class="st">"OLD-1"</span>, <span class="st">"R"</span>,   <span class="st">"Obs"</span><span class="op">)</span>,</span>
+<span>                   <span class="fu">unadjusted</span><span class="op">(</span><span class="st">"OLD-2"</span>, <span class="st">"V"</span>,   <span class="st">"Obs"</span><span class="op">)</span>,</span>
+<span>                   <span class="fu">unadjusted</span><span class="op">(</span><span class="st">"NEW-1"</span>, <span class="st">"R+D"</span>, <span class="st">"R+V"</span><span class="op">)</span>,</span>
+<span>                   <span class="fu">unadjusted</span><span class="op">(</span><span class="st">"NEW-2"</span>, <span class="st">"R+I"</span>, <span class="st">"R+V"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">contrasts</span></span>
+<span><span class="co">#&gt;   studlab treat1 treat2        TE       seTE</span></span>
+<span><span class="co">#&gt; 1   OLD-1      R    Obs 0.4969574 0.15283084</span></span>
+<span><span class="co">#&gt; 2   OLD-2      V    Obs 0.4673908 0.08238449</span></span>
+<span><span class="co">#&gt; 3   NEW-1    R+D    R+V 0.2757059 0.09456794</span></span>
+<span><span class="co">#&gt; 4   NEW-2    R+I    R+V 0.3824151 0.16046871</span></span>
+<span></span>
+<span><span class="va">net</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cpaic_network.html">cpaic_network</a></span><span class="op">(</span><span class="va">contrasts</span>, ipd <span class="op">=</span> <span class="va">ipd</span>, sm <span class="op">=</span> <span class="st">"OR"</span>, family <span class="op">=</span> <span class="st">"binomial"</span>,</span>
+<span>                     ipd_covariates <span class="op">=</span> <span class="st">"hr"</span>, inactive <span class="op">=</span> <span class="st">"Obs"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/cpaic_connectivity.html">cpaic_connectivity</a></span><span class="op">(</span><span class="va">net</span><span class="op">)</span></span>
+<span><span class="co">#&gt; cpaic connectivity</span></span>
+<span><span class="co">#&gt;   Connected network: FALSE</span></span>
+<span><span class="co">#&gt;   Sub-networks:      2</span></span>
+<span><span class="co">#&gt;     [1] 3 treatments</span></span>
+<span><span class="co">#&gt;     [2] 3 treatments</span></span>
+<span><span class="co">#&gt;   Bridging components: R, V</span></span>
+<span><span class="co">#&gt;   Component design:  rank(X) = 4 / 4 components -&gt; all component effects identified</span></span>
+<span><span class="co">#&gt;   Estimable effects: 5 / 5 vs Obs</span></span></code></pre></div>
+<p>Two sub-networks, which the treatment graph had already established.
+The new information is in the last two lines: the component design
+matrix <code>X = B C</code> has full column rank, so all four component
+effects are identified, and every relative effect versus
+<code>Obs</code> is estimable. The gap is closable, and
+<code><a href="../reference/cpaic_connectivity.html">cpaic_connectivity()</a></code> names the components that close
+it.</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">net</span><span class="op">)</span></span></code></pre></div>
+<div class="float">
+<img src="figure/myeloma-network-plot-1.png" alt="plot of chunk network-plot"><div class="figcaption">plot of chunk network-plot</div>
+</div>
+<p>This is the central figure of the vignette. Each sub-network is laid
+out on its own circle and the circles are placed side by side, so the
+disconnection is shown rather than asserted: no edge runs between the
+two groups. Node fill gives the sub-network. Edges are colored by the
+evidence behind them, so the two trials for which we hold individual
+patient data (<code>OLD-2</code>, the <code>Obs</code> versus
+<code>V</code> edge on the left, and <code>NEW-1</code>, the
+<code>R+V</code> versus <code>R+D</code> edge on the right) are
+distinguished from the two published aggregate trials. The triangular
+nodes are the treatments that contain a <em>bridging</em> component,
+which here is every treatment except <code>Obs</code>, and the subtitle
+names the bridging components themselves: <code>R</code> and
+<code>V</code>. Those two components are what the sub-networks hold in
+common. <code>R</code> is given alone in the old trials and sits inside
+every regimen of the new ones; <code>V</code> is given alone in the old
+trials and sits inside <code>R+V</code> in the new ones. An additive
+model assigns each component a single parameter, shared across the gap,
+and that shared parameter is the entire mechanism by which the network
+is reconnected.</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">net</span>, weight_edges <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div>
+<div class="float">
+<img src="figure/myeloma-network-plain-1.png" alt="plot of chunk network-plain"><div class="figcaption">plot of chunk network-plain</div>
+</div>
+<p>Every comparison in this network is informed by exactly one trial, so
+scaling edge width by the number of studies conveys nothing here;
+<code>weight_edges = FALSE</code> removes that legend and leaves a
+cleaner reading of the same network. On a network with several trials
+per comparison the default is the more informative of the two.</p>
+</div>
 </div>
 <div class="section level2">
-<h2 id="ml-nmr-adjusts-the-population-but-does-not-bridge-the-gap">2. ML-NMR adjusts the population, but does not bridge the gap<a class="anchor" aria-label="anchor" href="#ml-nmr-adjusts-the-population-but-does-not-bridge-the-gap"></a>
+<h2 id="cnma-reconnects-the-network-but-leaves-the-populations-unadjusted">2. cNMA reconnects the network, but leaves the populations
+unadjusted<a class="anchor" aria-label="anchor" href="#cnma-reconnects-the-network-but-leaves-the-populations-unadjusted"></a>
+</h2>
+<p>An additive component NMA <span class="citation">(Rücker et al. 2020,
+2021)</span> estimates the four component effects from the four observed
+contrasts and reconstructs any treatment effect as
+<code>theta_t = C_t' beta</code>. Because the component parameters are
+shared between the sub-networks, the reconstruction reaches across the
+gap. This is the connection layer of cpaic, and on aggregate data alone
+it is already enough to produce a cross-gap number.</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">br</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cnma_bridge.html">cnma_bridge</a></span><span class="op">(</span><span class="va">net</span><span class="op">)</span></span>
+<span><span class="va">br</span></span>
+<span><span class="co">#&gt; cpaic component-NMA bridge (random effects, sm = OR)</span></span>
+<span><span class="co">#&gt;   Additive-model fit (Cochran Q): Q = 0, df = 0, p = NA</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; Component effects (OR scale, link/log):</span></span>
+<span><span class="co">#&gt;  component estimate    se lower upper         pval</span></span>
+<span><span class="co">#&gt;          D    0.743 0.125 0.497 0.989 3.125963e-09</span></span>
+<span><span class="co">#&gt;          I    0.850 0.180 0.496 1.203 2.463056e-06</span></span>
+<span><span class="co">#&gt;          R    0.497 0.153 0.197 0.797 1.147239e-03</span></span>
+<span><span class="co">#&gt;          V    0.467 0.082 0.306 0.629 1.400840e-08</span></span></code></pre></div>
+<p>Note the Cochran Q line: four contrasts and four components leave
+zero degrees of freedom, so the additive model is saturated and its fit
+cannot be tested at all here. Additivity is assumed, not checked. This
+is not an artifact of the simulation; it is the generic situation when a
+network is only just rich enough in components to be bridged.</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/forest.html">forest</a></span><span class="op">(</span><span class="va">br</span><span class="op">)</span></span></code></pre></div>
+<div class="float">
+<img src="figure/myeloma-bridge-forest-1.png" alt="plot of chunk bridge-forest"><div class="figcaption">plot of chunk bridge-forest</div>
+</div>
+<p>Every treatment now has an estimate versus <code>Obs</code>,
+including the three regimens in the sub-network that contains no
+<code>Obs</code> arm. The disconnection has been repaired.</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/forest.html">forest</a></span><span class="op">(</span><span class="va">br</span>, what <span class="op">=</span> <span class="st">"component"</span><span class="op">)</span></span></code></pre></div>
+<div class="float">
+<img src="figure/myeloma-bridge-components-1.png" alt="plot of chunk bridge-components"><div class="figcaption">plot of chunk bridge-components</div>
+</div>
+<p>The component forest shows the incremental effect of adding each
+component to a regimen, on the log-odds-ratio scale. These four numbers
+are what carry the evidence across the gap; every treatment effect above
+is a sum of them.</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="fu"><a href="../reference/league_table.html">league_table</a></span><span class="op">(</span><span class="va">br</span><span class="op">)</span>,</span>
+<span>             caption <span class="op">=</span> <span class="st">"Aggregate cNMA league table (odds ratios, row versus column). Every cell is filled: the component bridge reconnects the network completely."</span><span class="op">)</span></span></code></pre></div>
+<table class="table">
+<caption>Aggregate cNMA league table (odds ratios, row versus column).
+Every cell is filled: the component bridge reconnects the network
+completely.</caption>
+<colgroup>
+<col width="3%">
+<col width="16%">
+<col width="16%">
+<col width="16%">
+<col width="16%">
+<col width="16%">
+<col width="16%">
+</colgroup>
+<thead><tr class="header">
+<th align="left"></th>
+<th align="left">Obs</th>
+<th align="left">R</th>
+<th align="left">R+D</th>
+<th align="left">R+I</th>
+<th align="left">R+V</th>
+<th align="left">V</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="left">Obs</td>
+<td align="left">Obs</td>
+<td align="left">0.61 (0.45, 0.82)</td>
+<td align="left">0.29 (0.20, 0.43)</td>
+<td align="left">0.26 (0.16, 0.41)</td>
+<td align="left">0.38 (0.27, 0.54)</td>
+<td align="left">0.63 (0.53, 0.74)</td>
+</tr>
+<tr class="even">
+<td align="left">R</td>
+<td align="left">1.64 (1.22, 2.22)</td>
+<td align="left">R</td>
+<td align="left">0.48 (0.37, 0.61)</td>
+<td align="left">0.43 (0.30, 0.61)</td>
+<td align="left">0.63 (0.53, 0.74)</td>
+<td align="left">1.03 (0.73, 1.45)</td>
+</tr>
+<tr class="odd">
+<td align="left">R+D</td>
+<td align="left">3.46 (2.35, 5.09)</td>
+<td align="left">2.10 (1.64, 2.69)</td>
+<td align="left">R+D</td>
+<td align="left">0.90 (0.62, 1.29)</td>
+<td align="left">1.32 (1.09, 1.59)</td>
+<td align="left">2.17 (1.52, 3.08)</td>
+</tr>
+<tr class="even">
+<td align="left">R+I</td>
+<td align="left">3.84 (2.42, 6.11)</td>
+<td align="left">2.34 (1.64, 3.33)</td>
+<td align="left">1.11 (0.77, 1.60)</td>
+<td align="left">R+I</td>
+<td align="left">1.47 (1.07, 2.01)</td>
+<td align="left">2.41 (1.56, 3.72)</td>
+</tr>
+<tr class="odd">
+<td align="left">R+V</td>
+<td align="left">2.62 (1.87, 3.69)</td>
+<td align="left">1.60 (1.36, 1.88)</td>
+<td align="left">0.76 (0.63, 0.91)</td>
+<td align="left">0.68 (0.50, 0.93)</td>
+<td align="left">R+V</td>
+<td align="left">1.64 (1.22, 2.22)</td>
+</tr>
+<tr class="even">
+<td align="left">V</td>
+<td align="left">1.60 (1.36, 1.88)</td>
+<td align="left">0.97 (0.69, 1.36)</td>
+<td align="left">0.46 (0.32, 0.66)</td>
+<td align="left">0.42 (0.27, 0.64)</td>
+<td align="left">0.61 (0.45, 0.82)</td>
+<td align="left">V</td>
+</tr>
+</tbody>
+</table>
+<p>The league table is complete. Not one cell is empty, even though only
+four of the fifteen pairwise comparisons among these six treatments were
+ever made in a trial. That is the achievement of the connection layer,
+and it is also the trap: nothing in this table records which population
+it refers to.</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_edge_influence.html">plot_edge_influence</a></span><span class="op">(</span><span class="va">br</span>, treatment <span class="op">=</span> <span class="st">"R+D"</span>, comparator <span class="op">=</span> <span class="st">"R"</span><span class="op">)</span></span></code></pre></div>
+<div class="float">
+<img src="figure/myeloma-bridge-influence-1.png" alt="plot of chunk bridge-influence"><div class="figcaption">plot of chunk bridge-influence</div>
+</div>
+<p>This is the figure that decides whether population adjustment is
+possible at all. It decomposes the cross-gap estimate of
+<code>R+D</code> versus <code>R</code> into the weight each observed
+edge carries in it. Exactly two edges carry the contrast,
+<code>OLD-2</code> (<code>V</code> versus <code>Obs</code>) and
+<code>NEW-1</code> (<code>R+D</code> versus <code>R+V</code>), each with
+weight one; the other two edges have weight zero and contribute nothing.
+Those two load-bearing edges are precisely the two trials for which we
+hold individual patient data, one on each side of the gap. The cross-gap
+contrast is therefore adjustable: the edges that carry it are the edges
+we can reweight or model. Had the individual patient data instead sat on
+<code>OLD-1</code> and <code>NEW-2</code>, the two edges with zero
+weight, no amount of population adjustment could have moved this
+contrast, however healthy the effective sample size looked.
+<code><a href="../reference/plot_edge_influence.html">plot_edge_influence()</a></code> is the diagnostic that detects that,
+and no conventional one does.</p>
+</div>
+<div class="section level2">
+<h2 id="ml-nmr-adjusts-the-population-but-does-not-bridge-the-gap">3. ML-NMR adjusts the population, but does not bridge the gap<a class="anchor" aria-label="anchor" href="#ml-nmr-adjusts-the-population-but-does-not-bridge-the-gap"></a>
 </h2>
 <p>ML-NMR <span class="citation">(<span class="nocase">Phillippo et
 al.</span> 2020)</span> is the right tool for the <em>population</em>
@@ -207,7 +448,7 @@ precisely the trap Wigle et al. <span class="citation">(2026)</span>
 warn about.</p>
 </div>
 <div class="section level2">
-<h2 id="cml-nmr-bridge-with-components-adjust-by-integration">3. cML-NMR: bridge with components, adjust by integration<a class="anchor" aria-label="anchor" href="#cml-nmr-bridge-with-components-adjust-by-integration"></a>
+<h2 id="cml-nmr-bridge-with-components-adjust-by-integration">4. cML-NMR: bridge with components, adjust by integration<a class="anchor" aria-label="anchor" href="#cml-nmr-bridge-with-components-adjust-by-integration"></a>
 </h2>
 <p>The regimens are not really indivisible. <code>R+D</code> and
 <code>R</code> <strong>share the component <code>R</code></strong>, and
@@ -222,24 +463,79 @@ the ML-NMR integration handles the population imbalance.</p>
 effect you want is identified. Population adjustment is strictly harder
 than reconnection, because the component by effect-modifier interactions
 have to be identified too. Always check.</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cmlnmr.html">cmlnmr</a></span><span class="op">(</span><span class="va">ipd</span>, <span class="va">agd</span>,</span>
 <span>              effect_modifiers <span class="op">=</span> <span class="st">"hr"</span>,   <span class="co"># binary -&gt; Bernoulli margin, automatic</span></span>
 <span>              inactive <span class="op">=</span> <span class="st">"Obs"</span>, family <span class="op">=</span> <span class="st">"binomial"</span>,</span>
 <span>              chains <span class="op">=</span> <span class="fl">4</span>, iter_warmup <span class="op">=</span> <span class="fl">700</span>, iter_sampling <span class="op">=</span> <span class="fl">700</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/estimable_effects_at.html">estimable_effects_at</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>hr <span class="op">=</span> <span class="fl">0.30</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt;   treatment comparator estimable identified_by</span></span>
-<span><span class="co">#&gt; 1         R        Obs     FALSE          none</span></span>
-<span><span class="co">#&gt; 2       R+D        Obs     FALSE          none</span></span>
-<span><span class="co">#&gt; 3       R+I        Obs     FALSE          none</span></span>
-<span><span class="co">#&gt; 4       R+V        Obs     FALSE          none</span></span>
-<span><span class="co">#&gt; 5         V        Obs      TRUE           IPD</span></span></code></pre></div>
+<span><span class="co">#&gt; Estimability of the population-adjusted relative effects</span></span>
+<span><span class="co">#&gt;   Target population: hr = 0.3</span></span>
+<span><span class="co">#&gt;  treatment comparator estimable identified_by          basis</span></span>
+<span><span class="co">#&gt;          R        Obs     FALSE          none not identified</span></span>
+<span><span class="co">#&gt;        R+D        Obs     FALSE          none not identified</span></span>
+<span><span class="co">#&gt;        R+I        Obs     FALSE          none not identified</span></span>
+<span><span class="co">#&gt;        R+V        Obs     FALSE          none not identified</span></span>
+<span><span class="co">#&gt;          V        Obs      TRUE           IPD          exact</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt;   Rows marked "not identified" carry no first-order information; a number</span></span>
+<span><span class="co">#&gt;   reported for them would be the prior. relative_effects() returns NA there.</span></span></code></pre></div>
 <p>Read the <code>identified_by</code> column. An effect identified only
 from <em>aggregate</em> data is identified by a between-study gradient
 across study means, which is ecological inference; an effect identified
 from <em>IPD</em> is identified by within-study covariate variation.
 They are not equal currency, and cpaic keeps them apart.</p>
+<p><code><a href="../reference/plot_estimability.html">plot_estimability()</a></code> evaluates the same check over a grid
+of target populations and tiles the answer. We ask it against
+<code>R</code>, the comparator the decision maker actually wants.</p>
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_estimability.html">plot_estimability</a></span><span class="op">(</span><span class="va">fit</span>, em <span class="op">=</span> <span class="st">"hr"</span>, values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span>, by <span class="op">=</span> <span class="fl">0.2</span><span class="op">)</span>,</span>
+<span>                  reference <span class="op">=</span> <span class="st">"R"</span><span class="op">)</span></span></code></pre></div>
+<div class="float">
+<img src="figure/myeloma-estimability-map-1.png" alt="plot of chunk estimability-map"><div class="figcaption">plot of chunk estimability-map</div>
+</div>
+<p>Compare this with the league table of Section 2, in which every
+single cell was filled. The aggregate cNMA reconnected the network
+completely; the population-adjusted model does not, and the map says
+which contrasts survive. Population adjustment is strictly harder than
+reconnection: reconnection needs only the component <em>main</em>
+effects <code>beta</code>, whereas a population-adjusted contrast also
+needs the component by effect-modifier interactions <code>Gamma</code>
+along the direction of the target. A contrast can therefore be perfectly
+estimable in an aggregate-data cNMA and still not be estimable as a
+population-adjusted effect, which is exactly what has happened to three
+of the five rows here. In this particular network the estimable set
+happens to be the same in every target population, so the rows are
+constant across the grid; that is not guaranteed, and the point of the
+figure is that it must be checked rather than assumed.</p>
+<p>The reason is visible in the posteriors themselves.</p>
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_prior_posterior.html">plot_prior_posterior</a></span><span class="op">(</span><span class="va">fit</span>, prior <span class="op">=</span> <span class="st">"gamma"</span><span class="op">)</span></span></code></pre></div>
+<div class="float">
+<img src="figure/myeloma-prior-posterior-gamma-1.png" alt="plot of chunk prior-posterior-gamma"><div class="figcaption">plot of chunk prior-posterior-gamma</div>
+</div>
+<p>Each panel overlays the posterior of one component by effect-modifier
+interaction (histogram) on its prior (red line). The components are
+indexed alphabetically, so <code>gamma[1,1]</code> through
+<code>gamma[4,1]</code> are <code>D</code>, <code>I</code>,
+<code>R</code> and <code>V</code>.</p>
+<p>The interactions of <code>D</code> and of <code>V</code> are each
+carried by one of the two individual-patient-data trials, and their
+posteriors are far tighter than their priors: those two have been
+estimated. The interaction of <code>I</code> is its prior redrawn,
+because no trial informs it with within-study covariate variation; the
+data have said nothing about it at all.</p>
+<p><code>R</code> is the instructive case, and it is why this figure
+must not be read on its own. Its posterior is somewhat narrower than its
+prior, yet <code>R</code> is <em>not</em> identified. An aggregate arm
+constrains a combination of a main effect and its interaction without
+pinning either one, which narrows the marginal posterior while leaving
+the individual parameter free. Narrowness is not identification. A
+Bayesian model returns a posterior for all four regardless, and all four
+look like perfectly respectable distributions; what may legitimately be
+reported is settled by the algebraic check in
+<code><a href="../reference/estimable_effects_at.html">estimable_effects_at()</a></code>, not by the eye.</p>
 </div>
 <div class="section level3">
 <h3 id="the-cross-gap-comparison-in-a-named-target-population">The cross-gap comparison, in a named target population<a class="anchor" aria-label="anchor" href="#the-cross-gap-comparison-in-a-named-target-population"></a>
@@ -253,15 +549,15 @@ covariate mean. Their <em>difference</em>, <code>R+D</code> versus
 <code>R</code>, is the component <code>D</code>, and it IS identified.
 cpaic returns <code>NA</code> for the two that are not identified and a
 number for the one that is, which is exactly the behavior you want.</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">fit</span>, reference <span class="op">=</span> <span class="st">"R"</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>hr <span class="op">=</span> <span class="fl">0.15</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Relative effects (OR, back-transformed)</span></span>
 <span><span class="co">#&gt;   Target population: hr = 0.15</span></span>
 <span><span class="co">#&gt;  treatment comparator estimate    se lower upper pr_gt0</span></span>
 <span><span class="co">#&gt;        Obs          R       NA    NA    NA    NA     NA</span></span>
-<span><span class="co">#&gt;        R+D          R    1.547 0.139 1.177 2.008  0.999</span></span>
+<span><span class="co">#&gt;        R+D          R    1.557 0.135 1.186 2.001      1</span></span>
 <span><span class="co">#&gt;        R+I          R       NA    NA    NA    NA     NA</span></span>
-<span><span class="co">#&gt;        R+V          R    1.739 0.086 1.464 2.047  1.000</span></span>
+<span><span class="co">#&gt;        R+V          R    1.741 0.084 1.474 2.047      1</span></span>
 <span><span class="co">#&gt;          V          R       NA    NA    NA    NA     NA</span></span>
 <span><span class="co">#&gt;   NA = not uniquely estimable from this component design (see estimable_effects()).</span></span>
 <span><span class="fu"><a href="../reference/relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">fit</span>, reference <span class="op">=</span> <span class="st">"R"</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>hr <span class="op">=</span> <span class="fl">0.60</span><span class="op">)</span><span class="op">)</span></span>
@@ -269,12 +565,33 @@ number for the one that is, which is exactly the behavior you want.</p>
 <span><span class="co">#&gt;   Target population: hr = 0.6</span></span>
 <span><span class="co">#&gt;  treatment comparator estimate    se lower upper pr_gt0</span></span>
 <span><span class="co">#&gt;        Obs          R       NA    NA    NA    NA     NA</span></span>
-<span><span class="co">#&gt;        R+D          R    2.120 0.139 1.591 2.781  1.000</span></span>
+<span><span class="co">#&gt;        R+D          R    2.134 0.141 1.617 2.798  1.000</span></span>
 <span><span class="co">#&gt;        R+I          R       NA    NA    NA    NA     NA</span></span>
-<span><span class="co">#&gt;        R+V          R    1.352 0.098 1.112 1.638  0.999</span></span>
+<span><span class="co">#&gt;        R+V          R    1.356 0.097 1.112 1.648  0.999</span></span>
 <span><span class="co">#&gt;          V          R       NA    NA    NA    NA     NA</span></span>
 <span><span class="co">#&gt;   NA = not uniquely estimable from this component design (see estimable_effects()).</span></span></code></pre></div>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<p>The same two tables as forest plots, one target population each.</p>
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/forest.html">forest</a></span><span class="op">(</span><span class="va">fit</span>, reference <span class="op">=</span> <span class="st">"R"</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>hr <span class="op">=</span> <span class="fl">0.15</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<div class="float">
+<img src="figure/myeloma-effects-forest-1.png" alt="plot of chunk effects-forest"><div class="figcaption">plot of chunk effects-forest</div>
+</div>
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/forest.html">forest</a></span><span class="op">(</span><span class="va">fit</span>, reference <span class="op">=</span> <span class="st">"R"</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>hr <span class="op">=</span> <span class="fl">0.60</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<div class="float">
+<img src="figure/myeloma-effects-forest-2.png" alt="plot of chunk effects-forest"><div class="figcaption">plot of chunk effects-forest</div>
+</div>
+<p>The subtitle of each panel records the target population, because
+without it the estimates are meaningless. Two features deserve
+attention. First, the contrasts that are not identified are drawn as
+labeled empty rows rather than dropped: <code><a href="../reference/forest.html">forest()</a></code> will not
+present a plot that looks complete when it is not, and the caption
+repeats which rows are missing and why. Second, <code>R+D</code> versus
+<code>R</code> moves between the two panels while <code>R+V</code>
+versus <code>R</code> moves the other way, which is the crossing of
+daratumumab and bortezomib that we built into the data generating
+mechanism.</p>
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">theta</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">trt</span>, <span class="va">x</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">Cmat</span><span class="op">[</span><span class="va">trt</span>, <span class="op">]</span> <span class="op">*</span> <span class="op">(</span><span class="va">beta_true</span> <span class="op">+</span> <span class="va">gamma_true</span> <span class="op">*</span> <span class="va">x</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="kw">for</span> <span class="op">(</span><span class="va">x</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.15</span>, <span class="fl">0.60</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"hr = %.2f: true log-OR(R+D vs R) = %+.3f\n"</span>,</span>
@@ -287,23 +604,121 @@ spans, is recovered; and it is recovered <em>differently</em> in the two
 target populations, because daratumumab is more effective in high-risk
 patients. A single population-free number would be wrong for at least
 one of them.</p>
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="fu"><a href="../reference/league_table.html">league_table</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>hr <span class="op">=</span> <span class="fl">0.60</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>             caption <span class="op">=</span> <span class="st">"cML-NMR league table (odds ratios, row versus column) in a target population with 60% high-risk patients. Empty cells are not estimable as population-adjusted effects."</span><span class="op">)</span></span></code></pre></div>
+<table class="table">
+<caption>cML-NMR league table (odds ratios, row versus column) in a
+target population with 60% high-risk patients. Empty cells are not
+estimable as population-adjusted effects.</caption>
+<colgroup>
+<col width="4%">
+<col width="18%">
+<col width="18%">
+<col width="18%">
+<col width="4%">
+<col width="18%">
+<col width="18%">
+</colgroup>
+<thead><tr class="header">
+<th align="left"></th>
+<th align="left">Obs</th>
+<th align="left">R</th>
+<th align="left">R+D</th>
+<th align="left">R+I</th>
+<th align="left">R+V</th>
+<th align="left">V</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="left">Obs</td>
+<td align="left">Obs</td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left">0.74 (0.61, 0.90)</td>
+</tr>
+<tr class="even">
+<td align="left">R</td>
+<td align="left"></td>
+<td align="left">R</td>
+<td align="left">0.48 (0.36, 0.62)</td>
+<td align="left"></td>
+<td align="left">0.74 (0.61, 0.90)</td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left">R+D</td>
+<td align="left"></td>
+<td align="left">2.13 (1.62, 2.80)</td>
+<td align="left">R+D</td>
+<td align="left"></td>
+<td align="left">1.57 (1.29, 1.91)</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left">R+I</td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left">R+I</td>
+<td align="left"></td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left">R+V</td>
+<td align="left"></td>
+<td align="left">1.36 (1.11, 1.65)</td>
+<td align="left">0.64 (0.52, 0.78)</td>
+<td align="left"></td>
+<td align="left">R+V</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left">V</td>
+<td align="left">1.36 (1.11, 1.65)</td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left">V</td>
+</tr>
+</tbody>
+</table>
+<p>Set this against the aggregate cNMA league table of Section 2. That
+one was complete; this one is mostly empty, and the difference between
+them is the whole lesson of the vignette. The unadjusted bridge gives a
+number for every cell and attaches it to no population at all. The
+adjusted model gives a number only where the data can support one in the
+population you asked about, and it declines the rest.</p>
+<p>The cells it does fill are <code>V</code> against <code>Obs</code>,
+inside the old sub-network, and the three comparisons among
+<code>R</code>, <code>R+V</code> and <code>R+D</code>, which include the
+cross-gap contrast that prompted the analysis. The pattern of refusals
+is not arbitrary. Any comparison that changes the ixazomib content is
+refused, because no trial anywhere in the network provides within-study
+covariate variation on <code>I</code>; and any comparison that changes
+the lenalidomide content is refused for the same reason applied to
+<code>R</code>. What survives is precisely the set of contrasts in which
+the components with unidentified interactions cancel.</p>
 </div>
 </div>
 <div class="section level2">
-<h2 id="the-hierarchy-is-population-specific">4. The hierarchy is population-specific<a class="anchor" aria-label="anchor" href="#the-hierarchy-is-population-specific"></a>
+<h2 id="the-hierarchy-is-population-specific">5. The hierarchy is population-specific<a class="anchor" aria-label="anchor" href="#the-hierarchy-is-population-specific"></a>
 </h2>
 <p>If component effects depend on the population, so do component
 <em>rankings</em>. The question is not “which component is best?” but
 <strong>“which component is best in this population?”</strong> <span class="citation">(Wigle et al. 2026)</span>.</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/cpaic_ranks.html">cpaic_ranks</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>hr <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span>, what <span class="op">=</span> <span class="st">"component"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Warning: Dropped from the hierarchy as not estimable in this target population: I, R.</span></span>
 <span><span class="co">#&gt; Ranking them would rank the prior. See estimable_effects_at().</span></span>
 <span><span class="co">#&gt; Population-adjusted component hierarchy</span></span>
 <span><span class="co">#&gt;   Target population: hr = 0.05</span></span>
 <span><span class="co">#&gt;  element estimate p_best median_rank mean_rank sucra</span></span>
-<span><span class="co">#&gt;        V    0.606  0.981           1     1.019 0.981</span></span>
-<span><span class="co">#&gt;        D    0.356  0.019           2     1.981 0.019</span></span>
+<span><span class="co">#&gt;        V    0.607  0.979           1     1.021 0.979</span></span>
+<span><span class="co">#&gt;        D    0.364  0.021           2     1.979 0.021</span></span>
 <span><span class="co">#&gt;   Not estimable in this population, so not ranked: I, R</span></span>
 <span><span class="co">#&gt;   Ranking metrics depend on the set ranked; report them with the effects, not instead.</span></span>
 <span><span class="fu"><a href="../reference/cpaic_ranks.html">cpaic_ranks</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>hr <span class="op">=</span> <span class="fl">0.80</span><span class="op">)</span>, what <span class="op">=</span> <span class="st">"component"</span><span class="op">)</span></span>
@@ -312,8 +727,8 @@ one of them.</p>
 <span><span class="co">#&gt; Population-adjusted component hierarchy</span></span>
 <span><span class="co">#&gt;   Target population: hr = 0.8</span></span>
 <span><span class="co">#&gt;  element estimate p_best median_rank mean_rank sucra</span></span>
-<span><span class="co">#&gt;        D    0.882      1           1         1     1</span></span>
-<span><span class="co">#&gt;        V    0.185      0           2         2     0</span></span>
+<span><span class="co">#&gt;        D    0.888      1           1         1     1</span></span>
+<span><span class="co">#&gt;        V    0.188      0           2         2     0</span></span>
 <span><span class="co">#&gt;   Not estimable in this population, so not ranked: I, R</span></span>
 <span><span class="co">#&gt;   Ranking metrics depend on the set ranked; report them with the effects, not instead.</span></span></code></pre></div>
 <p>Two things happen here, and both are the point.</p>
@@ -327,23 +742,112 @@ estimable set that itself depends on the target.</p>
 <p>Second, among the components that <em>are</em> identified,
 <strong>the order reverses</strong>: <code>V</code> wins in a low-risk
 population and <code>D</code> wins in a high-risk one.</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">curve</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/rank_curve.html">rank_curve</a></span><span class="op">(</span><span class="va">fit</span>, em <span class="op">=</span> <span class="st">"hr"</span>, values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span>, by <span class="op">=</span> <span class="fl">0.1</span><span class="op">)</span>,</span>
-<span>                    what <span class="op">=</span> <span class="st">"component"</span><span class="op">)</span></span>
-<span><span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace</a></span><span class="op">(</span><span class="st">"ggplot2"</span>, quietly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://ggplot2.tidyverse.org" class="external-link">ggplot2</a></span><span class="op">)</span></span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">curve</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span><span class="va">hr</span>, <span class="va">sucra</span>, colour <span class="op">=</span> <span class="va">element</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
-<span>    <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_path.html" class="external-link">geom_line</a></span><span class="op">(</span>linewidth <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">+</span></span>
-<span>    <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_abline.html" class="external-link">geom_vline</a></span><span class="op">(</span>xintercept <span class="op">=</span> <span class="fl">0.227</span>, linetype <span class="op">=</span> <span class="st">"dashed"</span><span class="op">)</span> <span class="op">+</span></span>
-<span>    <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>x <span class="op">=</span> <span class="st">"Proportion of high-risk patients in the target population"</span>,</span>
-<span>         y <span class="op">=</span> <span class="st">"SUCRA"</span>, colour <span class="op">=</span> <span class="st">"Component"</span>,</span>
-<span>         title <span class="op">=</span> <span class="st">"A component hierarchy is a function of the target population"</span>,</span>
-<span>         subtitle <span class="op">=</span> <span class="st">"Dashed line: the true crossover at hr = 0.227"</span><span class="op">)</span> <span class="op">+</span></span>
-<span>    <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_minimal</a></span><span class="op">(</span><span class="op">)</span></span>
-<span><span class="op">}</span></span></code></pre></div>
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/warning.html" class="external-link">suppressWarnings</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="../reference/cpaic_ranks.html">cpaic_ranks</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>hr <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span>, what <span class="op">=</span> <span class="st">"component"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="float">
-<img src="figure/rankcurve-1.png" alt="plot of chunk rankcurve"><div class="figcaption">plot of chunk rankcurve</div>
+<img src="figure/myeloma-ranks-plot-1.png" alt="plot of chunk ranks-plot"><div class="figcaption">plot of chunk ranks-plot</div>
 </div>
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/warning.html" class="external-link">suppressWarnings</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="../reference/cpaic_ranks.html">cpaic_ranks</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>hr <span class="op">=</span> <span class="fl">0.80</span><span class="op">)</span>, what <span class="op">=</span> <span class="st">"component"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<div class="float">
+<img src="figure/myeloma-ranks-plot-2.png" alt="plot of chunk ranks-plot"><div class="figcaption">plot of chunk ranks-plot</div>
+</div>
+<p>The two hierarchies, plotted. Each carries its target population in
+the subtitle and the components it refused to rank in the caption, so
+neither can be quoted without them. Between the first panel and the
+second the SUCRA values of <code>D</code> and <code>V</code> exchange
+places completely.</p>
+<p>The full rank distribution behind those metrics is available through
+<code><a href="../reference/rank_probs.html">rank_probs()</a></code>. Asking for it at the level of
+<em>treatments</em>, which is the default, produces a refusal.</p>
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="../reference/rank_probs.html">rank_probs</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>hr <span class="op">=</span> <span class="fl">0.30</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  error <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">e</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"rank_probs() refused:\n "</span>, <span class="fu"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">conditionMessage</a></span><span class="op">(</span><span class="va">e</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Warning: Dropped from the hierarchy as not estimable in this target population: R, R+D,</span></span>
+<span><span class="co">#&gt; R+I, R+V. Ranking them would rank the prior. See estimable_effects_at().</span></span>
+<span><span class="co">#&gt; rank_probs() refused:</span></span>
+<span><span class="co">#&gt;   Fewer than two elements are estimable in this target population, so no hierarchy can be formed. See estimable_effects_at().</span></span></code></pre></div>
+<p>The refusal is the correct answer, and it is deliberate. Of the five
+treatments to be ranked against <code>Obs</code>, only <code>V</code> is
+estimable in a general target population, and a hierarchy of one element
+is not a hierarchy. The alternative, which most software would take, is
+to rank all five from posteriors that are for the most part the prior
+redrawn, and to return a confident-looking ordering built on nothing.
+This is Step 3 of the Wigle et al. <span class="citation">(2026)</span>
+workflow enforced in code rather than left to the analyst’s discipline.
+Ask instead for the hierarchy the network can support, which is the one
+over components.</p>
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/warning.html" class="external-link">suppressWarnings</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="../reference/rank_probs.html">rank_probs</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>hr <span class="op">=</span> <span class="fl">0.80</span><span class="op">)</span>, what <span class="op">=</span> <span class="st">"component"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<div class="float">
+<img src="figure/myeloma-rankogram-1.png" alt="plot of chunk rankogram"><div class="figcaption">plot of chunk rankogram</div>
+</div>
+<p>The rankogram gives the posterior probability that each component
+occupies each rank, among the components that are estimable in this
+target population. In a population with 80% high-risk patients the
+posterior is close to certain that daratumumab is the better of the two,
+which is the same conclusion as the SUCRA plot above but with the
+uncertainty made explicit.</p>
+<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_rank_curve.html">plot_rank_curve</a></span><span class="op">(</span><span class="va">fit</span>, em <span class="op">=</span> <span class="st">"hr"</span>, values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span>, by <span class="op">=</span> <span class="fl">0.1</span><span class="op">)</span>,</span>
+<span>                what <span class="op">=</span> <span class="st">"component"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_abline.html" class="external-link">geom_vline</a></span><span class="op">(</span>xintercept <span class="op">=</span> <span class="fl">0.227</span>, linetype <span class="op">=</span> <span class="st">"dashed"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span></span>
+<span>    title <span class="op">=</span> <span class="st">"A component hierarchy is a function of the target population"</span>,</span>
+<span>    x <span class="op">=</span> <span class="st">"Proportion of high-risk patients in the target population"</span><span class="op">)</span></span></code></pre></div>
+<div class="float">
+<img src="figure/myeloma-rankcurve-1.png" alt="plot of chunk rankcurve"><div class="figcaption">plot of chunk rankcurve</div>
+</div>
+<p><code><a href="../reference/plot_rank_curve.html">plot_rank_curve()</a></code> traces the whole family of hierarchies
+at once, rather than one hierarchy at a time. The dashed line marks the
+true crossover at <code>hr = 0.227</code>, which we derived from the
+parameter values we set at the top of the vignette, and the estimated
+curves cross close to it. To the left of that line bortezomib leads; to
+the right daratumumab does. A single component ranking, quoted without a
+population, is not a well-posed answer to any question; it is an answer
+to the question of what happens at one unstated point on this axis.</p>
+</div>
+<div class="section level2">
+<h2 id="model-checking">Model checking<a class="anchor" aria-label="anchor" href="#model-checking"></a>
+</h2>
+<p>None of the above means anything if the posterior was not explored.
+Two standard checks, and one that matters more than usual here.</p>
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">fit</span>, type <span class="op">=</span> <span class="st">"trace"</span><span class="op">)</span></span></code></pre></div>
+<div class="float">
+<img src="figure/myeloma-mcmc-trace-1.png" alt="plot of chunk mcmc-trace"><div class="figcaption">plot of chunk mcmc-trace</div>
+</div>
+<p>Trace plots of the component effects <code>beta</code> and the
+component by effect-modifier interactions <code>gamma</code>. The four
+chains should be indistinguishable and stationary. Note that the chains
+for the unidentified interactions mix perfectly well; good mixing is
+evidence about the sampler, not about identification, and it is
+precisely why the identification analysis of Section 4 cannot be
+skipped.</p>
+<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">fit</span>, type <span class="op">=</span> <span class="st">"rhat"</span><span class="op">)</span></span></code></pre></div>
+<div class="float">
+<img src="figure/myeloma-mcmc-rhat-1.png" alt="plot of chunk mcmc-rhat"><div class="figcaption">plot of chunk mcmc-rhat</div>
+</div>
+<p>All potential scale reduction factors sit at the left of the scale,
+so the chains have converged.</p>
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_prior_posterior.html">plot_prior_posterior</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></code></pre></div>
+<div class="float">
+<img src="figure/myeloma-prior-posterior-all-1.png" alt="plot of chunk prior-posterior-all"><div class="figcaption">plot of chunk prior-posterior-all</div>
+</div>
+<p>The full prior-against-posterior panel: study intercepts
+<code>mu</code>, component effects <code>beta</code>, the prognostic
+regression coefficient <code>breg</code>, and the interactions
+<code>gamma</code>. Read it as a map of what the data actually informed.
+The parameters whose posteriors have collapsed relative to their priors
+are the ones the network identifies; the two <code>gamma</code> panels
+that still reproduce their prior are the reason <code>R</code> and
+<code>I</code> are dropped from every hierarchy above.</p>
 </div>
 <div class="section level2">
 <h2 id="what-to-take-away">What to take away<a class="anchor" aria-label="anchor" href="#what-to-take-away"></a>
@@ -369,12 +873,18 @@ population and <code>D</code> wins in a high-risk one.</p>
 <td><strong>not estimable</strong></td>
 </tr>
 <tr class="even">
+<td>Aggregate cNMA</td>
+<td>no</td>
+<td>yes, via shared components</td>
+<td>estimable, but population-free</td>
+</tr>
+<tr class="odd">
 <td>ML-NMR</td>
 <td>yes</td>
 <td>no</td>
 <td><strong>prior-driven, not identified</strong></td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>cML-NMR</td>
 <td>yes</td>
 <td>yes, via shared components</td>
@@ -382,7 +892,7 @@ population and <code>D</code> wins in a high-risk one.</p>
 </tr>
 </tbody>
 </table>
-<p>Two warnings, which are not optional reading.</p>
+<p>Three warnings, which are not optional reading.</p>
 <ol style="list-style-type: decimal">
 <li>
 <strong>The bridging assumption is untestable.</strong> Reconnecting
@@ -390,13 +900,25 @@ through shared components requires the component effects, <em>and their
 interactions with the effect modifiers</em>, to be the same in both
 sub-networks. There is by construction no cross-gap evidence with which
 to test that; it must be defended clinically <span class="citation">(<span class="nocase">Veroniki et al.</span>
-2026)</span>.</li>
+2026)</span>. In this network the additive model is saturated, so not
+even its internal fit statistic has degrees of freedom to spend on the
+question.</li>
 <li>
 <strong>Estimability is not automatic.</strong> As <code>R</code>
 and <code>I</code> show above, a contrast can be perfectly estimable as
 an aggregate-data component contrast and still not be estimable as a
-population-adjusted effect. Run <code><a href="../reference/estimable_effects_at.html">estimable_effects_at()</a></code> and
-believe what it says.</li>
+population-adjusted effect. The two league tables, one complete and one
+mostly empty, are the same network under the two criteria. Run
+<code><a href="../reference/estimable_effects_at.html">estimable_effects_at()</a></code> and
+<code><a href="../reference/plot_estimability.html">plot_estimability()</a></code>, and believe what they say.</li>
+<li>
+<strong>Where the individual patient data sit decides what can be
+adjusted.</strong> The cross-gap contrast here is carried entirely by
+the two IPD edges, so population adjustment can reach it. Put the same
+IPD on the other two edges and the contrast becomes unadjustable,
+without any conventional diagnostic registering a complaint.
+<code><a href="../reference/plot_edge_influence.html">plot_edge_influence()</a></code> is what shows this, and it should be
+consulted before the analysis is designed, not after.</li>
 </ol>
 </div>
 <div class="section level2 unnumbered">
@@ -408,6 +930,17 @@ believe what it says.</li>
 al.</span> 2020. <span>“Multilevel Network Meta-Regression for
 Population-Adjusted Treatment Comparisons.”</span> <em>Journal of the
 Royal Statistical Society: Series A</em> 183 (3): 1189–210. <a href="https://doi.org/10.1111/rssa.12579" class="external-link">https://doi.org/10.1111/rssa.12579</a>.
+</div>
+<div id="ref-rucker2020cnma" class="csl-entry">
+Rücker, Gerta, Maria Petropoulou, and Guido Schwarzer. 2020.
+<span>“Network Meta-Analysis of Multicomponent Interventions.”</span>
+<em>Biometrical Journal</em> 62 (3): 808–21. <a href="https://doi.org/10.1002/bimj.201800167" class="external-link">https://doi.org/10.1002/bimj.201800167</a>.
+</div>
+<div id="ref-rucker2021disconnected" class="csl-entry">
+Rücker, Gerta, Susanne Schmitz, and Guido Schwarzer. 2021.
+<span>“Component Network Meta-Analysis Compared to a Matching Method in
+a Disconnected Network.”</span> <em>Biometrical Journal</em> 63 (2):
+447–61.
 </div>
 <div id="ref-Veroniki2026" class="csl-entry">
 <span class="nocase">Veroniki, Areti Angeliki, Georgios Seitidis, Sofia

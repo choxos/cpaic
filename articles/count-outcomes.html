@@ -676,6 +676,23 @@ their <em>unadjusted</em> contrasts, which <code><a href="../reference/cstc.html
 <span><span class="co">#&gt;   Bridging components: LABA, LAMA</span></span>
 <span><span class="co">#&gt;   Component design:  rank(X) = 4 / 4 components -&gt; all component effects identified</span></span>
 <span><span class="co">#&gt;   Estimable effects: 5 / 5 vs PBO</span></span></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">net</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/count-network-plot-1.png" alt="plot of chunk network-plot"><p class="caption">
+plot of chunk network-plot
+</p>
+</div>
+<p><code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> draws each sub-network on its own circle, so the
+disconnection is visible rather than inferred: the <code>MONO-*</code>
+trials sit around <code>PBO</code> on one circle, the <code>ADD-*</code>
+trials on the other, and no edge runs between them. Edge color separates
+the two IPD trials from the five aggregate ones, and node shape marks
+the treatments that contain a bridging component. Every treatment except
+<code>PBO</code> contains <code>LABA</code> or <code>LAMA</code>, which
+is precisely why the additive model has anything to bridge with; a
+network whose sub-networks shared no component could not be reconnected
+at all, and <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> would say so in its subtitle.</p>
 <p>Two sub-networks, bridged by <code>LABA</code> and <code>LAMA</code>,
 and the component design matrix
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>X</mi><mo>=</mo><mi>B</mi><mi>C</mi></mrow><annotation encoding="application/x-tex">X = BC</annotation></semantics></math>
@@ -687,7 +704,7 @@ thought.</p>
 <div class="section level2">
 <h2 id="covariate-balance">Covariate balance<a class="anchor" aria-label="anchor" href="#covariate-balance"></a>
 </h2>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">balance</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">rbind</span>, <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/split.html" class="external-link">split</a></span><span class="op">(</span><span class="va">patients</span>, <span class="va">patients</span><span class="op">$</span><span class="va">.study</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">d</span><span class="op">)</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>Study <span class="op">=</span> <span class="va">d</span><span class="op">$</span><span class="va">.study</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>,</span>
 <span>             Eosinophils <span class="op">=</span> <span class="fl">200</span> <span class="op">+</span> <span class="fl">100</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">d</span><span class="op">$</span><span class="va">eos</span><span class="op">)</span>,</span>
@@ -777,7 +794,7 @@ a formulary committee is actually deciding for: an eosinophilic,
 frequently exacerbating group (350 cells, 55% frequent exacerbators). We
 will also ask for a low-eosinophil, infrequently exacerbating
 population, where the answer is quite different.</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">target</span>     <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>eos <span class="op">=</span>  <span class="fl">1.5</span>, freqex <span class="op">=</span> <span class="fl">0.55</span><span class="op">)</span>   <span class="co"># 350 cells, 55% frequent</span></span>
 <span><span class="va">target_low</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>eos <span class="op">=</span> <span class="op">-</span><span class="fl">0.5</span>, freqex <span class="op">=</span> <span class="fl">0.20</span><span class="op">)</span>   <span class="co"># 150 cells, 20% frequent</span></span></code></pre></div>
 </div>
@@ -797,7 +814,7 @@ distribution matches the target <span class="citation">(<a href="#ref-signorovit
 refits a weighted Poisson model with the same offset, giving a
 <strong>marginal</strong> log rate ratio. Both hand their adjusted
 contrasts to <code><a href="../reference/cnma_bridge.html">cnma_bridge()</a></code>.</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">ems</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"eos"</span>, <span class="st">"freqex"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">fit_stc</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cstc.html">cstc</a></span><span class="op">(</span><span class="va">net</span>, target <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>eos <span class="op">=</span> <span class="fl">1.5</span>, freqex <span class="op">=</span> <span class="fl">0.55</span><span class="op">)</span>, effect_modifiers <span class="op">=</span> <span class="va">ems</span><span class="op">)</span></span>
@@ -819,6 +836,54 @@ little weight, because the target population barely resembles them. That
 number is a warning, not a diagnostic to be optimized away; a small ESS
 means the adjusted contrast rests on a handful of patients <span class="citation">(<a href="#ref-phillippo2018">Phillippo et al.
 2018</a>)</span>.</p>
+<p>An effective sample size says that the weights are well behaved. It
+does not say that the reweighted edge carries the contrast you care
+about, and if it does not, then adjusting that edge cannot move the
+answer however healthy its ESS looks. <code><a href="../reference/plot_edge_influence.html">plot_edge_influence()</a></code>
+asks the second question directly: it decomposes the bridged estimate of
+one contrast into the weight each observed edge receives.</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_edge_influence.html">plot_edge_influence</a></span><span class="op">(</span><span class="va">fit_stc</span>, treatment <span class="op">=</span> <span class="st">"LABA+ICS"</span>, comparator <span class="op">=</span> <span class="st">"LAMA"</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/count-edge-influence-1.png" alt="plot of chunk edge-influence"><p class="caption">
+plot of chunk edge-influence
+</p>
+</div>
+<p>Both IPD edges carry weight, so the population adjustment done to
+them is not wasted. The reason is worth spelling out, because it is the
+whole logic of the bridge: <code>LABA+ICS</code> versus
+<code>LAMA</code> decomposes into the <code>LABA</code> direction, which
+<code>MONO-1</code>, <code>MONO-3</code> and <code>MONO-4</code>
+measure, plus the <code>LAMA</code> minus <code>ICS</code> direction,
+which <code>ADD-1</code> and <code>ADD-3</code> measure.
+<code>MONO-1</code> and <code>ADD-1</code> are the IPD trials, and they
+sit one in each of those directions.</p>
+<p>Two edges get nothing. <code>ADD-2</code> is the easy case: the
+headline contrast contains no <code>ROF</code> component, so the
+roflumilast trial is irrelevant to it. <code>MONO-2</code> is the
+instructive one. It measures <code>LAMA</code> against <code>PBO</code>,
+so its edge points along <code>LAMA</code> <em>alone</em>, and that is
+not one of the two directions the contrast decomposes into; the bridge
+therefore takes nothing from it, despite its being the only trial in the
+network that studied <code>LAMA</code> on its own. Had either of those
+zero-weight edges been an IPD trial, it would have been drawn in red:
+reweighting an edge of no influence cannot change the answer, whatever
+its effective sample size reports.</p>
+<p>The two-stage answer, as a forest plot, with <code>LAMA</code> as the
+comparator throughout:</p>
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/forest.html">forest</a></span><span class="op">(</span><span class="va">fit_stc</span>, reference <span class="op">=</span> <span class="st">"LAMA"</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/count-forest-freq-1.png" alt="plot of chunk forest-freq"><p class="caption">
+plot of chunk forest-freq
+</p>
+</div>
+<p>The bridge estimates all five contrasts against <code>LAMA</code> and
+flags none of them. That is not an oversight: the component design
+matrix has full column rank, so from the bridge’s point of view every
+relative effect is identified. Keep this figure in mind. The Bayesian
+forest in the Results section, fitted to the same seven trials, declines
+to report three of these five rows.</p>
 </div>
 <div class="section level3">
 <h3 id="two-routes-two-estimands">Two routes, two estimands<a class="anchor" aria-label="anchor" href="#two-routes-two-estimands"></a>
@@ -829,7 +894,7 @@ the fitted object, so we can line it up against the estimand it is
 <em>supposed</em> to be hitting: the true conditional log rate ratio in
 closed form, and the true marginal one by G-computation over the target
 population.</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">edge</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">fitobj</span>, <span class="va">study</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">a</span> <span class="op">&lt;-</span> <span class="va">fitobj</span><span class="op">$</span><span class="va">bridge</span><span class="op">$</span><span class="va">network</span><span class="op">$</span><span class="va">agd</span></span>
 <span>  <span class="va">a</span><span class="op">$</span><span class="va">TE</span><span class="op">[</span><span class="va">a</span><span class="op">$</span><span class="va">studlab</span> <span class="op">==</span> <span class="va">study</span><span class="op">]</span></span>
@@ -920,7 +985,7 @@ has to be made deliberately <span class="citation">(<a href="#ref-remiro2022">Re
 <div class="section level3">
 <h3 id="route-2-one-stage-bayesian">Route 2: one stage, Bayesian<a class="anchor" aria-label="anchor" href="#route-2-one-stage-bayesian"></a>
 </h3>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cmlnmr.html">cmlnmr</a></span><span class="op">(</span><span class="va">ipd</span>, <span class="va">agd</span>,</span>
 <span>              effect_modifiers <span class="op">=</span> <span class="va">ems</span>,</span>
 <span>              inactive <span class="op">=</span> <span class="st">"PBO"</span>, family <span class="op">=</span> <span class="st">"poisson"</span>,</span>
@@ -936,10 +1001,10 @@ has to be made deliberately <span class="citation">(<a href="#ref-remiro2022">Re
 <span><span class="co">#&gt;   For a target population use relative_effects(fit, newdata = ...).</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt;  component estimate    se  lower upper</span></span>
-<span><span class="co">#&gt;        ICS   -0.130 0.184 -0.479 0.234</span></span>
-<span><span class="co">#&gt;       LABA   -0.134 0.099 -0.327 0.065</span></span>
-<span><span class="co">#&gt;       LAMA   -0.130 0.136 -0.406 0.157</span></span>
-<span><span class="co">#&gt;        ROF   -0.320 1.019 -2.785 1.174</span></span></code></pre></div>
+<span><span class="co">#&gt;        ICS   -0.129 0.181 -0.476 0.209</span></span>
+<span><span class="co">#&gt;       LABA   -0.141 0.087 -0.313 0.034</span></span>
+<span><span class="co">#&gt;       LAMA   -0.127 0.131 -0.373 0.126</span></span>
+<span><span class="co">#&gt;        ROF   -0.406 1.080 -3.026 1.181</span></span></code></pre></div>
 <p>The <code>[bernoulli]</code> and <code>[normal]</code> tags in the
 print output are the integration margins cpaic chose. It guessed them
 from the IPD (<code>freqex</code> is 0/1, <code>eos</code> is not);
@@ -949,7 +1014,7 @@ them explicitly.</p>
 <div class="section level3">
 <h3 id="priors">Priors<a class="anchor" aria-label="anchor" href="#priors"></a>
 </h3>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">rbind</span>, <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">priors</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">p</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">s</span> <span class="op">&lt;-</span> <span class="va">fit</span><span class="op">$</span><span class="va">priors</span><span class="op">[[</span><span class="va">p</span><span class="op">]</span><span class="op">]</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>parameter <span class="op">=</span> <span class="va">p</span>, distribution <span class="op">=</span> <span class="va">s</span><span class="op">$</span><span class="va">distribution</span>,</span>
@@ -1008,11 +1073,33 @@ work only where
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi mathvariant="normal">Γ</mi><annotation encoding="application/x-tex">\Gamma</annotation></semantics></math>
 is weakly identified. That is exactly where we will need
 <code><a href="../reference/prior_sensitivity.html">prior_sensitivity()</a></code> below.</p>
+<p><code><a href="../reference/plot_prior_posterior.html">plot_prior_posterior()</a></code> shows the same thing without a
+refit, overlaying each parameter’s posterior (histogram) on the prior it
+was given (red line). A posterior that reproduces its prior was not
+estimated from the data.</p>
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_prior_posterior.html">plot_prior_posterior</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/count-prior-posterior-1.png" alt="plot of chunk prior-posterior"><p class="caption">
+plot of chunk prior-posterior
+</p>
+</div>
+<p>The study intercepts <code>mu</code>, the component main effects
+<code>beta</code> and the prognostic coefficients <code>breg</code> have
+posteriors far narrower than their priors: the likelihood moved them.
+The interactions <code>gamma</code> split into two groups, and the
+indexing is what makes the panels readable: the first index runs over
+the components in the order <code>ICS</code>, <code>LABA</code>,
+<code>LAMA</code>, <code>ROF</code>, the second over the modifiers
+<code>eos</code> and <code>freqex</code>. Six of the eight interactions
+are pulled well inside their prior. The two that are not, together with
+the widest of the four <code>beta</code> panels, all belong to
+roflumilast, and we return to them under prior sensitivity.</p>
 </div>
 <div class="section level3">
 <h3 id="convergence">Convergence<a class="anchor" aria-label="anchor" href="#convergence"></a>
 </h3>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  divergences   <span class="op">=</span> <span class="va">fit</span><span class="op">$</span><span class="va">diagnostics</span><span class="op">$</span><span class="va">divergences</span>,</span>
 <span>  max_treedepth <span class="op">=</span> <span class="va">fit</span><span class="op">$</span><span class="va">diagnostics</span><span class="op">$</span><span class="va">max_treedepth</span>,</span>
@@ -1021,7 +1108,7 @@ is weakly identified. That is exactly where we will need
 <span>                                              <span class="st">"tau"</span><span class="op">)</span><span class="op">)</span><span class="op">$</span><span class="va">ess_bulk</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="co">#&gt;   divergences max_treedepth max_rhat min_ess_bulk</span></span>
-<span><span class="co">#&gt; 1           0             5    1.014          320</span></span></code></pre></div>
+<span><span class="co">#&gt; 1           0             0   1.0113          365</span></span></code></pre></div>
 <p>No divergences, and
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>R</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat R</annotation></semantics></math>
 and the effective sample sizes are fine. A handful of iterations
@@ -1030,6 +1117,63 @@ correctness; it is the signature of the mild funnel that any
 random-effects model has when <code>tau</code> is only weakly informed.
 Raising <code>max_treedepth</code> (passed through <code>...</code> to
 <code>cmdstanr</code>) removes it at the cost of runtime.</p>
+<p>The same conclusion, drawn rather than tabulated. <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code>
+on a <code><a href="../reference/cmlnmr.html">cmlnmr()</a></code> fit hands the draws to
+<code>bayesplot</code>; <code>type = "trace"</code> shows the four
+chains for the component effects, the interactions, and the
+heterogeneity.</p>
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">fit</span>, type <span class="op">=</span> <span class="st">"trace"</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/count-trace-1.png" alt="plot of chunk trace"><p class="caption">
+plot of chunk trace
+</p>
+</div>
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">fit</span>, type <span class="op">=</span> <span class="st">"rhat"</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/count-rhat-1.png" alt="plot of chunk rhat"><p class="caption">
+plot of chunk rhat
+</p>
+</div>
+<p>The chains overlay one another and sweep the whole support of each
+parameter, with no drift and no chain exploring a region of its own;
+every
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>R</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat R</annotation></semantics></math>
+sits in the lowest band. Now notice what these two figures
+<strong>cannot</strong> tell you. The interactions that no trial
+identifies mix exactly as well as the ones that are pinned down by IPD,
+because sampling from a prior is easy and a sampler has no way of
+minding that it is doing so. Convergence diagnostics certify that the
+posterior was explored. They say nothing whatever about whether it was
+informed, and the rest of this vignette is about the difference.</p>
+</div>
+<div class="section level3">
+<h3 id="integration-accuracy">Integration accuracy<a class="anchor" aria-label="anchor" href="#integration-accuracy"></a>
+</h3>
+<p>The aggregate likelihood is a quasi-Monte-Carlo integral, so it
+carries a numerical error on top of the statistical one.
+<code><a href="../reference/plot_integration_error.html">plot_integration_error()</a></code> traces it: for each aggregate arm
+it recomputes the integrated rate from the first
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>N</mi><annotation encoding="application/x-tex">N</annotation></semantics></math>
+integration points, subtracts the value at all 64, and compares the
+residual against the
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mi>/</mi><mi>N</mi></mrow><annotation encoding="application/x-tex">1/N</annotation></semantics></math>
+envelope that quasi-Monte-Carlo integration is expected to follow.</p>
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_integration_error.html">plot_integration_error</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/count-integration-error-1.png" alt="plot of chunk integration-error"><p class="caption">
+plot of chunk integration-error
+</p>
+</div>
+<p>The error in every aggregate arm has collapsed inside the envelope
+well before the right-hand edge, so <code>n_int = 64</code> is enough
+integration points here: the aggregation bias described above is
+genuinely being removed rather than swapped for numerical noise. Were a
+facet still wandering at 64 points, the remedy would be to refit with a
+larger <code>n_int</code>, not to reason about the estimates as they
+stand.</p>
 </div>
 </div>
 <div class="section level2">
@@ -1061,14 +1205,19 @@ trial escapes this, because within a trial you can regress on arm and on
 arm-by-covariate directly, and so recover all
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mo>+</mo><mi>Q</mi></mrow><annotation encoding="application/x-tex">1 + Q</annotation></semantics></math>
 at once.</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/estimable_effects_at.html">estimable_effects_at</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="va">target</span>, reference <span class="op">=</span> <span class="st">"LAMA"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;       treatment comparator estimable identified_by</span></span>
-<span><span class="co">#&gt; 1          LABA       LAMA     FALSE          none</span></span>
-<span><span class="co">#&gt; 2      LABA+ICS       LAMA      TRUE           IPD</span></span>
-<span><span class="co">#&gt; 3     LABA+LAMA       LAMA      TRUE           IPD</span></span>
-<span><span class="co">#&gt; 4 LABA+LAMA+ROF       LAMA     FALSE          none</span></span>
-<span><span class="co">#&gt; 5           PBO       LAMA     FALSE          none</span></span></code></pre></div>
+<span><span class="co">#&gt; Estimability of the population-adjusted relative effects</span></span>
+<span><span class="co">#&gt;   Target population: eos = 1.5, freqex = 0.55</span></span>
+<span><span class="co">#&gt;      treatment comparator estimable identified_by          basis</span></span>
+<span><span class="co">#&gt;           LABA       LAMA     FALSE          none not identified</span></span>
+<span><span class="co">#&gt;       LABA+ICS       LAMA      TRUE           IPD          exact</span></span>
+<span><span class="co">#&gt;      LABA+LAMA       LAMA      TRUE           IPD          exact</span></span>
+<span><span class="co">#&gt;  LABA+LAMA+ROF       LAMA     FALSE          none not identified</span></span>
+<span><span class="co">#&gt;            PBO       LAMA     FALSE          none not identified</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt;   Rows marked "not identified" carry no first-order information; a number</span></span>
+<span><span class="co">#&gt;   reported for them would be the prior. relative_effects() returns NA there.</span></span></code></pre></div>
 <p><code>LABA+ICS</code> (the headline) and <code>LABA+LAMA</code> are
 identified, from <strong>IPD</strong>. The other three are not
 identified at all, because each needs <code>LAMA</code> or
@@ -1077,19 +1226,28 @@ aggregate contrast: one equation, three unknowns.</p>
 <p>Estimability depends on the target. <code>MONO-2</code> is the
 aggregate trial that measured <code>LAMA</code>; ask for <em>its</em>
 population and <code>LAMA</code> comes back:</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">mono2</span> <span class="op">&lt;-</span> <span class="va">agd</span><span class="op">[</span><span class="va">agd</span><span class="op">$</span><span class="va">.study</span> <span class="op">==</span> <span class="st">"MONO-2"</span>, <span class="op">]</span></span>
 <span><span class="va">own</span>   <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>eos <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">mono2</span><span class="op">$</span><span class="va">eos_mean</span><span class="op">)</span>, freqex <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">mono2</span><span class="op">$</span><span class="va">freqex_mean</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">own</span></span>
 <span><span class="co">#&gt;          eos    freqex</span></span>
 <span><span class="co">#&gt; 1 -0.2896867 0.2908333</span></span>
 <span><span class="fu"><a href="../reference/estimable_effects_at.html">estimable_effects_at</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="va">own</span>, reference <span class="op">=</span> <span class="st">"LAMA"</span><span class="op">)</span></span>
-<span><span class="co">#&gt;       treatment comparator estimable identified_by</span></span>
-<span><span class="co">#&gt; 1          LABA       LAMA      TRUE     aggregate</span></span>
-<span><span class="co">#&gt; 2      LABA+ICS       LAMA      TRUE           IPD</span></span>
-<span><span class="co">#&gt; 3     LABA+LAMA       LAMA      TRUE           IPD</span></span>
-<span><span class="co">#&gt; 4 LABA+LAMA+ROF       LAMA     FALSE          none</span></span>
-<span><span class="co">#&gt; 5           PBO       LAMA      TRUE     aggregate</span></span></code></pre></div>
+<span><span class="co">#&gt; Estimability of the population-adjusted relative effects</span></span>
+<span><span class="co">#&gt;   Target population: eos = -0.29, freqex = 0.291</span></span>
+<span><span class="co">#&gt;      treatment comparator estimable identified_by              basis</span></span>
+<span><span class="co">#&gt;           LABA       LAMA      TRUE     aggregate first-order screen</span></span>
+<span><span class="co">#&gt;       LABA+ICS       LAMA      TRUE           IPD              exact</span></span>
+<span><span class="co">#&gt;      LABA+LAMA       LAMA      TRUE           IPD              exact</span></span>
+<span><span class="co">#&gt;  LABA+LAMA+ROF       LAMA     FALSE          none     not identified</span></span>
+<span><span class="co">#&gt;            PBO       LAMA      TRUE     aggregate first-order screen</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt;   Rows marked "first-order screen" are identified only through aggregate arms</span></span>
+<span><span class="co">#&gt;   under a nonlinear link, where the criterion can be optimistic. Check them</span></span>
+<span><span class="co">#&gt;   with prior_sensitivity().</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt;   Rows marked "not identified" carry no first-order information; a number</span></span>
+<span><span class="co">#&gt;   reported for them would be the prior. relative_effects() returns NA there.</span></span></code></pre></div>
 <p>That is the whole of what an aggregate two-arm trial can tell you:
 its own contrast, in its own population. Everything else is
 extrapolation through
@@ -1097,14 +1255,47 @@ extrapolation through
 and
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi mathvariant="normal">Γ</mi><annotation encoding="application/x-tex">\Gamma</annotation></semantics></math>
 has to come from somewhere.</p>
+<p><code><a href="../reference/plot_estimability.html">plot_estimability()</a></code> makes that statement into a picture.
+It sweeps the target population along one effect modifier and re-asks
+the estimability question at every point. We sweep <code>eos</code>
+through a grid that passes exactly through <code>MONO-2</code>’s own
+eosinophil mean, holding <code>freqex</code> at <code>MONO-2</code>’s
+own prevalence, so that one column of the map, and only one, <em>is</em>
+<code>MONO-2</code>’s own population.</p>
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">eos_grid</span> <span class="op">&lt;-</span> <span class="va">own</span><span class="op">$</span><span class="va">eos</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1</span>, <span class="fl">3</span>, by <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/plot_estimability.html">plot_estimability</a></span><span class="op">(</span><span class="va">fit</span>, em <span class="op">=</span> <span class="st">"eos"</span>, values <span class="op">=</span> <span class="va">eos_grid</span>,</span>
+<span>                  at <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>freqex <span class="op">=</span> <span class="va">own</span><span class="op">$</span><span class="va">freqex</span><span class="op">)</span>, reference <span class="op">=</span> <span class="st">"LAMA"</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/count-estimability-map-1.png" alt="plot of chunk estimability-map"><p class="caption">
+plot of chunk estimability-map
+</p>
+</div>
+<p>Three colors, three regimes. Two rows are green across the entire
+axis: the headline contrast <code>LABA+ICS</code> versus
+<code>LAMA</code>, and <code>LABA+LAMA</code> versus <code>LAMA</code>.
+Both are identified by IPD, from within-study arm-by-covariate
+variation, and are therefore identified in <strong>every</strong> target
+population; that within-study variation is exactly what anchored STC and
+MAIC consume. Two more rows, <code>PBO</code> versus <code>LAMA</code>
+and <code>LABA</code> versus <code>LAMA</code>, are red everywhere
+except at the single column that is <code>MONO-2</code>’s own
+population, where they turn yellow. There, and nowhere else, the
+aggregate <code>LAMA</code> trial identifies its own contrast, and
+anything that can be built from it; and it does so
+<strong>ecologically</strong>, from a between-study covariate mean
+rather than from a within-study slope <span class="citation">(<a href="#ref-berlin2002ecological">Berlin et al. 2002</a>)</span>. The
+roflumilast row is red throughout, because <code>ADD-2</code>’s own
+population does not lie on this axis. A one-column island of
+estimability is what an aggregate two-arm trial buys you.</p>
 <p>The same algebra reaches the component effects:</p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/component_effects.html">component_effects</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="va">target</span><span class="op">)</span></span>
-<span><span class="co">#&gt;   component   estimate       se      lower     upper</span></span>
-<span><span class="co">#&gt; 1       ICS         NA       NA         NA        NA</span></span>
-<span><span class="co">#&gt; 2      LABA -0.1410082 0.104184 -0.3490409 0.0619174</span></span>
-<span><span class="co">#&gt; 3      LAMA         NA       NA         NA        NA</span></span>
-<span><span class="co">#&gt; 4       ROF         NA       NA         NA        NA</span></span></code></pre></div>
+<span><span class="co">#&gt;   component   estimate         se      lower      upper</span></span>
+<span><span class="co">#&gt; 1       ICS         NA         NA         NA         NA</span></span>
+<span><span class="co">#&gt; 2      LABA -0.1481942 0.08995091 -0.3221309 0.02926425</span></span>
+<span><span class="co">#&gt; 3      LAMA         NA         NA         NA         NA</span></span>
+<span><span class="co">#&gt; 4       ROF         NA         NA         NA         NA</span></span></code></pre></div>
 <p><code>LABA</code> is identified. <code>ICS</code>, <code>LAMA</code>
 and <code>ROF</code> individually are not; but the <em>combination</em>
 the headline needs, <code>LABA</code> plus <code>ICS</code> minus
@@ -1113,6 +1304,19 @@ the headline needs, <code>LABA</code> plus <code>ICS</code> minus
 <code>NA</code> for what it cannot identify rather than a prior-driven
 number, which is the behavior you want from a tool that would otherwise
 hand you the prior with a straight face <span class="citation">(<a href="#ref-Wigle2026">Wigle et al. 2026</a>)</span>.</p>
+<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/forest.html">forest</a></span><span class="op">(</span><span class="va">fit</span>, what <span class="op">=</span> <span class="st">"component"</span>, newdata <span class="op">=</span> <span class="va">target</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/count-comp-forest-1.png" alt="plot of chunk comp-forest"><p class="caption">
+plot of chunk comp-forest
+</p>
+</div>
+<p>The component forest reports the same four numbers, on the log
+rate-ratio scale, and it <em>keeps</em> the three it cannot compute,
+drawn as labelled empty rows rather than dropped. A reader shown only
+<code>LABA</code> would have no way of telling that three components had
+been quietly removed; a reader shown three blanks knows exactly what the
+network could not answer.</p>
 </div>
 <div class="section level2">
 <h2 id="results">Results<a class="anchor" aria-label="anchor" href="#results"></a>
@@ -1120,25 +1324,40 @@ hand you the prior with a straight face <span class="citation">(<a href="#ref-Wi
 <div class="section level3">
 <h3 id="recovered-against-the-truth">Recovered against the truth<a class="anchor" aria-label="anchor" href="#recovered-against-the-truth"></a>
 </h3>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">fit</span>, reference <span class="op">=</span> <span class="st">"LAMA"</span>, newdata <span class="op">=</span> <span class="va">target</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Relative effects (IRR, back-transformed)</span></span>
 <span><span class="co">#&gt;   Target population: eos = 1.5, freqex = 0.55</span></span>
 <span><span class="co">#&gt;      treatment comparator estimate    se lower upper pr_gt0</span></span>
 <span><span class="co">#&gt;           LABA       LAMA       NA    NA    NA    NA     NA</span></span>
-<span><span class="co">#&gt;       LABA+ICS       LAMA    0.723 0.154 0.528 0.968  0.020</span></span>
-<span><span class="co">#&gt;      LABA+LAMA       LAMA    0.873 0.104 0.705 1.064  0.073</span></span>
+<span><span class="co">#&gt;       LABA+ICS       LAMA    0.713 0.137 0.548 0.922  0.013</span></span>
+<span><span class="co">#&gt;      LABA+LAMA       LAMA    0.866 0.090 0.725 1.030  0.044</span></span>
 <span><span class="co">#&gt;  LABA+LAMA+ROF       LAMA       NA    NA    NA    NA     NA</span></span>
 <span><span class="co">#&gt;            PBO       LAMA       NA    NA    NA    NA     NA</span></span>
 <span><span class="co">#&gt;   NA = not uniquely estimable from this component design (see estimable_effects()).</span></span></code></pre></div>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/forest.html">forest</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="va">target</span>, reference <span class="op">=</span> <span class="st">"LAMA"</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/count-forest-bayes-1.png" alt="plot of chunk forest-bayes"><p class="caption">
+plot of chunk forest-bayes
+</p>
+</div>
+<p>The same table as a figure, and the refusals are now impossible to
+miss: <code>PBO</code>, <code>LABA</code> and <code>LABA+LAMA+ROF</code>
+versus <code>LAMA</code> are drawn as labelled empty rows. Set this
+beside the frequentist forest from the previous section, which put a
+point estimate and a confidence interval on all five. Same seven trials,
+same additive component structure, same target population. The
+difference is that one model knows which of its own answers this target
+identifies and the other does not.</p>
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">fit</span>, reference <span class="op">=</span> <span class="st">"LAMA"</span>, newdata <span class="op">=</span> <span class="va">target_low</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Relative effects (IRR, back-transformed)</span></span>
 <span><span class="co">#&gt;   Target population: eos = -0.5, freqex = 0.2</span></span>
 <span><span class="co">#&gt;      treatment comparator estimate    se lower upper pr_gt0</span></span>
 <span><span class="co">#&gt;           LABA       LAMA       NA    NA    NA    NA     NA</span></span>
-<span><span class="co">#&gt;       LABA+ICS       LAMA    1.010 0.159 0.735 1.362  0.494</span></span>
-<span><span class="co">#&gt;      LABA+LAMA       LAMA    0.881 0.096 0.725 1.069  0.066</span></span>
+<span><span class="co">#&gt;       LABA+ICS       LAMA    1.002 0.153 0.729 1.341  0.480</span></span>
+<span><span class="co">#&gt;      LABA+LAMA       LAMA    0.875 0.085 0.735 1.028  0.047</span></span>
 <span><span class="co">#&gt;  LABA+LAMA+ROF       LAMA       NA    NA    NA    NA     NA</span></span>
 <span><span class="co">#&gt;            PBO       LAMA       NA    NA    NA    NA     NA</span></span>
 <span><span class="co">#&gt;   NA = not uniquely estimable from this component design (see estimable_effects()).</span></span></code></pre></div>
@@ -1146,7 +1365,7 @@ hand you the prior with a straight face <span class="citation">(<a href="#ref-Wi
 target to roughly 0.9 in the low-eosinophil one: the steroid earns its
 place in one population and barely in the other. Now put every method
 beside the planted truth.</p>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">grab</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">tab</span>, <span class="va">t1</span>, <span class="va">ref</span>, <span class="va">what</span> <span class="op">=</span> <span class="st">"estimate"</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">tab</span><span class="op">[[</span><span class="va">what</span><span class="op">]</span><span class="op">]</span><span class="op">[</span><span class="va">tab</span><span class="op">$</span><span class="va">treatment</span> <span class="op">==</span> <span class="va">t1</span> <span class="op">&amp;</span> <span class="va">tab</span><span class="op">$</span><span class="va">comparator</span> <span class="op">==</span> <span class="va">ref</span><span class="op">]</span><span class="op">)</span></span>
 <span><span class="op">}</span></span>
@@ -1205,8 +1424,8 @@ truth</caption>
 <td align="right">0.790</td>
 <td align="left">yes</td>
 <td align="right">0.803</td>
-<td align="right">0.723</td>
-<td align="left">(0.53, 0.97)</td>
+<td align="right">0.713</td>
+<td align="left">(0.55, 0.92)</td>
 <td align="left">yes</td>
 </tr>
 <tr class="even">
@@ -1215,8 +1434,8 @@ truth</caption>
 <td align="right">0.873</td>
 <td align="left">yes</td>
 <td align="right">0.870</td>
-<td align="right">0.873</td>
-<td align="left">(0.71, 1.06)</td>
+<td align="right">0.866</td>
+<td align="left">(0.72, 1.03)</td>
 <td align="left">yes</td>
 </tr>
 </tbody>
@@ -1242,7 +1461,103 @@ edge.</p>
 <p>Third, the credible interval covers the truth. So, here, does the
 confidence interval; but it is aimed slightly off, and in a network with
 more aggregate evidence on that edge it would miss.</p>
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<p>The whole set of pairwise answers, for completeness:</p>
+<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="fu"><a href="../reference/league_table.html">league_table</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="va">target</span><span class="op">)</span>,</span>
+<span>  caption <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="st">"League table in the target population: rate ratio of the row"</span>,</span>
+<span>                  <span class="st">"treatment versus the column treatment, with its 95% credible"</span>,</span>
+<span>                  <span class="st">"interval. Blank cells are not identified at this target."</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<table class="table">
+<caption>League table in the target population: rate ratio of the row
+treatment versus the column treatment, with its 95% credible interval.
+Blank cells are not identified at this target.</caption>
+<colgroup>
+<col width="11%">
+<col width="15%">
+<col width="15%">
+<col width="15%">
+<col width="11%">
+<col width="15%">
+<col width="15%">
+</colgroup>
+<thead><tr class="header">
+<th align="left"></th>
+<th align="left">LABA</th>
+<th align="left">LABA+ICS</th>
+<th align="left">LABA+LAMA</th>
+<th align="left">LABA+LAMA+ROF</th>
+<th align="left">LAMA</th>
+<th align="left">PBO</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="left">LABA</td>
+<td align="left">LABA</td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left">0.87 (0.72, 1.03)</td>
+</tr>
+<tr class="even">
+<td align="left">LABA+ICS</td>
+<td align="left"></td>
+<td align="left">LABA+ICS</td>
+<td align="left">0.82 (0.68, 1.01)</td>
+<td align="left"></td>
+<td align="left">0.71 (0.55, 0.92)</td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left">LABA+LAMA</td>
+<td align="left"></td>
+<td align="left">1.23 (0.99, 1.47)</td>
+<td align="left">LABA+LAMA</td>
+<td align="left"></td>
+<td align="left">0.87 (0.72, 1.03)</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left">LABA+LAMA+ROF</td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left">LABA+LAMA+ROF</td>
+<td align="left"></td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left">LAMA</td>
+<td align="left"></td>
+<td align="left">1.43 (1.08, 1.83)</td>
+<td align="left">1.16 (0.97, 1.38)</td>
+<td align="left"></td>
+<td align="left">LAMA</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left">PBO</td>
+<td align="left">1.16 (0.97, 1.38)</td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left"></td>
+<td align="left">PBO</td>
+</tr>
+</tbody>
+</table>
+<p>A league table with holes in it. Only two blocks of cells carry
+numbers: <code>PBO</code> against <code>LABA</code>, and the three-way
+block among <code>LAMA</code>, <code>LABA+ICS</code> and
+<code>LABA+LAMA</code>. Every blank cell is one whose contrast would
+need the effect of <code>LAMA</code>, or of <code>ROF</code>, <em>on its
+own</em>, and neither is pinned down at this target.
+<code>LABA+LAMA+ROF</code> has an entirely empty row and an entirely
+empty column: no other treatment in the network differs from it by a set
+of components the design can resolve here. A conventional league table
+would have printed all thirty numbers and told the reader nothing about
+which twenty-two of them the design cannot identify at this target.</p>
+<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">grid</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1</span>, <span class="fl">3</span>, by <span class="op">=</span> <span class="fl">0.2</span><span class="op">)</span></span>
 <span><span class="va">curve</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">rbind</span>, <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">grid</span>, <span class="kw">function</span><span class="op">(</span><span class="va">e</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">re</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">fit</span>, reference <span class="op">=</span> <span class="st">"LAMA"</span>,</span>
@@ -1281,7 +1596,7 @@ where you hold IPD. Every aggregate edge enters
 population</strong>, and the additive model then propagates that into
 any contrast that leans on it, with no warning. Look at the contrasts
 <code><a href="../reference/cmlnmr.html">cmlnmr()</a></code> refused to report:</p>
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">cmp</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">rbind</span>, <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"PBO"</span>, <span class="st">"LABA"</span>, <span class="st">"LABA+LAMA+ROF"</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">t1</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>    Contrast  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="va">t1</span>, <span class="st">"vs LAMA"</span><span class="op">)</span>,</span>
@@ -1345,13 +1660,92 @@ you.</strong> The <code>NA</code> is not the tool being unhelpful; it is
 the tool declining to pretend.</p>
 </div>
 <div class="section level3">
+<h3 id="the-hierarchy-the-network-can-support">The hierarchy the network can support<a class="anchor" aria-label="anchor" href="#the-hierarchy-the-network-can-support"></a>
+</h3>
+<p>Everyone wants the ranking. Wigle et al. <span class="citation">(<a href="#ref-Wigle2026">2026</a>)</span> set out a four-step workflow for
+producing one honestly, and its third step is the one that bites here:
+<strong>refine the ranked set to the elements that are actually
+estimable, or decline to rank</strong>. cpaic performs that refinement
+automatically. Because the outcome is a rate of exacerbations, fewer is
+better, so every ranking call below is passed
+<code>lower_is_better = TRUE</code>.</p>
+<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="fu"><a href="../reference/cpaic_ranks.html">cpaic_ranks</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="va">target</span>, lower_is_better <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/count-ranks-target-1.png" alt="plot of chunk ranks-target"><p class="caption">
+plot of chunk ranks-target
+</p>
+</div>
+<p>Step 3 is drastic in this network. Four of the six treatments leave
+the hierarchy, and the caption names them. What survives is a
+two-element comparison between placebo and <code>LABA</code>, which is
+not a question anybody asked. The alternative was to rank all six, in
+which case four of the six ranks would have been functions of the
+interaction prior rather than of any trial, and the figure would have
+looked complete.</p>
+<p>The rankogram is stricter still, and it is worth seeing it
+refuse:</p>
+<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="fu"><a href="../reference/rank_probs.html">rank_probs</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="va">target</span>, lower_is_better <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  error <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">e</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/strwrap.html" class="external-link">strwrap</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">conditionMessage</a></span><span class="op">(</span><span class="va">e</span><span class="op">)</span>, <span class="fl">76</span><span class="op">)</span>, sep <span class="op">=</span> <span class="st">"\n"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Fewer than two elements are estimable in this target population, so no</span></span>
+<span><span class="co">#&gt; hierarchy can be formed. See estimable_effects_at().</span></span></code></pre></div>
+<p><code><a href="../reference/rank_probs.html">rank_probs()</a></code> ranks the treatments <em>other than</em>
+the reference, so, unlike <code><a href="../reference/cpaic_ranks.html">cpaic_ranks()</a></code>, it has no placebo
+to fall back on; after Step 3 only <code>LABA</code> remains, and one
+element is not a hierarchy. It therefore stops rather than draw one.
+That refusal is the intended behavior and not a defect: a rankogram
+computed from a prior-driven posterior is a picture of the prior, and it
+is indistinguishable, to the eye, from a picture of evidence.</p>
+<p>Move the target to <code>MONO-2</code>’s own population, the one
+place on the eosinophil axis where the aggregate <code>LAMA</code>
+evidence bites, and the hierarchy returns:</p>
+<div class="sourceCode" id="cb36"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="fu"><a href="../reference/rank_probs.html">rank_probs</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="va">own</span>, lower_is_better <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/count-rankogram-own-1.png" alt="plot of chunk rankogram-own"><p class="caption">
+plot of chunk rankogram-own
+</p>
+</div>
+<p>Four treatments are now estimable and therefore ranked, each panel
+giving the posterior probability that the treatment takes each rank,
+with rank 1 the fewest exacerbations. <code>LABA+LAMA+ROF</code> is
+still missing, because nothing identifies roflumilast in this population
+either. The point is not that <code>MONO-2</code>’s population is a
+better one to decide in; it is that the hierarchy, exactly like the
+estimable set and the relative effects themselves, is a property of the
+target population and not of the network.</p>
+<p>The rank curve is designed to show that dependence directly, tracing
+each element’s SUCRA as the target moves:</p>
+<div class="sourceCode" id="cb37"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_rank_curve.html">plot_rank_curve</a></span><span class="op">(</span><span class="va">fit</span>, em <span class="op">=</span> <span class="st">"eos"</span>, values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1</span>, <span class="fl">3</span>, by <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span>,</span>
+<span>                at <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>freqex <span class="op">=</span> <span class="fl">0.55</span><span class="op">)</span>, lower_is_better <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/count-rank-curve-1.png" alt="plot of chunk rank-curve"><p class="caption">
+plot of chunk rank-curve
+</p>
+</div>
+<p>Two nearly flat lines that never cross, and it would be a serious
+misreading to take that as reassurance. The curve is flat because at
+every target on this axis Step 3 leaves the <em>same two-element
+set</em>, placebo and <code>LABA</code>, and a two-element hierarchy
+contains nothing that could cross. What the curve is really tracing is
+the posterior probability that <code>LABA</code> beats placebo. A
+stable-looking rank curve means something only once the estimability map
+beside it has confirmed that there was more than one thing there to
+move. The figure this one is failing to be is a set of curves that
+cross, showing a hierarchy that genuinely reverses between populations;
+the failure is a property of the evidence, not of the plot.</p>
+</div>
+<div class="section level3">
 <h3 id="random-effects-and-model-comparison">Random effects and model comparison<a class="anchor" aria-label="anchor" href="#random-effects-and-model-comparison"></a>
 </h3>
 <p><code>tau</code> is the study-arm heterogeneity around the
 component-implied effects. With seven contrasts and four components
 there are three degrees of freedom for it, so it is informed, but not
 richly.</p>
-<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb38"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">fit</span><span class="op">$</span><span class="fu">summary</span><span class="op">(</span><span class="st">"tau"</span><span class="op">)</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"variable"</span>, <span class="st">"mean"</span>, <span class="st">"sd"</span>, <span class="st">"q5"</span>, <span class="st">"q95"</span>,</span>
 <span>                                        <span class="st">"rhat"</span>, <span class="st">"ess_bulk"</span><span class="op">)</span><span class="op">]</span>, digits <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span></code></pre></div>
 <table class="table">
@@ -1366,19 +1760,19 @@ richly.</p>
 </tr></thead>
 <tbody><tr class="odd">
 <td align="left">tau[1]</td>
-<td align="right">0.085</td>
-<td align="right">0.092</td>
-<td align="right">0.006</td>
-<td align="right">0.262</td>
-<td align="right">1.014</td>
-<td align="right">320.13</td>
+<td align="right">0.077</td>
+<td align="right">0.081</td>
+<td align="right">0.005</td>
+<td align="right">0.234</td>
+<td align="right">1.012</td>
+<td align="right">365.411</td>
 </tr></tbody>
 </table>
 <p>Compare against a fixed-effect fit by leave-one-out cross-validation
 <span class="citation">(<a href="#ref-vehtari2017">Vehtari et al.
 2017</a>)</span> and DIC <span class="citation">(<a href="#ref-spiegelhalter2002dic">Spiegelhalter et al.
 2002</a>)</span>:</p>
-<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb39"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit_fixed</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cmlnmr.html">cmlnmr</a></span><span class="op">(</span><span class="va">ipd</span>, <span class="va">agd</span>, effect_modifiers <span class="op">=</span> <span class="va">ems</span>, inactive <span class="op">=</span> <span class="st">"PBO"</span>,</span>
 <span>                    family <span class="op">=</span> <span class="st">"poisson"</span>, exposure <span class="op">=</span> <span class="st">".exposure"</span>,</span>
 <span>                    trt_effects <span class="op">=</span> <span class="st">"fixed"</span>,</span>
@@ -1387,8 +1781,8 @@ richly.</p>
 <span></span>
 <span><span class="fu">loo</span><span class="fu">::</span><span class="fu"><a href="https://mc-stan.org/loo/reference/loo_compare.html" class="external-link">loo_compare</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>random <span class="op">=</span> <span class="fu">loo</span><span class="fu">::</span><span class="fu"><a href="https://mc-stan.org/loo/reference/loo.html" class="external-link">loo</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span>, fixed <span class="op">=</span> <span class="fu">loo</span><span class="fu">::</span><span class="fu"><a href="https://mc-stan.org/loo/reference/loo.html" class="external-link">loo</a></span><span class="op">(</span><span class="va">fit_fixed</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;   model elpd_diff se_diff p_worse       diag_diff      diag_elpd</span></span>
-<span><span class="co">#&gt;   fixed       0.0     0.0      NA                 7 k_psis &gt; 0.7</span></span>
-<span><span class="co">#&gt;  random      -0.4     0.7    0.74 |elpd_diff| &lt; 4 9 k_psis &gt; 0.7</span></span>
+<span><span class="co">#&gt;   fixed       0.0     0.0      NA                 6 k_psis &gt; 0.7</span></span>
+<span><span class="co">#&gt;  random      -2.0     0.9    0.99 |elpd_diff| &lt; 4 9 k_psis &gt; 0.7</span></span>
 <span></span>
 <span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  model <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"random"</span>, <span class="st">"fixed"</span><span class="op">)</span>,</span>
@@ -1405,13 +1799,13 @@ richly.</p>
 <tbody>
 <tr class="odd">
 <td align="left">random</td>
-<td align="right">6244.0</td>
-<td align="right">20.3</td>
+<td align="right">6244.3</td>
+<td align="right">20.2</td>
 </tr>
 <tr class="even">
 <td align="left">fixed</td>
-<td align="right">6242.2</td>
-<td align="right">18.7</td>
+<td align="right">6242.1</td>
+<td align="right">18.3</td>
 </tr>
 </tbody>
 </table>
@@ -1423,17 +1817,55 @@ of information</strong>, so leaving one out is a large perturbation and
 the importance-sampling approximation strains. Read LOO here as
 indicative, alongside DIC. Second, neither criterion tests the
 assumption that bridges the gap.</p>
+<p>Two <code><a href="../reference/dic.html">dic()</a></code> objects passed to <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> give the
+dev-dev plot, which compares the models point by point instead of in
+aggregate:</p>
+<div class="sourceCode" id="cb40"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="fu"><a href="../reference/dic.html">dic</a></span><span class="op">(</span><span class="va">fit_fixed</span><span class="op">)</span>, <span class="fu"><a href="../reference/dic.html">dic</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span>, labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"fixed"</span>, <span class="st">"random"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/count-devdev-1.png" alt="plot of chunk devdev"><p class="caption">
+plot of chunk devdev
+</p>
+</div>
+<p>Each dot is one data point’s posterior mean deviance under the
+fixed-effect model against its deviance under the random-effects model;
+below the line of equality the random-effects model fits it better. The
+dense cloud is the individual patient data, of which there are 2400
+rows, and it lies on the line, as it must: random study-arm effects
+change the fit of a patient inside an IPD trial hardly at all. Any
+movement worth seeing belongs to the ten aggregate arms, which is where
+the study-level heterogeneity that <code>tau</code> is modeling actually
+lives.</p>
+<p><code><a href="../reference/plot_leverage.html">plot_leverage()</a></code> asks which data points are buying that
+fit, plotting each point’s leverage (its contribution to the effective
+number of parameters) against its signed square root residual deviance,
+with contours of constant DIC contribution:</p>
+<div class="sourceCode" id="cb41"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_leverage.html">plot_leverage</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/count-leverage-1.png" alt="plot of chunk leverage"><p class="caption">
+plot of chunk leverage
+</p>
+</div>
+<p>An individual patient contributes about one unit of deviance and
+almost no leverage, which is why the IPD form a low band. The aggregate
+arms carry the leverage, because each is an entire trial compressed to a
+single count, and a point outside the <code>DIC = 3</code> contour is
+one the model is paying for. (This plot needs a saturated model to
+measure residual deviance against. Poisson counts have one; censored
+survival times do not, which is why the survival vignette cannot draw
+it.)</p>
 <p>The frequentist bridge offers a Cochran
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Q</mi><annotation encoding="application/x-tex">Q</annotation></semantics></math>.
 Read <code>Q.diff</code>, not <code>Q</code>: only the former tests the
 additivity restrictions, and on a disconnected network it does not exist
 at all, because there is no standard NMA to nest the additive model
 inside.</p>
-<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb42"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/additivity_test.html">additivity_test</a></span><span class="op">(</span><span class="va">fit_stc</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Additive component model: fit statistics</span></span>
 <span><span class="co">#&gt;   Total lack of fit (Q.additive): Q = 9.772, df = 3, p = 0.0206</span></span>
-<span><span class="co">#&gt;   Additivity restrictions (Q.diff): not available -- no standard NMA</span></span>
+<span><span class="co">#&gt;   Additivity restrictions (Q.diff): not available; no standard NMA</span></span>
 <span><span class="co">#&gt;     is estimable on a disconnected network.</span></span>
 <span><span class="co">#&gt;   Note: neither statistic tests whether component effects are constant</span></span>
 <span><span class="co">#&gt;   ACROSS sub-networks, which is the assumption that bridges the gap.</span></span>
@@ -1461,18 +1893,18 @@ tighter and a looser interaction prior. It deliberately reports movement
 for the <strong>non-estimable</strong> contrasts too, bypassing the
 <code>NA</code> mask, so that you can see the mechanism instead of
 taking it on trust.</p>
-<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb43"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">ps</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/prior_sensitivity.html">prior_sensitivity</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="va">target</span>, reference <span class="op">=</span> <span class="st">"LAMA"</span>,</span>
 <span>                        prior <span class="op">=</span> <span class="st">"gamma"</span>, tighter <span class="op">=</span> <span class="fl">0.5</span>, looser <span class="op">=</span> <span class="fl">2</span>,</span>
 <span>                        chains <span class="op">=</span> <span class="fl">2</span>, iter_warmup <span class="op">=</span> <span class="fl">250</span>, iter_sampling <span class="op">=</span> <span class="fl">250</span><span class="op">)</span></span>
 <span><span class="va">ps</span></span>
 <span><span class="co">#&gt; cML-NMR prior sensitivity: gamma prior</span></span>
 <span><span class="co">#&gt;      treatment comparator estimate tighter looser move_tighter move_looser max_movement estimable</span></span>
-<span><span class="co">#&gt;           LABA       LAMA    0.153   0.140  0.117        0.013       0.036        0.036     FALSE</span></span>
-<span><span class="co">#&gt;       LABA+ICS       LAMA   -0.336  -0.346 -0.350        0.010       0.014        0.014      TRUE</span></span>
-<span><span class="co">#&gt;      LABA+LAMA       LAMA   -0.141  -0.149 -0.152        0.008       0.011        0.011      TRUE</span></span>
-<span><span class="co">#&gt;  LABA+LAMA+ROF       LAMA   -0.759  -0.380 -1.969        0.380       1.210        1.210     FALSE</span></span>
-<span><span class="co">#&gt;            PBO       LAMA    0.294   0.290  0.270        0.004       0.025        0.025     FALSE</span></span></code></pre></div>
+<span><span class="co">#&gt;           LABA       LAMA    0.140   0.159  0.139        0.019       0.002        0.019     FALSE</span></span>
+<span><span class="co">#&gt;       LABA+ICS       LAMA   -0.348  -0.343 -0.343        0.004       0.005        0.005      TRUE</span></span>
+<span><span class="co">#&gt;      LABA+LAMA       LAMA   -0.148  -0.146 -0.146        0.002       0.002        0.002      TRUE</span></span>
+<span><span class="co">#&gt;  LABA+LAMA+ROF       LAMA   -0.762  -0.343 -1.826        0.420       1.064        1.064     FALSE</span></span>
+<span><span class="co">#&gt;            PBO       LAMA    0.288   0.306  0.285        0.017       0.003        0.017     FALSE</span></span></code></pre></div>
 <p>Read <code>max_movement</code> against <code>estimable</code>. The
 estimable contrasts barely move. The non-estimable ones move with the
 prior, and <code>LABA+LAMA+ROF</code> moves <em>enormously</em>:
@@ -1481,6 +1913,46 @@ than a log unit, because roflumilast’s interactions are informed by
 nothing except that prior. That is what “not identified” means. No
 likelihood ridge holds it in place, and yet the posterior looks
 perfectly healthy while the prior fills the vacuum.</p>
+<p><code>plot_prior_posterior(fit, prior = "gamma")</code> reaches the
+same verdict for the cost of no refit at all, by overlaying each
+interaction’s posterior on the normal(0, 1) prior it was handed:</p>
+<div class="sourceCode" id="cb44"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_prior_posterior.html">plot_prior_posterior</a></span><span class="op">(</span><span class="va">fit</span>, prior <span class="op">=</span> <span class="st">"gamma"</span><span class="op">)</span></span></code></pre></div>
+<div class="figure" style="text-align: center">
+<img src="figure/count-prior-posterior-gamma-1.png" alt="plot of chunk prior-posterior-gamma"><p class="caption">
+plot of chunk prior-posterior-gamma
+</p>
+</div>
+<p>Recall the indexing: components in the order <code>ICS</code>,
+<code>LABA</code>, <code>LAMA</code>, <code>ROF</code>, modifiers in the
+order <code>eos</code>, <code>freqex</code>. Two panels are unlike the
+rest, and they are <code>gamma[4,1]</code> and <code>gamma[4,2]</code>:
+roflumilast’s interactions with each modifier reproduce the normal(0, 1)
+prior almost exactly. Nothing in seven trials touched them, which is why
+doubling that prior’s scale swings <code>LABA+LAMA+ROF</code> by more
+than a log unit in the table above. A well-mixed chain sampling a prior
+is still sampling a prior, and no convergence diagnostic will ever say
+otherwise.</p>
+<p>The other six interactions are pulled well inside their prior, and
+that deserves a word, because it is not the same statement as
+“estimable”. <code>ICS</code> and <code>LAMA</code> have tightly
+determined interactions here, and cpaic still reports their contrasts as
+<code>NA</code>. The two are consistent. Each of those components
+appears in an arm of an IPD trial, so the within-arm covariate slopes do
+constrain it, but only by borrowing the prognostic surface
+<code>breg</code> from <code>MONO-1</code> to interpret
+<code>ADD-1</code>, which is to say only by assuming that the prognostic
+effects are the same in both trials. The criterion behind
+<code><a href="../reference/estimable_effects_at.html">estimable_effects_at()</a></code> is built from within-study <em>arm
+contrasts</em>, in which that surface cancels, so it never leans on the
+assumption and never claims the identification it would buy. The two
+diagnostics ask different questions: <code><a href="../reference/plot_prior_posterior.html">plot_prior_posterior()</a></code>
+asks what the likelihood touched, and
+<code><a href="../reference/estimable_effects_at.html">estimable_effects_at()</a></code> asks what the design proves without
+extra assumptions. Roflumilast fails both. <code>ICS</code> and
+<code>LAMA</code> fail only the second, and it is on the strength of
+that failure, not of a wide posterior, that they are returned as
+<code>NA</code>.</p>
 <p>Notice that this is true even though those same contrasts came out
 fairly close to the truth in the table above. <strong>Being right by
 luck and being identified are different properties, and only one of them
@@ -1586,7 +2058,7 @@ in rate or in follow-up length, which they do here by construction. It
 is a screen, not a test.</p>
 </li>
 </ol>
-<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb45"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">od</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">rbind</span>, <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/split.html" class="external-link">split</a></span><span class="op">(</span><span class="va">ipd</span>, <span class="va">ipd</span><span class="op">$</span><span class="va">.study</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">d</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  Study <span class="op">=</span> <span class="va">d</span><span class="op">$</span><span class="va">.study</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, mean_count <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">d</span><span class="op">$</span><span class="va">.y</span><span class="op">)</span>, var_count <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/cor.html" class="external-link">var</a></span><span class="op">(</span><span class="va">d</span><span class="op">$</span><span class="va">.y</span><span class="op">)</span>,</span>
 <span>  raw_ratio <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/cor.html" class="external-link">var</a></span><span class="op">(</span><span class="va">d</span><span class="op">$</span><span class="va">.y</span><span class="op">)</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">d</span><span class="op">$</span><span class="va">.y</span><span class="op">)</span>,</span>
