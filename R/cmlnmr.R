@@ -237,8 +237,17 @@
 #' @param cor Optional covariate correlation matrix for the Gaussian-copula
 #'   integration. Must be a positive-definite correlation matrix (unit
 #'   diagonal). Defaults to the within-study IPD correlation.
-#' @param n_int Integration points per aggregate arm (ignored for
-#'   `gaussian`, which is exact at the covariate means).
+#' @param n_int Integration points per aggregate arm (ignored for `gaussian`,
+#'   which is exact at the covariate means).
+#'
+#'   This is the main cost lever for the survival families. An aggregate survival
+#'   arm is supplied as reconstructed pseudo-IPD, so the aggregate likelihood is
+#'   evaluated once per (aggregate row x integration point): the work grows as
+#'   `nrow(agd) * n_int`, and the default of 64 is expensive on a trial with
+#'   several hundred reconstructed patients. Sampling is otherwise well behaved
+#'   (no divergences and no treedepth saturation in our checks), so if a survival
+#'   fit is slow, reduce `n_int` before suspecting the geometry, and confirm the
+#'   answer is stable with [integration_error()].
 #' @param QR Logical scalar. If `TRUE`, apply the scaled thin QR
 #'   reparameterization used by `multinma` to the complete fixed-effects design
 #'   matrix. This is only a reparameterization: it must not change the posterior

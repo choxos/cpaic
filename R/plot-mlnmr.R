@@ -1205,7 +1205,10 @@ plot_survival <- function(object, ..., times = NULL, ndraws = 200L,
     }
     eta <- outer(base, rep(1, nrow(Xa))) +
       breg[keep, , drop = FALSE] %*% t(Xa) + gcols %*% t(Xa)  # draws x n
-    Hbase <- coefs[keep, , drop = FALSE] %*% t(H0)             # draws x times
+    # Each study has its own baseline hazard, so take THIS arm's study's
+    # coefficients. Using the whole array would mix the studies' baselines.
+    ccols <- paste0("coefficients[", s, ",", seq_len(ncol(H0)), "]")
+    Hbase <- coefs[keep, ccols, drop = FALSE] %*% t(H0)        # draws x times
     # S_bar(t) = mean_i exp(-H0(t) exp(eta_i)), averaged over the arm's
     # covariate distribution: the marginal survival the KM curve estimates.
     S <- vapply(seq_along(times), function(k) {

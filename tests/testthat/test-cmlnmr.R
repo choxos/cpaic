@@ -130,7 +130,7 @@ test_that("cmlnmr runs for gaussian, poisson, and survival families", {
   agdS$x1_sd <- 1
   fS <- cmlnmr(ipdS, agdS, effect_modifiers = "x1", inactive = "Placebo",
                family = "survival", chains = 1, iter_warmup = 250,
-               iter_sampling = 250, seed = 1)
+               iter_sampling = 250, seed = 1, n_int = 16)
   expect_true(all(is.finite(component_effects(fS)$estimate)))
 })
 
@@ -169,7 +169,7 @@ test_that("cmlnmr fits a piecewise-exponential (flexible) survival baseline", {
 
   fit <- cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "Placebo",
                 family = "survival", cut_points = cuts, chains = 2,
-                iter_warmup = 400, iter_sampling = 400, seed = 1)
+                iter_warmup = 400, iter_sampling = 400, seed = 1, n_int = 16)
   ce <- component_effects(fit)
   expect_true(all(is.finite(ce$estimate)))
   expect_true(all(ce$estimate > 0))                 # both log-HRs positive
@@ -228,7 +228,7 @@ test_that("cmlnmr fits an M-spline survival baseline", {
   fit <- cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "Placebo",
                 family = "survival", cut_points = cuts, baseline = "mspline",
                 n_basis = 4, chains = 2, iter_warmup = 400,
-                iter_sampling = 400, seed = 1)
+                iter_sampling = 400, seed = 1, n_int = 16)
   ce <- component_effects(fit)
   expect_true(all(is.finite(ce$estimate)))
   expect_true(all(ce$estimate > 0))

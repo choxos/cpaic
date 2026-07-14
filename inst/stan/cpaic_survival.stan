@@ -134,8 +134,6 @@ transformed parameters {
   vector[N_ipd] eta_ipd;
   vector[N_ipd] log_L_ipd;
   vector[N_agd] log_L_agd;
-  vector[N_ipd] p_event_ipd;
-  vector[N_agd] p_event_agd;
 
   allbeta = QR ? R_inv * beta_tilde : beta_tilde;
   mu = segment(allbeta, 1, N_studies);
@@ -167,15 +165,10 @@ transformed parameters {
       entry_basis_ipd[i], delayed_ipd[i], status_ipd[i], lp,
       coefficients[study_ipd[i]]
     );
-    p_event_ipd[i] = cpaic_event_probability(
-      itime_basis_ipd[i], entry_basis_ipd[i], lp,
-      coefficients[study_ipd[i]]
-    );
   }
 
   for (a in 1:N_agd) {
     vector[n_int] log_L_ii;
-    real event_acc = 0;
     for (k in 1:n_int) {
       int row = (a - 1) * n_int + k;
       real lp = QR ? Z_agd_int[row] * beta_tilde
@@ -188,13 +181,8 @@ transformed parameters {
         entry_basis_agd[a], delayed_agd[a], status_agd[a], lp,
         coefficients[study_agd[a]]
       );
-      event_acc += cpaic_event_probability(
-        itime_basis_agd[a], entry_basis_agd[a], lp,
-        coefficients[study_agd[a]]
-      );
     }
     log_L_agd[a] = log_sum_exp(log_L_ii) - log(n_int);
-    p_event_agd[a] = event_acc / n_int;
   }
 }
 
@@ -231,16 +219,36 @@ model {
 }
 
 generated quantities {
+  // The posterior-predictive event probability is needed only to draw a
+  // replicate, so it belongs here rather than in transformed parameters. As a
+  // transformed parameter it went onto the autodiff tape and into the output on
+  // every iteration, for no gain: nothing in the model block uses it.
   vector[N_ipd + N_agd] log_lik;
   array[N_ipd] int event_rep_ipd;
   array[N_agd] int event_rep_agd;
 
   for (i in 1:N_ipd) {
+    real p = cpaic_event_probability(
+      itime_basis_ipd[i], entry_basis_ipd[i], eta_ipd[i],
+      coefficients[study_ipd[i]]
+    );
     log_lik[i] = log_L_ipd[i];
-    event_rep_ipd[i] = bernoulli_rng(fmin(fmax(p_event_ipd[i], 0), 1));
+    event_rep_ipd[i] = bernoulli_rng(fmin(fmax(p, 0), 1));
   }
   for (a in 1:N_agd) {
+    real acc = 0;
+    for (k in 1:n_int) {
+      int row = (a - 1) * n_int + k;
+      real lp = QR ? Z_agd_int[row] * beta_tilde : Z_agd_int[row] * allbeta;
+      if (RE) {
+        if (re_idx_agd[a] > 0) lp += delta[re_idx_agd[a]];
+      }
+      acc += cpaic_event_probability(
+        itime_basis_agd[a], entry_basis_agd[a], lp,
+        coefficients[study_agd[a]]
+      );
+    }
     log_lik[N_ipd + a] = log_L_agd[a];
-    event_rep_agd[a] = bernoulli_rng(fmin(fmax(p_event_agd[a], 0), 1));
+    event_rep_agd[a] = bernoulli_rng(fmin(fmax(acc / n_int, 0), 1));
   }
 }

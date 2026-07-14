@@ -103,8 +103,17 @@ integrated basis).}
 integration. Must be a positive-definite correlation matrix (unit
 diagonal). Defaults to the within-study IPD correlation.}
 
-\item{n_int}{Integration points per aggregate arm (ignored for
-\code{gaussian}, which is exact at the covariate means).}
+\item{n_int}{Integration points per aggregate arm (ignored for \code{gaussian},
+which is exact at the covariate means).
+
+This is the main cost lever for the survival families. An aggregate survival
+arm is supplied as reconstructed pseudo-IPD, so the aggregate likelihood is
+evaluated once per (aggregate row x integration point): the work grows as
+\code{nrow(agd) * n_int}, and the default of 64 is expensive on a trial with
+several hundred reconstructed patients. Sampling is otherwise well behaved
+(no divergences and no treedepth saturation in our checks), so if a survival
+fit is slow, reduce \code{n_int} before suspecting the geometry, and confirm the
+answer is stable with \code{\link[=integration_error]{integration_error()}}.}
 
 \item{QR}{Logical scalar. If \code{TRUE}, apply the scaled thin QR
 reparameterization used by \code{multinma} to the complete fixed-effects design
