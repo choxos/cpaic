@@ -156,7 +156,7 @@ relative_effects(fit_stc)
 additivity_test(fit_stc)
 #> Additive component model: fit statistics
 #>   Total lack of fit (Q.additive): Q = 2.669, df = 1, p = 0.102
-#>   Additivity restrictions (Q.diff): not available -- no standard NMA
+#>   Additivity restrictions (Q.diff): not available; no standard NMA
 #>     is estimable on a disconnected network.
 #>   Note: neither statistic tests whether component effects are constant
 #>   ACROSS sub-networks, which is the assumption that bridges the gap.

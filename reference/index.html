@@ -20,6 +20,12 @@
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/cpaic-intro.html">Getting started with cpaic</a></li>
     <li><a class="dropdown-item" href="../articles/cpaic-methods.html">The cpaic statistical framework</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Outcomes</h6></li>
+    <li><a class="dropdown-item" href="../articles/binary-outcomes.html">Binary outcomes: a disconnected smoking-cessation network</a></li>
+    <li><a class="dropdown-item" href="../articles/continuous-outcomes.html">Continuous outcomes: bridging a disconnected network with a mean difference</a></li>
+    <li><a class="dropdown-item" href="../articles/count-outcomes.html">Count outcomes: a disconnected COPD exacerbation network</a></li>
+    <li><a class="dropdown-item" href="../articles/survival-outcomes.html">Survival outcomes: a disconnected network under proportional hazards</a></li>
     <li><a class="dropdown-item" href="../articles/cpaic-disconnected-myeloma.html">A disconnected network: NMA, ML-NMR, and cML-NMR compared</a></li>
   </ul></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -149,6 +155,13 @@
 
         </dt>
         <dd>Effective sample sizes from a cMAIC fit</dd>
+
+        <dt>
+
+          <code><a href="edge_influence.html">edge_influence()</a></code>
+
+        </dt>
+        <dd>Does the individual patient data actually inform this contrast?</dd>
       </dl></div><div class="section level2">
       <h2 id="hierarchies">Hierarchies<a class="anchor" aria-label="anchor" href="#hierarchies"></a></h2>
 
@@ -172,8 +185,15 @@
 
         </dt>
         <dd>How a hierarchy changes across target populations</dd>
+
+        <dt>
+
+          <code><a href="rank_probs.html">rank_probs()</a></code>
+
+        </dt>
+        <dd>Posterior rank probabilities in a target population</dd>
       </dl></div><div class="section level2">
-      <h2 id="reporting-and-visualization">Reporting and visualization<a class="anchor" aria-label="anchor" href="#reporting-and-visualization"></a></h2>
+      <h2 id="reporting">Reporting<a class="anchor" aria-label="anchor" href="#reporting"></a></h2>
 
 
 
@@ -202,20 +222,157 @@
 
         </dt>
         <dd>Component effects from a cpaic fit</dd>
+      </dl></div><div class="section level2">
+      <h2 id="plots">Plots<a class="anchor" aria-label="anchor" href="#plots"></a></h2>
 
-        <dt>
+      <div class="section-desc"><p>Every plot returns a ggplot object, so it can be modified with the usual ggplot2 verbs. The network, forest, rankogram, deviance, prior-posterior, integration-error, MCMC, and survival plots are ported from multinma (Phillippo et al. 2020). The rank curve, the estimability map, and the edge-influence plot are specific to cpaic: under population adjustment the hierarchy, and the estimable set itself, are functions of the target population.</p></div>
 
-          <code><a href="forest.html">forest()</a></code>
+      <dl></dl></div><div class="section level2">
 
-        </dt>
-        <dd>Forest plot of relative effects</dd>
 
-        <dt>
+
+
+      <dl><dt>
 
           <code><a href="plot.cpaic_network.html">plot(<i>&lt;cpaic_network&gt;</i>)</a></code>
 
         </dt>
         <dd>Plot the component network</dd>
+
+        <dt>
+
+          <code><a href="forest.html">forest()</a></code> <code><a href="forest.html">plot(<i>&lt;cpaic_effects&gt;</i>)</a></code> <code><a href="forest.html">plot(<i>&lt;cpaic_bridge&gt;</i>)</a></code> <code><a href="forest.html">plot(<i>&lt;cpaic_fit&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Forest plot of relative or component effects</dd>
+
+        <dt>
+
+          <code><a href="plot_rank_curve.html">plot_rank_curve()</a></code>
+
+        </dt>
+        <dd>How the hierarchy changes across target populations</dd>
+
+        <dt>
+
+          <code><a href="plot_estimability.html">plot_estimability()</a></code>
+
+        </dt>
+        <dd>Map which contrasts are estimable, and on what evidence, across populations</dd>
+
+        <dt>
+
+          <code><a href="plot_edge_influence.html">plot_edge_influence()</a></code>
+
+        </dt>
+        <dd>Plot how much each edge informs a chosen contrast</dd>
+
+        <dt>
+
+          <code><a href="plot.cpaic_rank_probs.html">plot(<i>&lt;cpaic_rank_probs&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Rankogram and cumulative rank plot</dd>
+
+        <dt>
+
+          <code><a href="plot.cpaic_ranks.html">plot(<i>&lt;cpaic_ranks&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Plot a population-adjusted hierarchy</dd>
+
+        <dt>
+
+          <code><a href="plot.cpaic_dic.html">plot(<i>&lt;cpaic_dic&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Deviance and dev-dev plots</dd>
+
+        <dt>
+
+          <code><a href="plot_leverage.html">plot_leverage()</a></code>
+
+        </dt>
+        <dd>Leverage plot</dd>
+
+        <dt>
+
+          <code><a href="plot_prior_posterior.html">plot_prior_posterior()</a></code>
+
+        </dt>
+        <dd>Prior versus posterior</dd>
+
+        <dt>
+
+          <code><a href="plot_integration_error.html">plot_integration_error()</a></code>
+
+        </dt>
+        <dd>Numerical integration error against the number of integration points</dd>
+
+        <dt>
+
+          <code><a href="plot.cpaic_mlnmr.html">plot(<i>&lt;cpaic_mlnmr&gt;</i>)</a></code>
+
+        </dt>
+        <dd>MCMC diagnostics for a cML-NMR fit</dd>
+
+        <dt>
+
+          <code><a href="plot_survival.html">plot_survival()</a></code>
+
+        </dt>
+        <dd>Fitted survival curves from a cML-NMR fit</dd>
+
+        <dt>
+
+          <code><a href="geom_km.html">geom_km()</a></code>
+
+        </dt>
+        <dd>Kaplan-Meier curves from the survival data behind a cML-NMR fit</dd>
+      </dl></div><div class="section level2">
+      <h2 id="bayesian-diagnostics">Bayesian diagnostics<a class="anchor" aria-label="anchor" href="#bayesian-diagnostics"></a></h2>
+
+
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="dic.html">dic()</a></code>
+
+        </dt>
+        <dd>Deviance information criterion</dd>
+
+        <dt>
+
+          <code><a href="loo.cpaic_mlnmr.html">loo(<i>&lt;cpaic_mlnmr&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Pareto-smoothed importance sampling leave-one-out cross-validation</dd>
+
+        <dt>
+
+          <code><a href="waic.cpaic_mlnmr.html">waic(<i>&lt;cpaic_mlnmr&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Widely applicable information criterion</dd>
+
+        <dt>
+
+          <code><a href="prior_sensitivity.html">prior_sensitivity()</a></code>
+
+        </dt>
+        <dd>Refit cML-NMR under tighter and looser priors</dd>
+
+        <dt>
+
+          <code><a href="prior_predictive_check.html">prior_predictive_check()</a></code>
+
+        </dt>
+        <dd>Summarize a prior-predictive cML-NMR fit</dd>
       </dl></div><div class="section level2">
       <h2 id="data">Data<a class="anchor" aria-label="anchor" href="#data"></a></h2>
 

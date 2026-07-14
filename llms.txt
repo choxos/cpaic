@@ -63,7 +63,7 @@ additivity.
 This is research software under active development. Read the Limitations
 section before using it for a decision.
 
-## Estimability comes first
+## Estimability
 
 Reconnecting a network through shared components does **not** guarantee
 that the effects you want are estimable. A relative effect is uniquely
@@ -145,9 +145,54 @@ component_effects(fit, newdata = data.frame(x1 = 0.3))
 [`plot()`](https://rdrr.io/r/graphics/plot.default.html) summarize and
 visualize a fit.
 
+## Simulation evidence
+
+A factorial simulation (36,000 replicates) evaluates the **cross-gap**
+contrast on a disconnected network, i.e. the comparison no trial makes.
+Full results in `documentation/validation/`.
+
+**Population adjustment is effective.** Without it, the naive bridge
+reaches a bias of +0.60 log-OR and 38% coverage under severe imbalance
+with poor overlap. cSTC’s bias stays flat at -0.01 to -0.04 *regardless*
+of imbalance and overlap, with 94 to 96% coverage and well-calibrated
+standard errors.
+
+The simulation also identifies four limitations.
+
+- **Additivity violation is invisible, and it is the largest error.**
+  With a moderate violation of cross-sub-network additivity, cSTC’s
+  coverage falls to **0.50**, while
+  [`additivity_test()`](https://choxos.github.io/cpaic/reference/additivity_test.md)
+  reports a *perfect* fit (Q = 0 on 0 degrees of freedom). No diagnostic
+  fires, because none can: there is no cross-gap evidence to test
+  against. cpaic now reports the statistic as vacuous rather than
+  printing a value that reads as a good fit.
+- **Errors can offset.** Under severe imbalance combined with an
+  additivity violation, the naive analysis outperformed both adjusted
+  methods because its two biases cancelled. Agreement between methods is
+  therefore not evidence of validity.
+- **Marginal effects do not add.** On a non-collapsible scale,
+  `marginal(A) + marginal(B)` is not `marginal(A+B)`: in one target
+  population, 0.6615 versus 0.6411. So
+  [`cmaic()`](https://choxos.github.io/cpaic/reference/cmaic.md), which
+  targets a marginal effect, carries a small **irreducible** bias that
+  survives perfect matching and infinite data. The conditional log-odds
+  scale is the only one on which the additive component model is
+  coherent. Prefer
+  [`cstc()`](https://choxos.github.io/cpaic/reference/cstc.md) or
+  [`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md) if
+  this matters.
+- **The effective sample size is not a validity diagnostic.** Individual
+  patient data placed on an edge that does not carry the requested
+  contrast leave the estimate identical to the unadjusted one, while the
+  effective sample size reports 999 of 1000.
+  [`edge_influence()`](https://choxos.github.io/cpaic/reference/edge_influence.md)
+  reports whether the individual patient data inform the contrast at
+  all.
+
 ## Limitations
 
-Read these before trusting a result.
+The following apply to any result produced by this package.
 
 - **The bridging assumption is untestable.** Reconnecting a disconnected
   network requires component effects (and, under population adjustment,
@@ -256,6 +301,8 @@ Anchored, population-adjusted indirect comparison across the network.
   Component-additive multilevel network meta-regression (ML-NMR)
 - [`effective_sample_size()`](https://choxos.github.io/cpaic/reference/effective_sample_size.md)
   : Effective sample sizes from a cMAIC fit
+- [`edge_influence()`](https://choxos.github.io/cpaic/reference/edge_influence.md)
+  : Does the individual patient data actually inform this contrast?
 
 ## Hierarchies
 
@@ -267,8 +314,10 @@ rankings: a component can lead in one population and trail in another.
   : Population-adjusted treatment and component hierarchies
 - [`rank_curve()`](https://choxos.github.io/cpaic/reference/rank_curve.md)
   : How a hierarchy changes across target populations
+- [`rank_probs()`](https://choxos.github.io/cpaic/reference/rank_probs.md)
+  : Posterior rank probabilities in a target population
 
-## Reporting and visualization
+## Reporting
 
 - [`relative_effects()`](https://choxos.github.io/cpaic/reference/relative_effects.md)
   : Relative treatment effects from a cpaic fit
@@ -276,10 +325,62 @@ rankings: a component can lead in one population and trail in another.
   : League table of all pairwise relative effects
 - [`component_effects()`](https://choxos.github.io/cpaic/reference/component_effects.md)
   : Component effects from a cpaic fit
-- [`forest()`](https://choxos.github.io/cpaic/reference/forest.md) :
-  Forest plot of relative effects
+
+## Plots
+
+Every plot returns a ggplot object, so it can be modified with the usual
+ggplot2 verbs. The network, forest, rankogram, deviance,
+prior-posterior, integration-error, MCMC, and survival plots are ported
+from multinma (Phillippo et al. 2020). The rank curve, the estimability
+map, and the edge-influence plot are specific to cpaic: under population
+adjustment the hierarchy, and the estimable set itself, are functions of
+the target population.
+
 - [`plot(`*`<cpaic_network>`*`)`](https://choxos.github.io/cpaic/reference/plot.cpaic_network.md)
   : Plot the component network
+- [`forest()`](https://choxos.github.io/cpaic/reference/forest.md)
+  [`plot(`*`<cpaic_effects>`*`)`](https://choxos.github.io/cpaic/reference/forest.md)
+  [`plot(`*`<cpaic_bridge>`*`)`](https://choxos.github.io/cpaic/reference/forest.md)
+  [`plot(`*`<cpaic_fit>`*`)`](https://choxos.github.io/cpaic/reference/forest.md)
+  : Forest plot of relative or component effects
+- [`plot_rank_curve()`](https://choxos.github.io/cpaic/reference/plot_rank_curve.md)
+  : How the hierarchy changes across target populations
+- [`plot_estimability()`](https://choxos.github.io/cpaic/reference/plot_estimability.md)
+  : Map which contrasts are estimable, and on what evidence, across
+  populations
+- [`plot_edge_influence()`](https://choxos.github.io/cpaic/reference/plot_edge_influence.md)
+  : Plot how much each edge informs a chosen contrast
+- [`plot(`*`<cpaic_rank_probs>`*`)`](https://choxos.github.io/cpaic/reference/plot.cpaic_rank_probs.md)
+  : Rankogram and cumulative rank plot
+- [`plot(`*`<cpaic_ranks>`*`)`](https://choxos.github.io/cpaic/reference/plot.cpaic_ranks.md)
+  : Plot a population-adjusted hierarchy
+- [`plot(`*`<cpaic_dic>`*`)`](https://choxos.github.io/cpaic/reference/plot.cpaic_dic.md)
+  : Deviance and dev-dev plots
+- [`plot_leverage()`](https://choxos.github.io/cpaic/reference/plot_leverage.md)
+  : Leverage plot
+- [`plot_prior_posterior()`](https://choxos.github.io/cpaic/reference/plot_prior_posterior.md)
+  : Prior versus posterior
+- [`plot_integration_error()`](https://choxos.github.io/cpaic/reference/plot_integration_error.md)
+  : Numerical integration error against the number of integration points
+- [`plot(`*`<cpaic_mlnmr>`*`)`](https://choxos.github.io/cpaic/reference/plot.cpaic_mlnmr.md)
+  : MCMC diagnostics for a cML-NMR fit
+- [`plot_survival()`](https://choxos.github.io/cpaic/reference/plot_survival.md)
+  : Fitted survival curves from a cML-NMR fit
+- [`geom_km()`](https://choxos.github.io/cpaic/reference/geom_km.md) :
+  Kaplan-Meier curves from the survival data behind a cML-NMR fit
+
+## Bayesian diagnostics
+
+- [`dic()`](https://choxos.github.io/cpaic/reference/dic.md) : Deviance
+  information criterion
+- [`loo(`*`<cpaic_mlnmr>`*`)`](https://choxos.github.io/cpaic/reference/loo.cpaic_mlnmr.md)
+  : Pareto-smoothed importance sampling leave-one-out cross-validation
+- [`waic(`*`<cpaic_mlnmr>`*`)`](https://choxos.github.io/cpaic/reference/waic.cpaic_mlnmr.md)
+  : Widely applicable information criterion
+- [`prior_sensitivity()`](https://choxos.github.io/cpaic/reference/prior_sensitivity.md)
+  : Refit cML-NMR under tighter and looser priors
+- [`prior_predictive_check()`](https://choxos.github.io/cpaic/reference/prior_predictive_check.md)
+  : Summarize a prior-predictive cML-NMR fit
 
 ## Data
 
@@ -290,11 +391,29 @@ rankings: a component can lead in one population and trail in another.
 
 # Articles
 
-### Articles
+### Getting started
 
 - [Getting started with
   cpaic](https://choxos.github.io/cpaic/articles/cpaic-intro.md):
 - [The cpaic statistical
   framework](https://choxos.github.io/cpaic/articles/cpaic-methods.md):
+
+### Worked examples, by outcome type
+
+Each example plants a known truth, then asks whether the method recovers
+it. All four fit Stan models and are pre-rendered, so they are not
+re-run at build time.
+
+- [Binary outcomes: a disconnected smoking-cessation
+  network](https://choxos.github.io/cpaic/articles/binary-outcomes.md):
+- [Continuous outcomes: bridging a disconnected network with a mean
+  difference](https://choxos.github.io/cpaic/articles/continuous-outcomes.md):
+- [Count outcomes: a disconnected COPD exacerbation
+  network](https://choxos.github.io/cpaic/articles/count-outcomes.md):
+- [Survival outcomes: a disconnected network under proportional
+  hazards](https://choxos.github.io/cpaic/articles/survival-outcomes.md):
+
+### Disconnected networks
+
 - [A disconnected network: NMA, ML-NMR, and cML-NMR
   compared](https://choxos.github.io/cpaic/articles/cpaic-disconnected-myeloma.md):

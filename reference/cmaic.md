@@ -72,6 +72,33 @@ An object of class `cpaic_maic` (also inheriting `cpaic_bridge`
 structure via `$bridge`), with the bridged fit, per-study effective
 sample sizes, and the target population.
 
+## Non-collapsibility and the additive model
+
+cMAIC returns a **marginal** effect in the target population, and the
+additive component model assumes effects add. On a non-collapsible scale
+(the odds ratio, the hazard ratio) **marginal effects do not add**, even
+when every conditional effect does. In one simulated target population
+the marginal log-odds ratios satisfied
+`marginal(A) + marginal(B) = 0.6615` while `marginal(A+B) = 0.6411`; the
+additive model is simply false on that scale. cMAIC therefore carries a
+small **irreducible bias** (about +0.02 log-OR there) that survives
+perfect matching and infinite sample size. It is small relative to a
+typical standard error (about 0.25) but it does not vanish with more
+data.
+
+Marginal component effects are not *generally* additive; they add
+exactly when the standardized treatment effects remain affine in the
+component design. Additivity is therefore a property of the conditional
+link scale that the marginal scale inherits only approximately, and the
+error does not vanish with sample size. Where it is material,
+[`cstc()`](https://choxos.github.io/cpaic/reference/cstc.md) or
+[`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md), which
+target a conditional effect and inherit additivity exactly, are
+preferable. Note also that the two-stage route combines a conditional
+adjusted edge with aggregate edges reported on a marginal scale, so it
+should be regarded as approximate. See
+`documentation/validation/VALIDATION.md`.
+
 ## See also
 
 [`cstc()`](https://choxos.github.io/cpaic/reference/cstc.md),

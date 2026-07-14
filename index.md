@@ -63,7 +63,7 @@ additivity.
 This is research software under active development. Read the Limitations
 section before using it for a decision.
 
-## Estimability comes first
+## Estimability
 
 Reconnecting a network through shared components does **not** guarantee
 that the effects you want are estimable. A relative effect is uniquely
@@ -145,9 +145,54 @@ component_effects(fit, newdata = data.frame(x1 = 0.3))
 [`plot()`](https://rdrr.io/r/graphics/plot.default.html) summarize and
 visualize a fit.
 
+## Simulation evidence
+
+A factorial simulation (36,000 replicates) evaluates the **cross-gap**
+contrast on a disconnected network, i.e. the comparison no trial makes.
+Full results in `documentation/validation/`.
+
+**Population adjustment is effective.** Without it, the naive bridge
+reaches a bias of +0.60 log-OR and 38% coverage under severe imbalance
+with poor overlap. cSTC’s bias stays flat at -0.01 to -0.04 *regardless*
+of imbalance and overlap, with 94 to 96% coverage and well-calibrated
+standard errors.
+
+The simulation also identifies four limitations.
+
+- **Additivity violation is invisible, and it is the largest error.**
+  With a moderate violation of cross-sub-network additivity, cSTC’s
+  coverage falls to **0.50**, while
+  [`additivity_test()`](https://choxos.github.io/cpaic/reference/additivity_test.md)
+  reports a *perfect* fit (Q = 0 on 0 degrees of freedom). No diagnostic
+  fires, because none can: there is no cross-gap evidence to test
+  against. cpaic now reports the statistic as vacuous rather than
+  printing a value that reads as a good fit.
+- **Errors can offset.** Under severe imbalance combined with an
+  additivity violation, the naive analysis outperformed both adjusted
+  methods because its two biases cancelled. Agreement between methods is
+  therefore not evidence of validity.
+- **Marginal effects do not add.** On a non-collapsible scale,
+  `marginal(A) + marginal(B)` is not `marginal(A+B)`: in one target
+  population, 0.6615 versus 0.6411. So
+  [`cmaic()`](https://choxos.github.io/cpaic/reference/cmaic.md), which
+  targets a marginal effect, carries a small **irreducible** bias that
+  survives perfect matching and infinite data. The conditional log-odds
+  scale is the only one on which the additive component model is
+  coherent. Prefer
+  [`cstc()`](https://choxos.github.io/cpaic/reference/cstc.md) or
+  [`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md) if
+  this matters.
+- **The effective sample size is not a validity diagnostic.** Individual
+  patient data placed on an edge that does not carry the requested
+  contrast leave the estimate identical to the unadjusted one, while the
+  effective sample size reports 999 of 1000.
+  [`edge_influence()`](https://choxos.github.io/cpaic/reference/edge_influence.md)
+  reports whether the individual patient data inform the contrast at
+  all.
+
 ## Limitations
 
-Read these before trusting a result.
+The following apply to any result produced by this package.
 
 - **The bridging assumption is untestable.** Reconnecting a disconnected
   network requires component effects (and, under population adjustment,

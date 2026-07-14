@@ -158,6 +158,12 @@ fit <- cmlnmr(ipd, agd,
               chains = 4, iter_warmup = 700, iter_sampling = 700, seed = 1)
 
 estimable_effects_at(fit, newdata = data.frame(hr = 0.30))
+#>   treatment comparator estimable identified_by
+#> 1         R        Obs     FALSE          none
+#> 2       R+D        Obs     FALSE          none
+#> 3       R+I        Obs     FALSE          none
+#> 4       R+V        Obs     FALSE          none
+#> 5         V        Obs      TRUE           IPD
 ```
 
 Read the `identified_by` column. An effect identified only from
@@ -180,7 +186,25 @@ behavior you want.
 ``` r
 
 relative_effects(fit, reference = "R", newdata = data.frame(hr = 0.15))
+#> Relative effects (OR, back-transformed)
+#>   Target population: hr = 0.15
+#>  treatment comparator estimate    se lower upper pr_gt0
+#>        Obs          R       NA    NA    NA    NA     NA
+#>        R+D          R    1.547 0.139 1.177 2.008  0.999
+#>        R+I          R       NA    NA    NA    NA     NA
+#>        R+V          R    1.739 0.086 1.464 2.047  1.000
+#>          V          R       NA    NA    NA    NA     NA
+#>   NA = not uniquely estimable from this component design (see estimable_effects()).
 relative_effects(fit, reference = "R", newdata = data.frame(hr = 0.60))
+#> Relative effects (OR, back-transformed)
+#>   Target population: hr = 0.6
+#>  treatment comparator estimate    se lower upper pr_gt0
+#>        Obs          R       NA    NA    NA    NA     NA
+#>        R+D          R    2.120 0.139 1.591 2.781  1.000
+#>        R+I          R       NA    NA    NA    NA     NA
+#>        R+V          R    1.352 0.098 1.112 1.638  0.999
+#>          V          R       NA    NA    NA    NA     NA
+#>   NA = not uniquely estimable from this component design (see estimable_effects()).
 ```
 
 ``` r
@@ -190,6 +214,8 @@ for (x in c(0.15, 0.60)) {
   cat(sprintf("hr = %.2f: true log-OR(R+D vs R) = %+.3f\n",
               x, theta("R+D", x) - theta("R", x)))
 }
+#> hr = 0.15: true log-OR(R+D vs R) = +0.390
+#> hr = 0.60: true log-OR(R+D vs R) = +0.660
 ```
 
 The contrast that no trial measured, across a gap no comparator spans,
@@ -207,7 +233,25 @@ component is best in this population?”** (Wigle et al. 2026).
 ``` r
 
 cpaic_ranks(fit, newdata = data.frame(hr = 0.05), what = "component")
+#> Warning: Dropped from the hierarchy as not estimable in this target population: I, R.
+#> Ranking them would rank the prior. See estimable_effects_at().
+#> Population-adjusted component hierarchy
+#>   Target population: hr = 0.05
+#>  element estimate p_best median_rank mean_rank sucra
+#>        V    0.606  0.981           1     1.019 0.981
+#>        D    0.356  0.019           2     1.981 0.019
+#>   Not estimable in this population, so not ranked: I, R
+#>   Ranking metrics depend on the set ranked; report them with the effects, not instead.
 cpaic_ranks(fit, newdata = data.frame(hr = 0.80), what = "component")
+#> Warning: Dropped from the hierarchy as not estimable in this target population: I, R.
+#> Ranking them would rank the prior. See estimable_effects_at().
+#> Population-adjusted component hierarchy
+#>   Target population: hr = 0.8
+#>  element estimate p_best median_rank mean_rank sucra
+#>        D    0.882      1           1         1     1
+#>        V    0.185      0           2         2     0
+#>   Not estimable in this population, so not ranked: I, R
+#>   Ranking metrics depend on the set ranked; report them with the effects, not instead.
 ```
 
 Two things happen here, and both are the point.
@@ -239,6 +283,10 @@ if (requireNamespace("ggplot2", quietly = TRUE)) {
     theme_minimal()
 }
 ```
+
+![plot of chunk rankcurve](figure/rankcurve-1.png)
+
+plot of chunk rankcurve
 
 ## What to take away
 

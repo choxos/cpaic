@@ -32,6 +32,12 @@ network is connected by construction."></head><body>
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/cpaic-intro.html">Getting started with cpaic</a></li>
     <li><a class="dropdown-item" href="../articles/cpaic-methods.html">The cpaic statistical framework</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Outcomes</h6></li>
+    <li><a class="dropdown-item" href="../articles/binary-outcomes.html">Binary outcomes: a disconnected smoking-cessation network</a></li>
+    <li><a class="dropdown-item" href="../articles/continuous-outcomes.html">Continuous outcomes: bridging a disconnected network with a mean difference</a></li>
+    <li><a class="dropdown-item" href="../articles/count-outcomes.html">Count outcomes: a disconnected COPD exacerbation network</a></li>
+    <li><a class="dropdown-item" href="../articles/survival-outcomes.html">Survival outcomes: a disconnected network under proportional hazards</a></li>
     <li><a class="dropdown-item" href="../articles/cpaic-disconnected-myeloma.html">A disconnected network: NMA, ML-NMR, and cML-NMR compared</a></li>
   </ul></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -75,6 +81,8 @@ network is connected by construction.</p>
 <span>  outcome <span class="op">=</span> <span class="st">".y"</span>,</span>
 <span>  time <span class="op">=</span> <span class="st">".time"</span>,</span>
 <span>  exposure <span class="op">=</span> <span class="st">".exposure"</span>,</span>
+<span>  start <span class="op">=</span> <span class="st">".start"</span>,</span>
+<span>  entry <span class="op">=</span> <span class="st">".entry"</span>,</span>
 <span>  r <span class="op">=</span> <span class="st">"r"</span>,</span>
 <span>  n <span class="op">=</span> <span class="st">"n"</span>,</span>
 <span>  E <span class="op">=</span> <span class="st">"E"</span>,</span>
@@ -85,9 +93,20 @@ network is connected by construction.</p>
 <span>  n_basis <span class="op">=</span> <span class="fl">6L</span>,</span>
 <span>  cor <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  n_int <span class="op">=</span> <span class="fl">64L</span>,</span>
-<span>  prior_intercept_sd <span class="op">=</span> <span class="fl">10</span>,</span>
-<span>  prior_beta_sd <span class="op">=</span> <span class="fl">10</span>,</span>
-<span>  prior_reg_sd <span class="op">=</span> <span class="fl">2.5</span>,</span>
+<span>  QR <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  trt_effects <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"fixed"</span>, <span class="st">"random"</span><span class="op">)</span>,</span>
+<span>  re_parameterization <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"noncentered"</span>, <span class="st">"centered"</span><span class="op">)</span>,</span>
+<span>  prior_intercept_sd <span class="op">=</span> <span class="fl">2.5</span>,</span>
+<span>  prior_aux_sd <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  prior_beta_sd <span class="op">=</span> <span class="fl">2.5</span>,</span>
+<span>  prior_reg_sd <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  prior_gamma_dist <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"normal"</span>, <span class="st">"student_t"</span><span class="op">)</span>,</span>
+<span>  prior_gamma_scale <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  prior_gamma_df <span class="op">=</span> <span class="fl">4</span>,</span>
+<span>  prior_tau_dist <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"half-normal"</span>, <span class="st">"half-student-t"</span><span class="op">)</span>,</span>
+<span>  prior_tau_scale <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  prior_tau_df <span class="op">=</span> <span class="fl">4</span>,</span>
+<span>  prior_predictive <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  chains <span class="op">=</span> <span class="fl">4L</span>,</span>
 <span>  iter_warmup <span class="op">=</span> <span class="fl">500L</span>,</span>
 <span>  iter_sampling <span class="op">=</span> <span class="fl">500L</span>,</span>
@@ -141,35 +160,41 @@ count (poisson), or the event indicator for survival.</p></dd>
 
 
 <dt id="arg-time-exposure">time, exposure<a class="anchor" aria-label="anchor" href="#arg-time-exposure"></a></dt>
-<dd><p>IPD time / exposure column (survival, poisson).</p></dd>
+<dd><p>Outcome-time column for survival in both IPD and AgD;
+IPD exposure column for Poisson outcomes.</p></dd>
+
+
+<dt id="arg-start-entry">start, entry<a class="anchor" aria-label="anchor" href="#arg-start-entry"></a></dt>
+<dd><p>Survival columns giving the lower endpoint for
+interval-censored outcomes and the delayed-entry time. Missing columns
+imply zero.</p></dd>
 
 
 <dt id="arg-r-n-e-se">r, n, E, se<a class="anchor" aria-label="anchor" href="#arg-r-n-e-se"></a></dt>
 <dd><p>Aggregate columns: events <code>r</code>, sample size <code>n</code>
-(binomial), exposure <code>E</code> (poisson/survival), mean <code>outcome</code> and its
-standard error <code>se</code> (gaussian).</p></dd>
+(binomial), exposure <code>E</code> (poisson), mean <code>outcome</code> and its standard error
+<code>se</code> (gaussian).</p></dd>
 
 
 <dt id="arg-cut-points">cut_points<a class="anchor" aria-label="anchor" href="#arg-cut-points"></a></dt>
-<dd><p>Survival only: interior interval boundaries for the
-piecewise-constant baseline. <code>NULL</code> (default) gives the exponential
-model; e.g. <code>c(6, 12)</code> gives three intervals.</p></dd>
+<dd><p>Survival only: interior interval boundaries for a
+piecewise baseline. <code>NULL</code> gives the exponential model. This argument is
+ignored for a continuous M-spline baseline.</p></dd>
 
 
 <dt id="arg-interval">interval<a class="anchor" aria-label="anchor" href="#arg-interval"></a></dt>
-<dd><p>Survival only: name of the aggregate interval-index
-column (values <code>1..K</code>) required when <code>cut_points</code> are supplied.</p></dd>
+<dd><p>Retained for source compatibility; exact survival data do
+not use interval-indexed event counts.</p></dd>
 
 
 <dt id="arg-baseline">baseline<a class="anchor" aria-label="anchor" href="#arg-baseline"></a></dt>
 <dd><p>Survival baseline hazard: <code>"piecewise"</code> (default, free
-step heights) or <code>"mspline"</code> (step heights smoothed by an M-spline
-evaluated at interval midpoints; see the Survival section).</p></dd>
+step heights) or <code>"mspline"</code> (a continuous cubic M-spline with its exact
+integrated basis).</p></dd>
 
 
 <dt id="arg-n-basis">n_basis<a class="anchor" aria-label="anchor" href="#arg-n-basis"></a></dt>
-<dd><p>Number of M-spline basis functions when
-<code>baseline = "mspline"</code> (must be <code>&lt;=</code> the number of intervals).</p></dd>
+<dd><p>Number of cubic M-spline basis functions. Must be at least 4.</p></dd>
 
 
 <dt id="arg-cor">cor<a class="anchor" aria-label="anchor" href="#arg-cor"></a></dt>
@@ -179,12 +204,76 @@ diagonal). Defaults to the within-study IPD correlation.</p></dd>
 
 
 <dt id="arg-n-int">n_int<a class="anchor" aria-label="anchor" href="#arg-n-int"></a></dt>
-<dd><p>Integration points per aggregate arm (ignored for
-<code>gaussian</code>, which is exact at the covariate means).</p></dd>
+<dd><p>Integration points per aggregate arm (ignored for <code>gaussian</code>,
+which is exact at the covariate means).</p>
+<p>This is the main cost lever for the survival families. An aggregate survival
+arm is supplied as reconstructed pseudo-IPD, so the aggregate likelihood is
+evaluated once per (aggregate row x integration point): the work grows as
+<code>nrow(agd) * n_int</code>, and the default of 64 is expensive on a trial with
+several hundred reconstructed patients. Sampling is otherwise well behaved
+(no divergences and no treedepth saturation in our checks), so if a survival
+fit is slow, reduce <code>n_int</code> before suspecting the geometry, and confirm the
+answer is stable with <code><a href="plot_integration_error.html">plot_integration_error()</a></code>.</p></dd>
+
+
+<dt id="arg-qr">QR<a class="anchor" aria-label="anchor" href="#arg-qr"></a></dt>
+<dd><p>Logical scalar. If <code>TRUE</code>, apply the scaled thin QR
+reparameterization used by <code>multinma</code> to the complete fixed-effects design
+matrix. This is only a reparameterization: it must not change the posterior
+distribution, only the geometry the sampler explores. The default is
+<code>FALSE</code>, matching <code>multinma</code>.</p>
+<p>Do not turn this on expecting a free improvement. On the component networks
+tested here the fixed-effects design was not badly conditioned (a condition
+number near 19, in a network where every active treatment shared a
+component), and <code>QR = TRUE</code> gave <em>fewer</em> effective samples per second than
+<code>QR = FALSE</code>, with no divergent transitions either way. The intuition that a
+component design must be severely collinear, because one component recurs
+across many multi-component treatments, is not borne out: the study
+intercepts and the spread of the integration points keep the conditioning
+mild. Check <code>Z_cond</code> on the fit, and reach for <code>QR = TRUE</code> only when it is
+large.</p></dd>
+
+
+<dt id="arg-trt-effects">trt_effects<a class="anchor" aria-label="anchor" href="#arg-trt-effects"></a></dt>
+<dd><p>Treatment-effect model: <code>"fixed"</code> or <code>"random"</code>.</p></dd>
+
+
+<dt id="arg-re-parameterization">re_parameterization<a class="anchor" aria-label="anchor" href="#arg-re-parameterization"></a></dt>
+<dd><p>Random-effects parameterization. The default
+<code>"noncentered"</code> should be used for inference; <code>"centered"</code> is provided for
+sampling diagnostics.</p></dd>
 
 
 <dt id="arg-prior-intercept-sd-prior-beta-sd-prior-reg-sd">prior_intercept_sd, prior_beta_sd, prior_reg_sd<a class="anchor" aria-label="anchor" href="#arg-prior-intercept-sd-prior-beta-sd-prior-reg-sd"></a></dt>
-<dd><p>Prior SDs.</p></dd>
+<dd><p>Standard deviations for
+study-intercept, component-effect, and prognostic-regression normal priors.</p></dd>
+
+
+<dt id="arg-prior-aux-sd">prior_aux_sd<a class="anchor" aria-label="anchor" href="#arg-prior-aux-sd"></a></dt>
+<dd><p>Scale of the half-normal prior on the baseline-hazard
+smoothing parameter (survival families only). Each study has its own
+baseline hazard, given a first-order random-walk prior on the log spline
+coefficients with this shared smoothing scale, as in <code>multinma</code>. Smaller
+values shrink every study's baseline toward a constant hazard. The default
+of 1 follows the Stan recommendation of a half-normal(0, 1) prior for a
+hierarchical scale.</p></dd>
+
+
+<dt id="arg-prior-gamma-dist-prior-gamma-scale-prior-gamma-df">prior_gamma_dist, prior_gamma_scale, prior_gamma_df<a class="anchor" aria-label="anchor" href="#arg-prior-gamma-dist-prior-gamma-scale-prior-gamma-df"></a></dt>
+<dd><p>Distribution, scale,
+and degrees of freedom for interaction priors. The Student t option uses
+the stated degrees of freedom.</p></dd>
+
+
+<dt id="arg-prior-tau-dist-prior-tau-scale-prior-tau-df">prior_tau_dist, prior_tau_scale, prior_tau_df<a class="anchor" aria-label="anchor" href="#arg-prior-tau-dist-prior-tau-scale-prior-tau-df"></a></dt>
+<dd><p>Distribution, scale, and
+degrees of freedom for the positive heterogeneity prior.</p></dd>
+
+
+<dt id="arg-prior-predictive">prior_predictive<a class="anchor" aria-label="anchor" href="#arg-prior-predictive"></a></dt>
+<dd><p>If <code>TRUE</code>, sample from the prior and omit the
+observed likelihood. Replicated outcomes remain available for
+<code><a href="prior_predictive_check.html">prior_predictive_check()</a></code>.</p></dd>
 
 
 <dt id="arg-chains-iter-warmup-iter-sampling-seed">chains, iter_warmup, iter_sampling, seed<a class="anchor" aria-label="anchor" href="#arg-chains-iter-warmup-iter-sampling-seed"></a></dt>
@@ -226,28 +315,64 @@ IPD and normal otherwise; a normal margin on a binary covariate would
 integrate over a population that cannot occur.</p>
     </div>
     <div class="section level2">
-    <h2 id="survival-approximations-read-before-use-">Survival (approximations, read before use)<a class="anchor" aria-label="anchor" href="#survival-approximations-read-before-use-"></a></h2>
+    <h2 id="random-effects">Random effects<a class="anchor" aria-label="anchor" href="#random-effects"></a></h2>
 
 
-<p>Survival uses a proportional-hazards model with a piecewise-constant
-baseline log-hazard on the <code>cut_points</code> grid (<code>cut_points = NULL</code> gives the
-exponential model). With <code>baseline = "mspline"</code> the interval heights are
-<em>smoothed</em> by an M-spline basis evaluated at the interval midpoints. This is
-a piecewise-exponential model with a smoothed step baseline; it is <strong>not</strong>
-the continuous-time integrated M-spline survival likelihood of <code>multinma</code>,
-which uses both the M-spline hazard basis and its integrated (I-spline)
-cumulative hazard and supports left-, interval-censoring and delayed entry.
-cpaic handles right-censoring only.</p>
-<p>Aggregate survival data are supplied as events and person-time per arm and
-per interval, and the expected events are approximated by
-<code>person-time x mean hazard</code>. This is an approximation even without
-censoring, because higher-hazard individuals leave the risk set earlier, so
-the <em>baseline</em> covariate distribution does not describe the covariate
-distribution of the accumulated person-time. In a two-group example
-(hazards 0.1 and 0.4, 50:50, follow-up to t = 10) it overstates expected
-events by about 36%. Narrow intervals reduce the bias; supply IPD, or
-interval-specific risk-set covariate summaries, where accuracy matters.</p>
+<p><code>trt_effects = "random"</code> adds study-arm deviations around the
+component-implied relative effects. Deviations use a non-centered
+parameterization by default. Within a multi-arm study, deviations relative
+to the study baseline have the standard NMA correlation of 0.5. The
+heterogeneity standard deviation <code>tau</code> has a half-normal(0, 1) prior by
+default. The centered parameterization is available only to reproduce
+sampling comparisons.</p>
     </div>
+    <div class="section level2">
+    <h2 id="priors">Priors<a class="anchor" aria-label="anchor" href="#priors"></a></h2>
+
+
+<p>Defaults follow the Stan prior-choice recommendations. Component effects
+use normal(0, 2.5), component by effect-modifier interactions use
+normal(0, 1), study intercepts use normal(0, 2.5), and <code>tau</code> uses
+half-normal(0, 1). Interaction priors do real regularization when Gamma is
+weakly identified, so every fitted object records the complete prior
+specification. Use <code><a href="prior_sensitivity.html">prior_sensitivity()</a></code> to quantify contrast movement and
+<code>prior_predictive = TRUE</code> with <code><a href="prior_predictive_check.html">prior_predictive_check()</a></code> to inspect prior
+implications before fitting the likelihood.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="survival">Survival<a class="anchor" aria-label="anchor" href="#survival"></a></h2>
+
+
+<p>Survival uses the exact individual likelihood ported from <code>multinma</code>
+(Phillippo et al. 2020). The model evaluates a hazard basis and its
+integrated cumulative-hazard basis at every outcome, interval start, and
+delayed-entry time. It supports observed events, right censoring, left
+censoring, interval censoring, and delayed entry. <code>baseline = "piecewise"</code>
+gives a piecewise-exponential baseline; <code>baseline = "mspline"</code> gives a
+continuous cubic M-spline baseline.</p>
+<p>Aggregate survival input must contain reconstructed event and censoring rows
+with the same outcome-time columns as IPD, plus repeated arm-level covariate
+summaries. The likelihood of every aggregate row is averaged over its
+covariate integration points with <code>log_sum_exp</code>. Aggregate event counts and
+person-time alone cannot recover this likelihood and are rejected explicitly.</p>
+<p>Two qualifications, so that "exact" is not read more broadly than it should
+be.</p><ul><li><p><strong>The likelihood is exact; the covariate integration is not.</strong> Every
+individual contribution (event, right, left and interval censoring, delayed
+entry) is the exact analytic expression, verified against closed form to
+machine precision. The <em>aggregate</em> likelihood, however, averages that exact
+contribution over a finite quasi-Monte-Carlo grid of <code>n_int</code> covariate
+points, so it carries an integration error that shrinks with <code>n_int</code> but is
+not zero. Increase <code>n_int</code> and confirm that the estimates are stable before
+relying on them. The earlier person-time approximation was biased by 36% in
+a two-group example; that particular bias is removed, but a finite
+integration error remains.</p></li>
+<li><p><strong>The baseline hazard SHAPE is shared across studies.</strong> Each study has its
+own baseline level through its intercept, but a single set of spline (or
+step) coefficients is shared, so the studies are assumed to have
+proportional baseline hazards. <code>multinma</code> permits study-specific baseline
+shapes. If the studies plausibly have differently shaped baselines, this
+model is misspecified and the shared shape should not be used.</p></li>
+</ul></div>
     <div class="section level2">
     <h2 id="identifiability">Identifiability<a class="anchor" aria-label="anchor" href="#identifiability"></a></h2>
 
@@ -258,7 +383,7 @@ in the row space of the within-study component design (Wigle et al. 2026);
 number. Note this checks identification of <code>beta</code>; a component x
 effect-modifier interaction is additionally identified only by covariate
 variation on the contrasts that involve it, and interactions informed only
-by aggregate arms are weakly identified (<code>prior_reg_sd</code> regularizes).</p>
+by aggregate arms are weakly identified (<code>prior_gamma_scale</code> regularizes).</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>

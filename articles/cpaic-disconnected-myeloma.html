@@ -35,6 +35,12 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><a class="dropdown-item" href="../articles/cpaic-intro.html">Getting started with cpaic</a></li>
     <li><a class="dropdown-item" href="../articles/cpaic-methods.html">The cpaic statistical framework</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Outcomes</h6></li>
+    <li><a class="dropdown-item" href="../articles/binary-outcomes.html">Binary outcomes: a disconnected smoking-cessation network</a></li>
+    <li><a class="dropdown-item" href="../articles/continuous-outcomes.html">Continuous outcomes: bridging a disconnected network with a mean difference</a></li>
+    <li><a class="dropdown-item" href="../articles/count-outcomes.html">Count outcomes: a disconnected COPD exacerbation network</a></li>
+    <li><a class="dropdown-item" href="../articles/survival-outcomes.html">Survival outcomes: a disconnected network under proportional hazards</a></li>
     <li><a class="dropdown-item" href="../articles/cpaic-disconnected-myeloma.html">A disconnected network: NMA, ML-NMR, and cML-NMR compared</a></li>
   </ul>
 </li>
@@ -222,7 +228,13 @@ have to be identified too. Always check.</p>
 <span>              inactive <span class="op">=</span> <span class="st">"Obs"</span>, family <span class="op">=</span> <span class="st">"binomial"</span>,</span>
 <span>              chains <span class="op">=</span> <span class="fl">4</span>, iter_warmup <span class="op">=</span> <span class="fl">700</span>, iter_sampling <span class="op">=</span> <span class="fl">700</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu"><a href="../reference/estimable_effects_at.html">estimable_effects_at</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>hr <span class="op">=</span> <span class="fl">0.30</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="../reference/estimable_effects_at.html">estimable_effects_at</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>hr <span class="op">=</span> <span class="fl">0.30</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   treatment comparator estimable identified_by</span></span>
+<span><span class="co">#&gt; 1         R        Obs     FALSE          none</span></span>
+<span><span class="co">#&gt; 2       R+D        Obs     FALSE          none</span></span>
+<span><span class="co">#&gt; 3       R+I        Obs     FALSE          none</span></span>
+<span><span class="co">#&gt; 4       R+V        Obs     FALSE          none</span></span>
+<span><span class="co">#&gt; 5         V        Obs      TRUE           IPD</span></span></code></pre></div>
 <p>Read the <code>identified_by</code> column. An effect identified only
 from <em>aggregate</em> data is identified by a between-study gradient
 across study means, which is ecological inference; an effect identified
@@ -243,13 +255,33 @@ cpaic returns <code>NA</code> for the two that are not identified and a
 number for the one that is, which is exactly the behavior you want.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">fit</span>, reference <span class="op">=</span> <span class="st">"R"</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>hr <span class="op">=</span> <span class="fl">0.15</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">fit</span>, reference <span class="op">=</span> <span class="st">"R"</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>hr <span class="op">=</span> <span class="fl">0.60</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<span><span class="co">#&gt; Relative effects (OR, back-transformed)</span></span>
+<span><span class="co">#&gt;   Target population: hr = 0.15</span></span>
+<span><span class="co">#&gt;  treatment comparator estimate    se lower upper pr_gt0</span></span>
+<span><span class="co">#&gt;        Obs          R       NA    NA    NA    NA     NA</span></span>
+<span><span class="co">#&gt;        R+D          R    1.547 0.139 1.177 2.008  0.999</span></span>
+<span><span class="co">#&gt;        R+I          R       NA    NA    NA    NA     NA</span></span>
+<span><span class="co">#&gt;        R+V          R    1.739 0.086 1.464 2.047  1.000</span></span>
+<span><span class="co">#&gt;          V          R       NA    NA    NA    NA     NA</span></span>
+<span><span class="co">#&gt;   NA = not uniquely estimable from this component design (see estimable_effects()).</span></span>
+<span><span class="fu"><a href="../reference/relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">fit</span>, reference <span class="op">=</span> <span class="st">"R"</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>hr <span class="op">=</span> <span class="fl">0.60</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Relative effects (OR, back-transformed)</span></span>
+<span><span class="co">#&gt;   Target population: hr = 0.6</span></span>
+<span><span class="co">#&gt;  treatment comparator estimate    se lower upper pr_gt0</span></span>
+<span><span class="co">#&gt;        Obs          R       NA    NA    NA    NA     NA</span></span>
+<span><span class="co">#&gt;        R+D          R    2.120 0.139 1.591 2.781  1.000</span></span>
+<span><span class="co">#&gt;        R+I          R       NA    NA    NA    NA     NA</span></span>
+<span><span class="co">#&gt;        R+V          R    1.352 0.098 1.112 1.638  0.999</span></span>
+<span><span class="co">#&gt;          V          R       NA    NA    NA    NA     NA</span></span>
+<span><span class="co">#&gt;   NA = not uniquely estimable from this component design (see estimable_effects()).</span></span></code></pre></div>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">theta</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">trt</span>, <span class="va">x</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">Cmat</span><span class="op">[</span><span class="va">trt</span>, <span class="op">]</span> <span class="op">*</span> <span class="op">(</span><span class="va">beta_true</span> <span class="op">+</span> <span class="va">gamma_true</span> <span class="op">*</span> <span class="va">x</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="kw">for</span> <span class="op">(</span><span class="va">x</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.15</span>, <span class="fl">0.60</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"hr = %.2f: true log-OR(R+D vs R) = %+.3f\n"</span>,</span>
 <span>              <span class="va">x</span>, <span class="fu">theta</span><span class="op">(</span><span class="st">"R+D"</span>, <span class="va">x</span><span class="op">)</span> <span class="op">-</span> <span class="fu">theta</span><span class="op">(</span><span class="st">"R"</span>, <span class="va">x</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="op">}</span></span></code></pre></div>
+<span><span class="op">}</span></span>
+<span><span class="co">#&gt; hr = 0.15: true log-OR(R+D vs R) = +0.390</span></span>
+<span><span class="co">#&gt; hr = 0.60: true log-OR(R+D vs R) = +0.660</span></span></code></pre></div>
 <p>The contrast that no trial measured, across a gap no comparator
 spans, is recovered; and it is recovered <em>differently</em> in the two
 target populations, because daratumumab is more effective in high-risk
@@ -265,7 +297,25 @@ one of them.</p>
 <strong>“which component is best in this population?”</strong> <span class="citation">(Wigle et al. 2026)</span>.</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/cpaic_ranks.html">cpaic_ranks</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>hr <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span>, what <span class="op">=</span> <span class="st">"component"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/cpaic_ranks.html">cpaic_ranks</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>hr <span class="op">=</span> <span class="fl">0.80</span><span class="op">)</span>, what <span class="op">=</span> <span class="st">"component"</span><span class="op">)</span></span></code></pre></div>
+<span><span class="co">#&gt; Warning: Dropped from the hierarchy as not estimable in this target population: I, R.</span></span>
+<span><span class="co">#&gt; Ranking them would rank the prior. See estimable_effects_at().</span></span>
+<span><span class="co">#&gt; Population-adjusted component hierarchy</span></span>
+<span><span class="co">#&gt;   Target population: hr = 0.05</span></span>
+<span><span class="co">#&gt;  element estimate p_best median_rank mean_rank sucra</span></span>
+<span><span class="co">#&gt;        V    0.606  0.981           1     1.019 0.981</span></span>
+<span><span class="co">#&gt;        D    0.356  0.019           2     1.981 0.019</span></span>
+<span><span class="co">#&gt;   Not estimable in this population, so not ranked: I, R</span></span>
+<span><span class="co">#&gt;   Ranking metrics depend on the set ranked; report them with the effects, not instead.</span></span>
+<span><span class="fu"><a href="../reference/cpaic_ranks.html">cpaic_ranks</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>hr <span class="op">=</span> <span class="fl">0.80</span><span class="op">)</span>, what <span class="op">=</span> <span class="st">"component"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Warning: Dropped from the hierarchy as not estimable in this target population: I, R.</span></span>
+<span><span class="co">#&gt; Ranking them would rank the prior. See estimable_effects_at().</span></span>
+<span><span class="co">#&gt; Population-adjusted component hierarchy</span></span>
+<span><span class="co">#&gt;   Target population: hr = 0.8</span></span>
+<span><span class="co">#&gt;  element estimate p_best median_rank mean_rank sucra</span></span>
+<span><span class="co">#&gt;        D    0.882      1           1         1     1</span></span>
+<span><span class="co">#&gt;        V    0.185      0           2         2     0</span></span>
+<span><span class="co">#&gt;   Not estimable in this population, so not ranked: I, R</span></span>
+<span><span class="co">#&gt;   Ranking metrics depend on the set ranked; report them with the effects, not instead.</span></span></code></pre></div>
 <p>Two things happen here, and both are the point.</p>
 <p>First, <strong><code>R</code> and <code>I</code> are
 dropped</strong>. Neither is identified at a general target population:
@@ -291,6 +341,9 @@ population and <code>D</code> wins in a high-risk one.</p>
 <span>         subtitle <span class="op">=</span> <span class="st">"Dashed line: the true crossover at hr = 0.227"</span><span class="op">)</span> <span class="op">+</span></span>
 <span>    <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_minimal</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="op">}</span></span></code></pre></div>
+<div class="float">
+<img src="figure/rankcurve-1.png" alt="plot of chunk rankcurve"><div class="figcaption">plot of chunk rankcurve</div>
+</div>
 </div>
 <div class="section level2">
 <h2 id="what-to-take-away">What to take away<a class="anchor" aria-label="anchor" href="#what-to-take-away"></a>

@@ -37,6 +37,12 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><a class="dropdown-item" href="articles/cpaic-intro.html">Getting started with cpaic</a></li>
     <li><a class="dropdown-item" href="articles/cpaic-methods.html">The cpaic statistical framework</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Outcomes</h6></li>
+    <li><a class="dropdown-item" href="articles/binary-outcomes.html">Binary outcomes: a disconnected smoking-cessation network</a></li>
+    <li><a class="dropdown-item" href="articles/continuous-outcomes.html">Continuous outcomes: bridging a disconnected network with a mean difference</a></li>
+    <li><a class="dropdown-item" href="articles/count-outcomes.html">Count outcomes: a disconnected COPD exacerbation network</a></li>
+    <li><a class="dropdown-item" href="articles/survival-outcomes.html">Survival outcomes: a disconnected network under proportional hazards</a></li>
     <li><a class="dropdown-item" href="articles/cpaic-disconnected-myeloma.html">A disconnected network: NMA, ML-NMR, and cML-NMR compared</a></li>
   </ul>
 </li>
@@ -90,7 +96,7 @@
 <p>This is research software under active development. Read the Limitations section before using it for a decision.</p>
 </div>
 <div class="section level2">
-<h2 id="estimability-comes-first">Estimability comes first<a class="anchor" aria-label="anchor" href="#estimability-comes-first"></a>
+<h2 id="estimability">Estimability<a class="anchor" aria-label="anchor" href="#estimability"></a>
 </h2>
 <p>Reconnecting a network through shared components does <strong>not</strong> guarantee that the effects you want are estimable. A relative effect is uniquely estimable exactly when its contrast vector lies in the <strong>row space</strong> of the component design matrix <code>X = B C</code> (Wigle et al. 2026). Full column rank of <code>X</code> is sufficient but <em>not necessary</em>, so a rank-deficient network can still identify useful cross-sub-network contrasts.</p>
 <p>This matters because both engines will otherwise hand back a confident-looking number for a contrast that carries no information: the frequentist fit through the Moore-Penrose pseudoinverse, and the Bayesian fit through the prior. <code>cpaic</code> checks every contrast and returns <code>NA</code> instead.</p>
@@ -138,9 +144,26 @@
 <p><code><a href="reference/relative_effects.html">relative_effects()</a></code>, <code><a href="reference/league_table.html">league_table()</a></code>, <code><a href="reference/component_effects.html">component_effects()</a></code>, <code><a href="reference/estimable_effects.html">estimable_effects()</a></code>, <code><a href="reference/additivity_test.html">additivity_test()</a></code>, <code><a href="reference/effective_sample_size.html">effective_sample_size()</a></code>, <code><a href="reference/forest.html">forest()</a></code> and <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> summarize and visualize a fit.</p>
 </div>
 <div class="section level2">
+<h2 id="simulation-evidence">Simulation evidence<a class="anchor" aria-label="anchor" href="#simulation-evidence"></a>
+</h2>
+<p>A factorial simulation (36,000 replicates) evaluates the <strong>cross-gap</strong> contrast on a disconnected network, i.e. the comparison no trial makes. Full results in <code>documentation/validation/</code>.</p>
+<p><strong>Population adjustment is effective.</strong> Without it, the naive bridge reaches a bias of +0.60 log-OR and 38% coverage under severe imbalance with poor overlap. cSTC’s bias stays flat at -0.01 to -0.04 <em>regardless</em> of imbalance and overlap, with 94 to 96% coverage and well-calibrated standard errors.</p>
+<p>The simulation also identifies four limitations.</p>
+<ul>
+<li>
+<strong>Additivity violation is invisible, and it is the largest error.</strong> With a moderate violation of cross-sub-network additivity, cSTC’s coverage falls to <strong>0.50</strong>, while <code><a href="reference/additivity_test.html">additivity_test()</a></code> reports a <em>perfect</em> fit (Q = 0 on 0 degrees of freedom). No diagnostic fires, because none can: there is no cross-gap evidence to test against. cpaic now reports the statistic as vacuous rather than printing a value that reads as a good fit.</li>
+<li>
+<strong>Errors can offset.</strong> Under severe imbalance combined with an additivity violation, the naive analysis outperformed both adjusted methods because its two biases cancelled. Agreement between methods is therefore not evidence of validity.</li>
+<li>
+<strong>Marginal effects do not add.</strong> On a non-collapsible scale, <code>marginal(A) + marginal(B)</code> is not <code>marginal(A+B)</code>: in one target population, 0.6615 versus 0.6411. So <code><a href="reference/cmaic.html">cmaic()</a></code>, which targets a marginal effect, carries a small <strong>irreducible</strong> bias that survives perfect matching and infinite data. The conditional log-odds scale is the only one on which the additive component model is coherent. Prefer <code><a href="reference/cstc.html">cstc()</a></code> or <code><a href="reference/cmlnmr.html">cmlnmr()</a></code> if this matters.</li>
+<li>
+<strong>The effective sample size is not a validity diagnostic.</strong> Individual patient data placed on an edge that does not carry the requested contrast leave the estimate identical to the unadjusted one, while the effective sample size reports 999 of 1000. <code><a href="reference/edge_influence.html">edge_influence()</a></code> reports whether the individual patient data inform the contrast at all.</li>
+</ul>
+</div>
+<div class="section level2">
 <h2 id="limitations">Limitations<a class="anchor" aria-label="anchor" href="#limitations"></a>
 </h2>
-<p>Read these before trusting a result.</p>
+<p>The following apply to any result produced by this package.</p>
 <ul>
 <li>
 <strong>The bridging assumption is untestable.</strong> Reconnecting a disconnected network requires component effects (and, under population adjustment, component by effect-modifier interactions) to be <em>constant across sub-networks</em>. There is by construction no cross-gap evidence to test this against. <code><a href="reference/additivity_test.html">additivity_test()</a></code> reports the fit of the additive model <em>within</em> the observed evidence; a large p-value is not a licence to bridge.</li>

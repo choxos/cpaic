@@ -36,6 +36,12 @@ connected across sub-networks and adjusted to the target population."></head><bo
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/cpaic-intro.html">Getting started with cpaic</a></li>
     <li><a class="dropdown-item" href="../articles/cpaic-methods.html">The cpaic statistical framework</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Outcomes</h6></li>
+    <li><a class="dropdown-item" href="../articles/binary-outcomes.html">Binary outcomes: a disconnected smoking-cessation network</a></li>
+    <li><a class="dropdown-item" href="../articles/continuous-outcomes.html">Continuous outcomes: bridging a disconnected network with a mean difference</a></li>
+    <li><a class="dropdown-item" href="../articles/count-outcomes.html">Count outcomes: a disconnected COPD exacerbation network</a></li>
+    <li><a class="dropdown-item" href="../articles/survival-outcomes.html">Survival outcomes: a disconnected network under proportional hazards</a></li>
     <li><a class="dropdown-item" href="../articles/cpaic-disconnected-myeloma.html">A disconnected network: NMA, ML-NMR, and cML-NMR compared</a></li>
   </ul></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -122,6 +128,30 @@ standard errors. Default <code>500</code>.</p></dd>
     <p>An object of class <code>cpaic_maic</code> (also inheriting <code>cpaic_bridge</code>
 structure via <code>$bridge</code>), with the bridged fit, per-study effective
 sample sizes, and the target population.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="non-collapsibility-and-the-additive-model">Non-collapsibility and the additive model<a class="anchor" aria-label="anchor" href="#non-collapsibility-and-the-additive-model"></a></h2>
+
+
+<p>cMAIC returns a <strong>marginal</strong> effect in the target population, and the additive
+component model assumes effects add. On a non-collapsible scale (the odds
+ratio, the hazard ratio) <strong>marginal effects do not add</strong>, even when every
+conditional effect does. In one simulated target population the marginal
+log-odds ratios satisfied
+<code>marginal(A) + marginal(B) = 0.6615</code> while <code>marginal(A+B) = 0.6411</code>; the
+additive model is simply false on that scale. cMAIC therefore carries a small
+<strong>irreducible bias</strong> (about +0.02 log-OR there) that survives perfect matching
+and infinite sample size. It is small relative to a typical standard error
+(about 0.25) but it does not vanish with more data.</p>
+<p>Marginal component effects are not <em>generally</em> additive; they add exactly when
+the standardized treatment effects remain affine in the component design.
+Additivity is therefore a property of the conditional link scale that the
+marginal scale inherits only approximately, and the error does not vanish with
+sample size. Where it is material, <code><a href="cstc.html">cstc()</a></code> or <code><a href="cmlnmr.html">cmlnmr()</a></code>, which target a
+conditional effect and inherit additivity exactly, are preferable. Note also
+that the two-stage route combines a conditional adjusted edge with aggregate
+edges reported on a marginal scale, so it should be regarded as approximate. See
+<code>documentation/validation/VALIDATION.md</code>.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
