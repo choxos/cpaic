@@ -1,6 +1,7 @@
 // Component-additive ML-NMR for count outcomes with a log link.
-// Random-effects and integration logic follow multinma (Phillippo et al.
-// 2020), reparameterized for component effects. Both packages are GPL-3.
+// Random-effects, integration logic, and the scaled thin QR approach follow
+// multinma (Phillippo et al. 2020), reparameterized for component effects.
+// Both packages are GPL-3.
 
 data {
   int<lower=0> N_ipd;
@@ -10,19 +11,18 @@ data {
   int<lower=1> P;
   int<lower=1> Q;
   int<lower=1> n_int;
+  int<lower=1> nX;
 
   array[N_ipd] int<lower=0> y_ipd;
   vector<lower=0>[N_ipd] offset_ipd;
-  array[N_ipd] int<lower=1, upper=N_studies> study_ipd;
-  matrix[N_ipd, C] Tc_ipd;
-  matrix[N_ipd, P] X_ipd;
-  array[N_ipd, Q] int em_idx;
+  matrix[N_ipd, nX] Z_ipd;
 
   array[N_agd] int<lower=0> r_agd;
   vector<lower=0>[N_agd] E_agd;
-  array[N_agd] int<lower=1, upper=N_studies> study_agd;
-  matrix[N_agd, C] Tc_agd;
-  matrix[N_agd * n_int, P] X_agd_int;
+  matrix[N_agd * n_int, nX] Z_agd_int;
+
+  int<lower=0, upper=1> QR;
+  matrix[QR ? nX : 0, QR ? nX : 0] R_inv;
 
   int<lower=0, upper=1> RE;
   int<lower=0, upper=1> noncentered;
@@ -44,25 +44,33 @@ data {
 }
 
 transformed data {
-  array[Q] int emc;
   vector[N_ipd] log_offset;
-  for (q in 1:Q) emc[q] = em_idx[1, q];
   for (i in 1:N_ipd) log_offset[i] = log(offset_ipd[i]);
 }
 
 parameters {
-  vector[N_studies] mu;
-  vector[C] beta;
-  vector[P] breg;
-  matrix[C, Q] gamma;
+  vector[nX] beta_tilde;
   vector[RE ? N_delta : 0] delta_aux;
   vector<lower=0>[RE] tau;
 }
 
 transformed parameters {
+  vector[nX] allbeta;
+  vector[N_studies] mu;
+  vector[C] beta;
+  vector[P] breg;
+  matrix[C, Q] gamma;
   vector[RE ? N_delta : 0] delta;
   vector[N_ipd] eta_ipd;
   vector[N_agd] lambda_agd;
+
+  allbeta = QR ? R_inv * beta_tilde : beta_tilde;
+  mu = segment(allbeta, 1, N_studies);
+  beta = segment(allbeta, N_studies + 1, C);
+  breg = segment(allbeta, N_studies + C + 1, P);
+  gamma = to_matrix(
+    segment(allbeta, N_studies + C + P + 1, C * Q), C, Q
+  );
 
   delta = delta_aux;
   if (RE) {
@@ -70,10 +78,7 @@ transformed parameters {
   }
 
   for (i in 1:N_ipd) {
-    real lp = mu[study_ipd[i]] + X_ipd[i] * breg + Tc_ipd[i] * beta;
-    for (q in 1:Q) {
-      lp += dot_product(Tc_ipd[i], gamma[, q]) * X_ipd[i, emc[q]];
-    }
+    real lp = QR ? Z_ipd[i] * beta_tilde : Z_ipd[i] * allbeta;
     if (RE) {
       if (re_idx_ipd[i] > 0) lp += delta[re_idx_ipd[i]];
     }
@@ -83,11 +88,8 @@ transformed parameters {
     real acc = 0;
     for (k in 1:n_int) {
       int row = (a - 1) * n_int + k;
-      real lp = mu[study_agd[a]] + X_agd_int[row] * breg
-                + Tc_agd[a] * beta;
-      for (q in 1:Q) {
-        lp += dot_product(Tc_agd[a], gamma[, q]) * X_agd_int[row, emc[q]];
-      }
+      real lp = QR ? Z_agd_int[row] * beta_tilde
+                   : Z_agd_int[row] * allbeta;
       if (RE) {
         if (re_idx_agd[a] > 0) lp += delta[re_idx_agd[a]];
       }
@@ -98,6 +100,8 @@ transformed parameters {
 }
 
 model {
+  // Priors remain on allbeta. The QR map is linear with a constant Jacobian,
+  // so no Jacobian adjustment can change the posterior distribution.
   mu ~ normal(0, prior_intercept_sd);
   beta ~ normal(0, prior_beta_sd);
   breg ~ normal(0, prior_reg_sd);

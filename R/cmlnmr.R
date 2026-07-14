@@ -239,6 +239,11 @@
 #'   diagonal). Defaults to the within-study IPD correlation.
 #' @param n_int Integration points per aggregate arm (ignored for
 #'   `gaussian`, which is exact at the covariate means).
+#' @param QR Logical scalar. If `TRUE`, apply the scaled thin QR
+#'   reparameterization used by `multinma` to the complete fixed-effects design
+#'   matrix. This is only a reparameterization: it must not change the
+#'   posterior distribution. It changes only the geometry explored by the
+#'   sampler. The default is `FALSE`, matching `multinma`.
 #' @param trt_effects Treatment-effect model: `"fixed"` or `"random"`.
 #' @param re_parameterization Random-effects parameterization. The default
 #'   `"noncentered"` should be used for inference; `"centered"` is provided for
@@ -289,7 +294,7 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
                    r = "r", n = "n", E = "E", se = "se",
                    cut_points = NULL, interval = ".interval",
                    baseline = c("piecewise", "mspline"), n_basis = 6L,
-                   cor = NULL, n_int = 64L,
+                   cor = NULL, n_int = 64L, QR = FALSE,
                    trt_effects = c("fixed", "random"),
                    re_parameterization = c("noncentered", "centered"),
                    prior_intercept_sd = 2.5, prior_beta_sd = 2.5,
@@ -320,6 +325,9 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
   if (!is.logical(prior_predictive) || length(prior_predictive) != 1L ||
       is.na(prior_predictive)) {
     stop("`prior_predictive` must be TRUE or FALSE.", call. = FALSE)
+  }
+  if (!is.logical(QR) || length(QR) != 1L || is.na(QR)) {
+    stop("`QR` must be TRUE or FALSE.", call. = FALSE)
   }
   prior_values <- c(
     prior_intercept_sd = prior_intercept_sd,
@@ -604,12 +612,41 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
   N_delta_stan <- max(1L, re$N_delta)
   L_delta_stan <- if (re$N_delta) re$L_delta else matrix(1, 1, 1)
 
+  study_ipd <- sidx(ipd[[study]])
+  study_agd <- sidx(agd[[study]])
+  agd_int_idx <- rep(seq_len(nrow(agd)), each = n_int_eff)
+  Z_ipd <- .cpaic_fixed_design(
+    study = study_ipd, Tc = Tc_ipd, X = X_ipd,
+    n_studies = length(studies), emc = seq_len(Q)
+  )
+  Z_agd_int <- .cpaic_fixed_design(
+    study = rep(study_agd, each = n_int_eff),
+    Tc = Tc_agd[agd_int_idx, , drop = FALSE], X = X_agd_int,
+    n_studies = length(studies), emc = seq_len(Q)
+  )
+  Z <- rbind(Z_ipd, Z_agd_int)
+  # A component design is collinear by construction: a component that appears in
+  # several multi-component treatments has a column correlated with each of
+  # them. The condition number says how badly, and so whether `QR = TRUE` is
+  # likely to help the sampler.
+  Z_cond <- tryCatch(kappa(Z), error = function(e) NA_real_)
+  if (QR) {
+    qr_design <- .cpaic_thin_qr(Z)
+    Z_stan <- qr_design$Q
+    R_inv <- qr_design$R_inv
+  } else {
+    Z_stan <- Z
+    R_inv <- matrix(0, nrow = 0L, ncol = 0L)
+  }
+  Z_ipd_stan <- Z_stan[seq_len(nrow(ipd)), , drop = FALSE]
+  Z_agd_int_stan <- Z_stan[nrow(ipd) + seq_len(nrow(X_agd_int)), ,
+                            drop = FALSE]
+
   base <- list(
     N_ipd = nrow(ipd), N_agd = nrow(agd), N_studies = length(studies),
     C = ncol(C), P = Q, Q = Q, n_int = n_int_eff,
-    study_ipd = sidx(ipd[[study]]), Tc_ipd = Tc_ipd, X_ipd = X_ipd,
-    em_idx = matrix(rep(seq_len(Q), each = nrow(ipd)), nrow = nrow(ipd)),
-    study_agd = sidx(agd[[study]]), Tc_agd = Tc_agd, X_agd_int = X_agd_int,
+    nX = ncol(Z), QR = as.integer(QR),
+    Z_ipd = Z_ipd_stan, Z_agd_int = Z_agd_int_stan, R_inv = R_inv,
     RE = as.integer(trt_effects == "random"),
     noncentered = as.integer(re_parameterization == "noncentered"),
     N_delta = N_delta_stan, L_delta = L_delta_stan,
@@ -703,7 +740,7 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
     exposure = exposure, start = start, entry = entry,
     r = r, n = n, E = E, se = se, cut_points = cut_points,
     interval = interval, baseline = baseline, n_basis = n_basis,
-    cor = cor, n_int = n_int, trt_effects = trt_effects,
+    cor = cor, n_int = n_int, QR = QR, trt_effects = trt_effects,
     re_parameterization = re_parameterization,
     prior_intercept_sd = prior_intercept_sd,
     prior_beta_sd = prior_beta_sd, prior_reg_sd = prior_reg_sd,
@@ -719,7 +756,8 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
   structure(
     list(fit = fit, components = comp_tbl, C.matrix = C, comps = comps,
          family = family, effect_modifiers = effect_modifiers,
-         margins = margins, cor = cor_mat, design = Dmat,
+         margins = margins, cor = cor_mat, QR = QR, Z_cond = Z_cond,
+         design = Dmat,
          null_space = null_space, rank = rk,
          joint_design = joint_design, joint_design_ipd = joint_design_ipd,
          reference = reference, sm = switch(family, binomial = "OR",
@@ -776,9 +814,17 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
 
 #' Compile (and cache) a cpaic Stan model with cmdstanr
 #'
-#' The model is compiled into a per-user cache directory rather than next to
-#' the installed `.stan` file, so the package tree never acquires an
-#' executable. The compiled binary is reused across calls.
+#' The model is compiled into a per-user cache directory rather than next to the
+#' installed `.stan` file, so the package tree never acquires an executable. The
+#' compiled binary is reused across calls.
+#'
+#' The cache is keyed by the CONTENT of the Stan source, not by its file name.
+#' Keying on the name and refreshing on the modification time is not safe:
+#' installing a package does not reliably give the installed `.stan` file a
+#' modification time later than a binary already sitting in the cache, so an
+#' upgraded cpaic could silently keep running the previous version's compiled
+#' model. A content hash cannot go stale, and it also lets two versions of the
+#' package coexist, which is what makes the QR equivalence test possible.
 #' @noRd
 .cpaic_stan_model <- function(family) {
   stan_file <- system.file("stan", paste0("cpaic_", family, ".stan"),
@@ -788,10 +834,15 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
   }
   cache <- tools::R_user_dir("cpaic", "cache")
   if (!dir.exists(cache)) dir.create(cache, recursive = TRUE)
-  dest <- file.path(cache, basename(stan_file))
-  if (!file.exists(dest) || file.mtime(stan_file) > file.mtime(dest)) {
-    file.copy(stan_file, dest, overwrite = TRUE)
+
+  key <- unname(tools::md5sum(stan_file))
+  if (is.na(key)) {
+    stop("Could not find the Stan model for family '", family, "'.",
+         call. = FALSE)
   }
+  dest <- file.path(cache, sprintf("cpaic_%s_%s.stan", family,
+                                   substr(key, 1L, 10L)))
+  if (!file.exists(dest)) file.copy(stan_file, dest, overwrite = TRUE)
   cmdstanr::cmdstan_model(dest)
 }
 

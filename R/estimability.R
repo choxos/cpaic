@@ -253,16 +253,48 @@
 #' estimable in a target population where the component by effect-modifier
 #' interactions are not identified.
 #'
+#' @section Strength of the guarantee:
+#' The `basis` column states how much the criterion actually proves for each
+#' contrast, which is not the same for every row.
+#'
+#' \describe{
+#'   \item{`"exact"`}{Either the contrast is identified by IPD, or the link is
+#'     the identity. IPD identification is exact under **any** link: the IPD
+#'     likelihood is an ordinary regression in arm and covariates, so the
+#'     within-study arm-by-covariate variation pins down `m'beta` and `m'Gamma`
+#'     directly. Under an identity link an aggregate arm's mean is linear in the
+#'     parameters, so aggregate identification is exact too.}
+#'   \item{`"first-order screen"`}{The contrast is identified only through
+#'     aggregate arms, under a nonlinear link (logit, log). The aggregate
+#'     likelihood is then an integral over the covariate distribution, and a
+#'     study pins the contrast down at a variance-weighted mean rather than at
+#'     its raw covariate mean. The criterion has the right rank structure, so it
+#'     finds under-determined contrasts correctly, but the anchor point is
+#'     shifted and it can be **optimistic**. With a log link, one aggregate study
+#'     and a symmetric covariate `P(x = -1) = P(x = +1) = 1/2`, the arm means are
+#'     `exp(mu)` and `exp(mu + beta) cosh(gamma)`, so the data identify only
+#'     `beta + log cosh(gamma)`, not `beta` itself. Treat such a contrast as
+#'     reported under an additional smoothness assumption, and check it with
+#'     [prior_sensitivity()].}
+#'   \item{`"not identified"`}{Not in the row space of the first-order
+#'     information. Any number reported here would be the prior, not the data.
+#'     These contrasts are returned as `NA` by [relative_effects()] and dropped
+#'     by [cpaic_ranks()].}
+#' }
+#'
 #' @param object A `cpaic_mlnmr` fit.
 #' @param newdata A one-row data frame giving the target population's
 #'   effect-modifier values. Defaults to the covariate origin.
 #' @param reference Reference treatment. Defaults to the fit's reference.
 #' @param ... Unused.
-#' @return A data frame with `treatment`, `comparator`, `estimable`, and
-#'   `identified_by` (`"IPD"`, `"aggregate"`, or `"none"`).
+#' @return A data frame with `treatment`, `comparator`, `estimable`,
+#'   `identified_by` (`"IPD"`, `"aggregate"`, or `"none"`) and `basis`
+#'   (`"exact"`, `"first-order screen"`, or `"not identified"`); see the section
+#'   below.
 #' @references
 #' Wigle A, Beliveau A, Nikolakopoulou A, Lin L (2026). Creating Treatment and
 #' Component Hierarchies in Component Network Meta-Analysis.
+#' @seealso [prior_sensitivity()], [relative_effects()], [cpaic_ranks()]
 #' @export
 estimable_effects_at <- function(object, newdata = NULL, reference = NULL,
                                  ...) {
@@ -289,11 +321,47 @@ estimable_effects_at <- function(object, newdata = NULL, reference = NULL,
   N_ipd <- .cpaic_null_space(D_ipd)
   by_ipd <- .cpaic_in_rowspace(V, N_ipd)
 
-  data.frame(
+  # The criterion is exact when it rests on an ordinary regression (IPD, any
+  # link) or on a linear mean map (identity link). It is only a screen when an
+  # aggregate arm under a nonlinear link is doing the identifying, because there
+  # the mean is an integral rather than a linear functional of the parameters.
+  identity_link <- identical(object$family, "gaussian")
+  basis <- ifelse(!ok, "not identified",
+                  ifelse(by_ipd | identity_link, "exact",
+                         "first-order screen"))
+
+  out <- data.frame(
     treatment = others,
     comparator = reference,
     estimable = ok,
     identified_by = ifelse(!ok, "none", ifelse(by_ipd, "IPD", "aggregate")),
+    basis = basis,
     row.names = NULL, stringsAsFactors = FALSE
   )
+  attr(out, "target") <- stats::setNames(x, ems)
+  class(out) <- c("cpaic_estimable", "data.frame")
+  out
+}
+
+#' @export
+print.cpaic_estimable <- function(x, ...) {
+  tgt <- attr(x, "target")
+  cat("Estimability of the population-adjusted relative effects\n")
+  if (length(tgt)) {
+    cat("  Target population: ",
+        paste(names(tgt), signif(tgt, 3), sep = " = ", collapse = ", "),
+        "\n", sep = "")
+  }
+  print(as.data.frame(x), row.names = FALSE)
+  if (any(x$basis == "first-order screen")) {
+    cat("\n  Rows marked \"first-order screen\" are identified only through",
+        " aggregate arms\n  under a nonlinear link, where the criterion can be",
+        " optimistic. Check them\n  with prior_sensitivity().\n", sep = "")
+  }
+  if (any(x$basis == "not identified")) {
+    cat("\n  Rows marked \"not identified\" carry no first-order information;",
+        " a number\n  reported for them would be the prior. relative_effects()",
+        " returns NA there.\n", sep = "")
+  }
+  invisible(x)
 }

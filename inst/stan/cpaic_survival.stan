@@ -1,7 +1,8 @@
 // Component-additive ML-NMR for exact survival outcomes with a piecewise
 // exponential baseline. The hazard basis, integrated basis, censoring and
-// delayed-entry likelihoods, and likelihood-level AgD integration are ported
-// from multinma (Phillippo et al. 2020). Both packages are GPL-3.
+// delayed-entry likelihoods, likelihood-level AgD integration, and the scaled
+// thin QR approach are ported from multinma (Phillippo et al. 2020). Both
+// packages are GPL-3.
 
 functions {
   real cpaic_survival_loglik(
@@ -57,6 +58,7 @@ data {
   int<lower=1> Q;
   int<lower=1> n_int;
   int<lower=1> N_base;
+  int<lower=1> nX;
 
   matrix[N_ipd, N_base] time_basis_ipd;
   matrix[N_ipd, N_base] itime_basis_ipd;
@@ -64,10 +66,7 @@ data {
   matrix[N_ipd, N_base] entry_basis_ipd;
   array[N_ipd] int<lower=0, upper=1> delayed_ipd;
   array[N_ipd] int<lower=0, upper=3> status_ipd;
-  array[N_ipd] int<lower=1, upper=N_studies> study_ipd;
-  matrix[N_ipd, C] Tc_ipd;
-  matrix[N_ipd, P] X_ipd;
-  array[N_ipd, Q] int em_idx;
+  matrix[N_ipd, nX] Z_ipd;
 
   matrix[N_agd, N_base] time_basis_agd;
   matrix[N_agd, N_base] itime_basis_agd;
@@ -75,9 +74,10 @@ data {
   matrix[N_agd, N_base] entry_basis_agd;
   array[N_agd] int<lower=0, upper=1> delayed_agd;
   array[N_agd] int<lower=0, upper=3> status_agd;
-  array[N_agd] int<lower=1, upper=N_studies> study_agd;
-  matrix[N_agd, C] Tc_agd;
-  matrix[N_agd * n_int, P] X_agd_int;
+  matrix[N_agd * n_int, nX] Z_agd_int;
+
+  int<lower=0, upper=1> QR;
+  matrix[QR ? nX : 0, QR ? nX : 0] R_inv;
 
   int<lower=0, upper=1> RE;
   int<lower=0, upper=1> noncentered;
@@ -98,22 +98,19 @@ data {
   real<lower=0> prior_tau_df;
 }
 
-transformed data {
-  array[Q] int emc;
-  for (q in 1:Q) emc[q] = em_idx[1, q];
-}
-
 parameters {
-  vector[N_studies] mu;
+  vector[nX] beta_tilde;
   vector[N_base - 1] bshape_raw;
-  vector[C] beta;
-  vector[P] breg;
-  matrix[C, Q] gamma;
   vector[RE ? N_delta : 0] delta_aux;
   vector<lower=0>[RE] tau;
 }
 
 transformed parameters {
+  vector[nX] allbeta;
+  vector[N_studies] mu;
+  vector[C] beta;
+  vector[P] breg;
+  matrix[C, Q] gamma;
   vector[N_base] coefficients;
   vector[RE ? N_delta : 0] delta;
   vector[N_ipd] eta_ipd;
@@ -122,6 +119,14 @@ transformed parameters {
   vector[N_ipd] p_event_ipd;
   vector[N_agd] p_event_agd;
 
+  allbeta = QR ? R_inv * beta_tilde : beta_tilde;
+  mu = segment(allbeta, 1, N_studies);
+  beta = segment(allbeta, N_studies + 1, C);
+  breg = segment(allbeta, N_studies + C + 1, P);
+  gamma = to_matrix(
+    segment(allbeta, N_studies + C + P + 1, C * Q), C, Q
+  );
+
   coefficients = exp(append_row(rep_vector(0, 1), bshape_raw));
   delta = delta_aux;
   if (RE) {
@@ -129,10 +134,7 @@ transformed parameters {
   }
 
   for (i in 1:N_ipd) {
-    real lp = mu[study_ipd[i]] + X_ipd[i] * breg + Tc_ipd[i] * beta;
-    for (q in 1:Q) {
-      lp += dot_product(Tc_ipd[i], gamma[, q]) * X_ipd[i, emc[q]];
-    }
+    real lp = QR ? Z_ipd[i] * beta_tilde : Z_ipd[i] * allbeta;
     if (RE) {
       if (re_idx_ipd[i] > 0) lp += delta[re_idx_ipd[i]];
     }
@@ -151,11 +153,8 @@ transformed parameters {
     real event_acc = 0;
     for (k in 1:n_int) {
       int row = (a - 1) * n_int + k;
-      real lp = mu[study_agd[a]] + X_agd_int[row] * breg
-                + Tc_agd[a] * beta;
-      for (q in 1:Q) {
-        lp += dot_product(Tc_agd[a], gamma[, q]) * X_agd_int[row, emc[q]];
-      }
+      real lp = QR ? Z_agd_int[row] * beta_tilde
+                   : Z_agd_int[row] * allbeta;
       if (RE) {
         if (re_idx_agd[a] > 0) lp += delta[re_idx_agd[a]];
       }
@@ -173,6 +172,8 @@ transformed parameters {
 }
 
 model {
+  // Priors remain on allbeta. The QR map is linear with a constant Jacobian,
+  // so no Jacobian adjustment can change the posterior distribution.
   mu ~ normal(0, prior_intercept_sd);
   bshape_raw ~ normal(0, prior_intercept_sd);
   beta ~ normal(0, prior_beta_sd);
