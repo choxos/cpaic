@@ -191,6 +191,16 @@
     stop("Delayed-entry times in `", source,
          "` must satisfy 0 <= entry < time.", call. = FALSE)
   }
+  # An interval-censored subject is known to fail inside (start, time]. That
+  # knowledge is impossible if the subject was not under observation until after
+  # the interval had already begun, so the entry time cannot exceed the interval
+  # start. Without this constraint the likelihood forms (S(start) - S(time)) /
+  # S(entry) with entry > start, which is not a probability and can exceed one.
+  if (any(status == 3L & entry_time > start_time)) {
+    stop("Interval-censored rows in `", source,
+         "` need entry <= start: a subject cannot be known to fail after a ",
+         "time it was not yet under observation for.", call. = FALSE)
+  }
 
   list(time = time, status = status, start_time = start_time,
        entry_time = entry_time)

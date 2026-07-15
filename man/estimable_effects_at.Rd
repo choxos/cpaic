@@ -43,24 +43,29 @@ The \code{basis} column states how much the criterion actually proves for each
 contrast, which is not the same for every row.
 
 \describe{
-\item{\code{"exact"}}{Either the contrast is identified by IPD, or the link is
-the identity. IPD identification is exact under \strong{any} link: the IPD
-likelihood is an ordinary regression in arm and covariates, so the
-within-study arm-by-covariate variation pins down \verb{m'beta} and \verb{m'Gamma}
-directly. Under an identity link an aggregate arm's mean is linear in the
-parameters, so aggregate identification is exact too.}
-\item{\code{"first-order screen"}}{The contrast is identified only through
-aggregate arms, under a nonlinear link (logit, log). The aggregate
-likelihood is then an integral over the covariate distribution, and a
-study pins the contrast down at a variance-weighted mean rather than at
-its raw covariate mean. The criterion has the right rank structure, so it
-finds under-determined contrasts correctly, but the anchor point is
-shifted and it can be \strong{optimistic}. With a log link, one aggregate study
-and a symmetric covariate \code{P(x = -1) = P(x = +1) = 1/2}, the arm means are
+\item{\code{"exact"}}{The contrast is identified by individual-patient data
+under an injective link with no extra support-dependent nuisance, which
+means a binomial, poisson or gaussian IPD arm contrast. The IPD likelihood
+is then an ordinary regression in arm and covariates, so the within-study
+arm-by-covariate variation pins down \verb{m'beta} and \verb{m'Gamma} directly.
+Survival is excluded even for IPD, because its flexible baseline hazard
+and delayed entry add support-dependent nuisance parameters the
+covariate-support argument does not account for.}
+\item{\code{"first-order screen"}}{The contrast is estimable by the linear
+row-space criterion, but that criterion is only a design-based screen
+here, not an exactness proof, so it can be \strong{optimistic}. This covers two
+situations. Identification through aggregate arms under a nonlinear link:
+the aggregate likelihood is an integral over the covariate distribution,
+and a study pins the contrast down at a variance-weighted mean rather than
+at its raw covariate mean. With a log link, one aggregate study and a
+symmetric covariate \code{P(x = -1) = P(x = +1) = 1/2}, the arm means are
 \code{exp(mu)} and \verb{exp(mu + beta) cosh(gamma)}, so the data identify only
-\verb{beta + log cosh(gamma)}, not \code{beta} itself. Treat such a contrast as
-reported under an additional smoothness assumption, and check it with
-\code{\link[=prior_sensitivity]{prior_sensitivity()}}.}
+\verb{beta + log cosh(gamma)}, not \code{beta} itself. And identification through
+aggregate arms under the identity link: this is exact only when the arms
+of each contributing study share a covariate distribution, so that the
+study intercept and the prognostic effects cancel from the contrast; cpaic
+does not enforce that balance, so it is reported as a screen rather than
+claimed exact. Verify these with \code{\link[=prior_sensitivity]{prior_sensitivity()}}.}
 \item{\code{"not identified"}}{Not in the row space of the first-order
 information. Any number reported here would be the prior, not the data.
 These contrasts are returned as \code{NA} by \code{\link[=relative_effects]{relative_effects()}} and dropped

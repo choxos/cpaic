@@ -116,12 +116,17 @@ parameters {
 
   // Each study gets its own baseline hazard SHAPE, through a non-centered
   // first-order random walk on the log spline coefficients with a shared
-  // smoothing scale. This is the prior multinma uses, and it is not a
-  // refinement: a flat Dirichlet on a per-study simplex leaves the shape weakly
-  // identified in a small study, and the sampler crawls. The random walk ties
-  // neighboring basis coefficients together and shrinks each study's baseline
-  // toward a constant hazard as bsmooth goes to zero, while the shared scale
-  // lets the studies borrow strength from one another.
+  // smoothing scale. This is a simplified relative of the smoothing prior
+  // multinma uses; it is not identical to it. A flat Dirichlet on a per-study
+  // simplex leaves the shape weakly identified in a small study, and the sampler
+  // crawls. The random walk ties neighboring log coefficients together, so as
+  // bsmooth goes to zero it shrinks each study toward EQUAL simplex weights and
+  // the shared scale lets the studies borrow strength. Note that equal M-spline
+  // weights are not a constant hazard: the resulting hazard is a smooth,
+  // gently curved function, not flat. multinma instead centers on the weight
+  // vector that represents a constant hazard exactly and applies knot-spacing
+  // weights; cpaic does not, so the shrinkage target here is a smooth default
+  // shape rather than a constant hazard.
   array[N_studies] vector[N_base - 1] bshape_raw;
   real<lower=0> bsmooth;
 

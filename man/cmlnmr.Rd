@@ -110,8 +110,11 @@ This is the main cost lever for the survival families. An aggregate survival
 arm is supplied as reconstructed pseudo-IPD, so the aggregate likelihood is
 evaluated once per (aggregate row x integration point): the work grows as
 \code{nrow(agd) * n_int}, and the default of 64 is expensive on a trial with
-several hundred reconstructed patients. Sampling is otherwise well behaved
-(no divergences and no treedepth saturation in our checks), so if a survival
+several hundred reconstructed patients. Sampling is usually well behaved on
+the fixed-effects model (no divergences in the fixed-effects checks here),
+though the random-effects survival model can still produce a few divergent
+transitions and occasional rejected simplex proposals; inspect the
+diagnostics rather than assuming they are clean. If a survival
 fit is slow, reduce \code{n_int} before suspecting the geometry, and confirm the
 answer is stable with \code{\link[=plot_integration_error]{plot_integration_error()}}.}
 
@@ -144,10 +147,11 @@ study-intercept, component-effect, and prognostic-regression normal priors.}
 \item{prior_aux_sd}{Scale of the half-normal prior on the baseline-hazard
 smoothing parameter (survival families only). Each study has its own
 baseline hazard, given a first-order random-walk prior on the log spline
-coefficients with this shared smoothing scale, as in \code{multinma}. Smaller
-values shrink every study's baseline toward a constant hazard. The default
-of 1 follows the Stan recommendation of a half-normal(0, 1) prior for a
-hierarchical scale.}
+coefficients with this shared smoothing scale. This is a simplified relative
+of the smoothing prior in \code{multinma}, not the same prior: smaller values
+shrink every study's baseline toward equal spline weights, which is a smooth
+default shape and not a constant hazard. The default of 1 follows the Stan
+recommendation of a half-normal(0, 1) prior for a hierarchical scale.}
 
 \item{prior_gamma_dist, prior_gamma_scale, prior_gamma_df}{Distribution, scale,
 and degrees of freedom for interaction priors. The Student t option uses
@@ -253,12 +257,13 @@ not zero. Increase \code{n_int} and confirm that the estimates are stable before
 relying on them. The earlier person-time approximation was biased by 36\% in
 a two-group example; that particular bias is removed, but a finite
 integration error remains.
-\item \strong{The baseline hazard SHAPE is shared across studies.} Each study has its
-own baseline level through its intercept, but a single set of spline (or
-step) coefficients is shared, so the studies are assumed to have
-proportional baseline hazards. \code{multinma} permits study-specific baseline
-shapes. If the studies plausibly have differently shaped baselines, this
-model is misspecified and the shared shape should not be used.
+\item \strong{Each study has its own baseline hazard shape.} Every study carries its
+own set of spline (or step) coefficients, smoothed toward a common shape by
+a shared random-walk scale (\code{prior_aux_sd}), so the treatment effects do not
+have to absorb baseline misfit. A single global spline basis is built from
+the pooled follow-up range, so a study with much shorter follow-up may not
+inform the coefficients of the latest basis functions; those are then
+determined by the smoothing prior rather than by that study's data.
 }
 }
 

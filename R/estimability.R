@@ -185,33 +185,46 @@
   #     covariate distribution, the intersection equals the pooled row space, and
   #     nothing is lost.
   #
-  # For a multi-arm study this takes each non-reference arm against the reference
-  # arm. That is conservative relative to the exact multi-arm set (which allows
-  # constrained combinations across arms), so it can only return NA more often,
-  # never less.
+  # For a multi-arm study this enumerates EVERY unordered pair of arms, not just
+  # each arm against the first one. The identified set is spanned by all pairwise
+  # arm differences at their shared covariate support, and taking all pairs makes
+  # the result independent of the order the arms are listed in.
   if (!is.null(ipd) && nrow(ipd)) {
     for (ss in unique(as.character(ipd[[study]]))) {
       sub <- ipd[as.character(ipd[[study]]) == ss, , drop = FALSE]
       arms <- unique(as.character(sub[[trt]]))
       if (length(arms) < 2L) next
-      M <- contrasts_of(arms)                       # (n_arms - 1) x K
       xof <- function(a) {
         as.matrix(sub[as.character(sub[[trt]]) == a, effect_modifiers,
                       drop = FALSE])
       }
-      Xref <- xof(arms[1L])
+      crow <- function(a) C[match(a, rownames(C)), ]
 
-      for (r in seq_len(nrow(M))) {
-        m <- M[r, ]
-        W <- if (Q) {
-          .cpaic_arm_directions(Xref, xof(arms[r + 1L]), tol = tol)
-        } else {
-          matrix(1, 1L, 1L)                          # Q = 0: only the level
-        }
-        for (j in seq_len(ncol(W))) {
-          w <- W[, j]
-          rows[[length(rows) + 1L]] <-
-            as.numeric(kronecker(matrix(w, nrow = 1L), matrix(m, nrow = 1L)))
+      # Every PAIR of arms, not just each arm against the study's first arm. An
+      # arm contrast a minus b is identified wherever arms a and b BOTH have
+      # covariate support, because at a covariate value both attain, the
+      # difference of their predictors cancels the study intercept and the
+      # prognostic effects and isolates (C_a - C_b)'(beta + Gamma x). Anchoring
+      # on the first arm made the verdict depend on which arm a study happened to
+      # list first, and it missed contrasts between two arms that share a
+      # covariate value when a third arm does not (e.g. a placebo seen only at a
+      # different covariate value). Enumerating unordered pairs is
+      # order-independent and strictly less conservative, with no false positive:
+      # each row is a functional the within-study data genuinely identify.
+      for (i in seq_along(arms)) {
+        for (j in seq_along(arms)) {
+          if (j <= i) next
+          m <- crow(arms[i]) - crow(arms[j])
+          W <- if (Q) {
+            .cpaic_arm_directions(xof(arms[i]), xof(arms[j]), tol = tol)
+          } else {
+            matrix(1, 1L, 1L)                        # Q = 0: only the level
+          }
+          for (k in seq_len(ncol(W))) {
+            w <- W[, k]
+            rows[[length(rows) + 1L]] <-
+              as.numeric(kronecker(matrix(w, nrow = 1L), matrix(m, nrow = 1L)))
+          }
         }
       }
     }
@@ -258,24 +271,29 @@
 #' contrast, which is not the same for every row.
 #'
 #' \describe{
-#'   \item{`"exact"`}{Either the contrast is identified by IPD, or the link is
-#'     the identity. IPD identification is exact under **any** link: the IPD
-#'     likelihood is an ordinary regression in arm and covariates, so the
-#'     within-study arm-by-covariate variation pins down `m'beta` and `m'Gamma`
-#'     directly. Under an identity link an aggregate arm's mean is linear in the
-#'     parameters, so aggregate identification is exact too.}
-#'   \item{`"first-order screen"`}{The contrast is identified only through
-#'     aggregate arms, under a nonlinear link (logit, log). The aggregate
-#'     likelihood is then an integral over the covariate distribution, and a
-#'     study pins the contrast down at a variance-weighted mean rather than at
-#'     its raw covariate mean. The criterion has the right rank structure, so it
-#'     finds under-determined contrasts correctly, but the anchor point is
-#'     shifted and it can be **optimistic**. With a log link, one aggregate study
-#'     and a symmetric covariate `P(x = -1) = P(x = +1) = 1/2`, the arm means are
+#'   \item{`"exact"`}{The contrast is identified by individual-patient data
+#'     under an injective link with no extra support-dependent nuisance, which
+#'     means a binomial, poisson or gaussian IPD arm contrast. The IPD likelihood
+#'     is then an ordinary regression in arm and covariates, so the within-study
+#'     arm-by-covariate variation pins down `m'beta` and `m'Gamma` directly.
+#'     Survival is excluded even for IPD, because its flexible baseline hazard
+#'     and delayed entry add support-dependent nuisance parameters the
+#'     covariate-support argument does not account for.}
+#'   \item{`"first-order screen"`}{The contrast is estimable by the linear
+#'     row-space criterion, but that criterion is only a design-based screen
+#'     here, not an exactness proof, so it can be **optimistic**. This covers two
+#'     situations. Identification through aggregate arms under a nonlinear link:
+#'     the aggregate likelihood is an integral over the covariate distribution,
+#'     and a study pins the contrast down at a variance-weighted mean rather than
+#'     at its raw covariate mean. With a log link, one aggregate study and a
+#'     symmetric covariate `P(x = -1) = P(x = +1) = 1/2`, the arm means are
 #'     `exp(mu)` and `exp(mu + beta) cosh(gamma)`, so the data identify only
-#'     `beta + log cosh(gamma)`, not `beta` itself. Treat such a contrast as
-#'     reported under an additional smoothness assumption, and check it with
-#'     [prior_sensitivity()].}
+#'     `beta + log cosh(gamma)`, not `beta` itself. And identification through
+#'     aggregate arms under the identity link: this is exact only when the arms
+#'     of each contributing study share a covariate distribution, so that the
+#'     study intercept and the prognostic effects cancel from the contrast; cpaic
+#'     does not enforce that balance, so it is reported as a screen rather than
+#'     claimed exact. Verify these with [prior_sensitivity()].}
 #'   \item{`"not identified"`}{Not in the row space of the first-order
 #'     information. Any number reported here would be the prior, not the data.
 #'     These contrasts are returned as `NA` by [relative_effects()] and dropped
@@ -321,14 +339,34 @@ estimable_effects_at <- function(object, newdata = NULL, reference = NULL,
   N_ipd <- .cpaic_null_space(D_ipd)
   by_ipd <- .cpaic_in_rowspace(V, N_ipd)
 
-  # The criterion is exact when it rests on an ordinary regression (IPD, any
-  # link) or on a linear mean map (identity link). It is only a screen when an
-  # aggregate arm under a nonlinear link is doing the identifying, because there
-  # the mean is an integral rather than a linear functional of the parameters.
-  identity_link <- identical(object$family, "gaussian")
+  # "exact" is claimed only where it can be proved, which is narrower than it
+  # first appears.
+  #
+  #  * Individual-patient data under an INJECTIVE link with no extra
+  #    support-dependent nuisance: exact. The arm contrast is an ordinary
+  #    regression in arm and covariate, so m'beta and m'Gamma are identified
+  #    directly. This covers binomial, poisson and gaussian IPD.
+  #
+  #  * Survival is EXCLUDED even for IPD, because the flexible baseline hazard
+  #    and delayed entry add support-dependent nuisance parameters (a study can
+  #    fail to identify a baseline interval it has no exposure in) that the
+  #    covariate-support argument does not see. Labeling these "exact" overstates
+  #    the guarantee.
+  #
+  #  * Aggregate identification is NOT labeled exact, not even under the identity
+  #    link. The identity-link contrast is exact only when the arms of each
+  #    contributing aggregate study share a covariate distribution, so that the
+  #    study intercept and the prognostic effects cancel. cpaic does not enforce
+  #    that balance, and when arm means differ the prognostic coefficient
+  #    contaminates the contrast. Reporting such a contrast as a design-based
+  #    screen is the honest description.
+  #
+  # Everything else that is estimable is a first-order screen: correct in rank
+  # structure, but able to be optimistic about the anchor. Verify with
+  # prior_sensitivity().
+  ipd_exact <- by_ipd & !identical(object$family, "survival")
   basis <- ifelse(!ok, "not identified",
-                  ifelse(by_ipd | identity_link, "exact",
-                         "first-order screen"))
+                  ifelse(ipd_exact, "exact", "first-order screen"))
 
   out <- data.frame(
     treatment = others,
@@ -354,9 +392,10 @@ print.cpaic_estimable <- function(x, ...) {
   }
   print(as.data.frame(x), row.names = FALSE)
   if (any(x$basis == "first-order screen")) {
-    cat("\n  Rows marked \"first-order screen\" are identified only through",
-        " aggregate arms\n  under a nonlinear link, where the criterion can be",
-        " optimistic. Check them\n  with prior_sensitivity().\n", sep = "")
+    cat("\n  Rows marked \"first-order screen\" are estimable by the linear",
+        " criterion, which\n  is only a design-based screen for them (aggregate",
+        " identification, or a\n  survival baseline) and can be optimistic.",
+        " Check them with prior_sensitivity().\n", sep = "")
   }
   if (any(x$basis == "not identified")) {
     cat("\n  Rows marked \"not identified\" carry no first-order information;",

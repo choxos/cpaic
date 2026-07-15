@@ -106,6 +106,15 @@ print.cpaic_additivity <- function(x, ...) {
 #' with `w_j` of zero contributes nothing to that contrast, and adjusting it
 #' changes nothing.
 #'
+#' The weight uses a diagonal `W` of inverse edge variances. The fit itself is
+#' produced by `netmeta::discomb()`, which accounts for the within-study
+#' covariance of a multi-arm trial, so in a network containing multi-arm studies
+#' the weight reported here is a close approximation to the fitted estimator's
+#' influence rather than its exact value. It is intended as a screening
+#' diagnostic, to flag an IPD edge that carries little or no weight on the
+#' contrast; read a weight near zero as "this edge barely matters here", not as
+#' an exact sensitivity.
+#'
 #' This matters because the usual diagnostic cannot detect the problem. In
 #' simulation, putting the IPD on an edge that does not bridge the gap left
 #' cMAIC numerically identical to the unadjusted analysis (bias +0.374, coverage
@@ -169,8 +178,13 @@ edge_influence <- function(object, treatment, comparator = NULL, tol = 1e-8,
     influence = infl,
     row.names = NULL, stringsAsFactors = FALSE
   )
-  scale <- max(abs(out$influence), 1)
-  dead <- out$has_ipd & abs(out$influence) < tol * scale
+  # `tol` is relative to the largest influence, as documented. Flooring the
+  # scale at 1 (as an earlier version did) makes the cutoff absolute whenever
+  # every influence is below 1, which fires a false "no influence" warning: three
+  # equal edges of 1/3 have a documented cutoff of tol/3, not tol. When no edge
+  # has any influence the relative comparison is undefined, so nothing is flagged.
+  scale <- max(abs(out$influence))
+  dead <- out$has_ipd & scale > 0 & abs(out$influence) < tol * scale
   if (any(dead)) {
     warning("Individual patient data on ",
             paste(unique(out$studlab[dead]), collapse = ", "),

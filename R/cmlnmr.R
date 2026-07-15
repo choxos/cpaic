@@ -185,12 +185,13 @@
 #'   relying on them. The earlier person-time approximation was biased by 36% in
 #'   a two-group example; that particular bias is removed, but a finite
 #'   integration error remains.
-#' * **The baseline hazard SHAPE is shared across studies.** Each study has its
-#'   own baseline level through its intercept, but a single set of spline (or
-#'   step) coefficients is shared, so the studies are assumed to have
-#'   proportional baseline hazards. `multinma` permits study-specific baseline
-#'   shapes. If the studies plausibly have differently shaped baselines, this
-#'   model is misspecified and the shared shape should not be used.
+#' * **Each study has its own baseline hazard shape.** Every study carries its
+#'   own set of spline (or step) coefficients, smoothed toward a common shape by
+#'   a shared random-walk scale (`prior_aux_sd`), so the treatment effects do not
+#'   have to absorb baseline misfit. A single global spline basis is built from
+#'   the pooled follow-up range, so a study with much shorter follow-up may not
+#'   inform the coefficients of the latest basis functions; those are then
+#'   determined by the smoothing prior rather than by that study's data.
 #'
 #' @section Identifiability:
 #' A relative effect is uniquely estimable only if its component contrast lies
@@ -244,8 +245,11 @@
 #'   arm is supplied as reconstructed pseudo-IPD, so the aggregate likelihood is
 #'   evaluated once per (aggregate row x integration point): the work grows as
 #'   `nrow(agd) * n_int`, and the default of 64 is expensive on a trial with
-#'   several hundred reconstructed patients. Sampling is otherwise well behaved
-#'   (no divergences and no treedepth saturation in our checks), so if a survival
+#'   several hundred reconstructed patients. Sampling is usually well behaved on
+#'   the fixed-effects model (no divergences in the fixed-effects checks here),
+#'   though the random-effects survival model can still produce a few divergent
+#'   transitions and occasional rejected simplex proposals; inspect the
+#'   diagnostics rather than assuming they are clean. If a survival
 #'   fit is slow, reduce `n_int` before suspecting the geometry, and confirm the
 #'   answer is stable with [plot_integration_error()].
 #' @param QR Logical scalar. If `TRUE`, apply the scaled thin QR
@@ -267,10 +271,11 @@
 #' @param prior_aux_sd Scale of the half-normal prior on the baseline-hazard
 #'   smoothing parameter (survival families only). Each study has its own
 #'   baseline hazard, given a first-order random-walk prior on the log spline
-#'   coefficients with this shared smoothing scale, as in `multinma`. Smaller
-#'   values shrink every study's baseline toward a constant hazard. The default
-#'   of 1 follows the Stan recommendation of a half-normal(0, 1) prior for a
-#'   hierarchical scale.
+#'   coefficients with this shared smoothing scale. This is a simplified relative
+#'   of the smoothing prior in `multinma`, not the same prior: smaller values
+#'   shrink every study's baseline toward equal spline weights, which is a smooth
+#'   default shape and not a constant hazard. The default of 1 follows the Stan
+#'   recommendation of a half-normal(0, 1) prior for a hierarchical scale.
 #' @param trt_effects Treatment-effect model: `"fixed"` or `"random"`.
 #' @param re_parameterization Random-effects parameterization. The default
 #'   `"noncentered"` should be used for inference; `"centered"` is provided for
@@ -568,6 +573,23 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
   # association with between-study mean shifts).
   cor_mat <- .cpaic_copula_cor(ipd, effect_modifiers, study, cor)
 
+  # The copula takes its correlation on the LATENT Gaussian scale. When the
+  # correlation is estimated automatically it is an observed Pearson correlation,
+  # which equals the latent one only for normal margins. For a Bernoulli margin
+  # the two differ, so an auto-estimated correlation reproduces the observed
+  # association only approximately. A correct observed-to-latent transform (as in
+  # multinma) is not applied here; supply `cor` on the latent scale if the exact
+  # association matters. Only warn when it can actually bite: two or more
+  # correlated modifiers with at least one Bernoulli margin, and no user `cor`.
+  if (is.null(cor) && !is.null(cor_mat) && any(margins == "bernoulli") &&
+      length(effect_modifiers) >= 2L) {
+    warning("The auto-estimated covariate correlation is an observed Pearson ",
+            "correlation but is used as a latent copula correlation. For the ",
+            "Bernoulli margin(s) present these differ, so the integration ",
+            "reproduces the observed association only approximately. Supply ",
+            "`cor` on the latent scale for an exact match.", call. = FALSE)
+  }
+
   # First-order information design for the population-adjusted estimand
   # (beta, vec(Gamma)). This decides which contrasts are estimable AT A GIVEN
   # TARGET POPULATION, which is a strictly stronger requirement than
@@ -608,10 +630,16 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
   X_ipd <- as.matrix(ipd[, effect_modifiers, drop = FALSE])
   Tc_agd <- C[match(as.character(agd[[trt]]), rownames(C)), , drop = FALSE]
 
-  # Integration points. Gaussian with all-normal margins is exact at the
-  # covariate means (the identity link is linear in x), so a single point is
-  # enough; any other case needs the QMC grid.
-  gaussian_exact <- family == "gaussian" && all(margins == "normal")
+  # Integration points. Under the identity link the aggregate mean is a linear
+  # functional of the covariates, so it depends only on their means: E[eta] =
+  # eta(E[x]), whatever the marginal distributions or their correlation. A single
+  # point at the covariate means is therefore EXACT for the gaussian family
+  # regardless of margin type, including Bernoulli. (This path already evaluates
+  # X_agd_int at the *_mean columns, which is E[x] for a Bernoulli prevalence as
+  # well as for a normal mean.) Restricting the exact path to all-normal margins
+  # would force a rare binary modifier through finite QMC and shift its mean; the
+  # nonlinear families still need the QMC grid.
+  gaussian_exact <- family == "gaussian"
   if (gaussian_exact) {
     n_int_eff <- 1L
     X_agd_int <- as.matrix(

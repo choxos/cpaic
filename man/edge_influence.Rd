@@ -35,6 +35,15 @@ so edge \code{j} influences the answer only through its weight \code{w_j}. An IP
 with \code{w_j} of zero contributes nothing to that contrast, and adjusting it
 changes nothing.
 
+The weight uses a diagonal \code{W} of inverse edge variances. The fit itself is
+produced by \code{netmeta::discomb()}, which accounts for the within-study
+covariance of a multi-arm trial, so in a network containing multi-arm studies
+the weight reported here is a close approximation to the fitted estimator's
+influence rather than its exact value. It is intended as a screening
+diagnostic, to flag an IPD edge that carries little or no weight on the
+contrast; read a weight near zero as "this edge barely matters here", not as
+an exact sensitivity.
+
 This matters because the usual diagnostic cannot detect the problem. In
 simulation, putting the IPD on an edge that does not bridge the gap left
 cMAIC numerically identical to the unadjusted analysis (bias +0.374, coverage
