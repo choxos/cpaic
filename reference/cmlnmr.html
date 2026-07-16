@@ -210,8 +210,11 @@ which is exact at the covariate means).</p>
 arm is supplied as reconstructed pseudo-IPD, so the aggregate likelihood is
 evaluated once per (aggregate row x integration point): the work grows as
 <code>nrow(agd) * n_int</code>, and the default of 64 is expensive on a trial with
-several hundred reconstructed patients. Sampling is otherwise well behaved
-(no divergences and no treedepth saturation in our checks), so if a survival
+several hundred reconstructed patients. Sampling is usually well behaved on
+the fixed-effects model (no divergences in the fixed-effects checks here),
+though the random-effects survival model can still produce a few divergent
+transitions and occasional rejected simplex proposals; inspect the
+diagnostics rather than assuming they are clean. If a survival
 fit is slow, reduce <code>n_int</code> before suspecting the geometry, and confirm the
 answer is stable with <code><a href="plot_integration_error.html">plot_integration_error()</a></code>.</p></dd>
 
@@ -253,10 +256,11 @@ study-intercept, component-effect, and prognostic-regression normal priors.</p><
 <dd><p>Scale of the half-normal prior on the baseline-hazard
 smoothing parameter (survival families only). Each study has its own
 baseline hazard, given a first-order random-walk prior on the log spline
-coefficients with this shared smoothing scale, as in <code>multinma</code>. Smaller
-values shrink every study's baseline toward a constant hazard. The default
-of 1 follows the Stan recommendation of a half-normal(0, 1) prior for a
-hierarchical scale.</p></dd>
+coefficients with this shared smoothing scale. This is a simplified relative
+of the smoothing prior in <code>multinma</code>, not the same prior: smaller values
+shrink every study's baseline toward equal spline weights, which is a smooth
+default shape and not a constant hazard. The default of 1 follows the Stan
+recommendation of a half-normal(0, 1) prior for a hierarchical scale.</p></dd>
 
 
 <dt id="arg-prior-gamma-dist-prior-gamma-scale-prior-gamma-df">prior_gamma_dist, prior_gamma_scale, prior_gamma_df<a class="anchor" aria-label="anchor" href="#arg-prior-gamma-dist-prior-gamma-scale-prior-gamma-df"></a></dt>
@@ -366,12 +370,30 @@ not zero. Increase <code>n_int</code> and confirm that the estimates are stable 
 relying on them. The earlier person-time approximation was biased by 36% in
 a two-group example; that particular bias is removed, but a finite
 integration error remains.</p></li>
-<li><p><strong>The baseline hazard SHAPE is shared across studies.</strong> Each study has its
-own baseline level through its intercept, but a single set of spline (or
-step) coefficients is shared, so the studies are assumed to have
-proportional baseline hazards. <code>multinma</code> permits study-specific baseline
-shapes. If the studies plausibly have differently shaped baselines, this
-model is misspecified and the shared shape should not be used.</p></li>
+<li><p><strong>Each study has its own baseline hazard shape.</strong> Every study carries its
+own set of spline (or step) coefficients, smoothed toward a common shape by
+a shared random-walk scale (<code>prior_aux_sd</code>), so the treatment effects do not
+have to absorb baseline misfit. A single global spline basis is built from
+the pooled follow-up range, so a study with much shorter follow-up may not
+inform the coefficients of the latest basis functions; those are then
+determined by the smoothing prior rather than by that study's data.</p></li>
+</ul></div>
+    <div class="section level2">
+    <h2 id="scope-and-current-limitations">Scope and current limitations<a class="anchor" aria-label="anchor" href="#scope-and-current-limitations"></a></h2>
+
+
+<p>Two gaps are worth naming for anyone comparing this with <code>multinma</code>.</p><ul><li><p><strong>Effects are reported as conditional contrasts at a covariate value</strong>,
+<code>(C_t - C_u)'(beta + Gamma x)</code>, on the linear-predictor scale.
+<code><a href="relative_effects.html">relative_effects()</a></code> evaluates this at the target in <code>newdata</code>. There is no
+marginal (population-standardized) effect path yet: on a non-collapsible
+scale the conditional effect at a point differs from the average effect over
+a population with a distribution of covariates, and only the former is
+returned.</p></li>
+<li><p><strong>Every effect modifier enters both the prognostic terms and the full set of
+component interactions.</strong> There is no prognostic-only covariate role (unlike
+<code><a href="cstc.html">cstc()</a></code>, which separates <code>prognostics</code>), so a covariate that shifts outcomes
+without modifying any component effect still adds interaction parameters that
+the data must then constrain toward zero.</p></li>
 </ul></div>
     <div class="section level2">
     <h2 id="identifiability">Identifiability<a class="anchor" aria-label="anchor" href="#identifiability"></a></h2>

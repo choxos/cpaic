@@ -153,10 +153,13 @@ cmlnmr(
   likelihood is evaluated once per (aggregate row x integration point):
   the work grows as `nrow(agd) * n_int`, and the default of 64 is
   expensive on a trial with several hundred reconstructed patients.
-  Sampling is otherwise well behaved (no divergences and no treedepth
-  saturation in our checks), so if a survival fit is slow, reduce
-  `n_int` before suspecting the geometry, and confirm the answer is
-  stable with
+  Sampling is usually well behaved on the fixed-effects model (no
+  divergences in the fixed-effects checks here), though the
+  random-effects survival model can still produce a few divergent
+  transitions and occasional rejected simplex proposals; inspect the
+  diagnostics rather than assuming they are clean. If a survival fit is
+  slow, reduce `n_int` before suspecting the geometry, and confirm the
+  answer is stable with
   [`plot_integration_error()`](https://choxos.github.io/cpaic/reference/plot_integration_error.md).
 
 - QR:
@@ -197,8 +200,10 @@ cmlnmr(
   Scale of the half-normal prior on the baseline-hazard smoothing
   parameter (survival families only). Each study has its own baseline
   hazard, given a first-order random-walk prior on the log spline
-  coefficients with this shared smoothing scale, as in `multinma`.
-  Smaller values shrink every study's baseline toward a constant hazard.
+  coefficients with this shared smoothing scale. This is a simplified
+  relative of the smoothing prior in `multinma`, not the same prior:
+  smaller values shrink every study's baseline toward equal spline
+  weights, which is a smooth default shape and not a constant hazard.
   The default of 1 follows the Stan recommendation of a
   half-normal(0, 1) prior for a hierarchical scale.
 
@@ -312,13 +317,36 @@ should be.
   that particular bias is removed, but a finite integration error
   remains.
 
-- **The baseline hazard SHAPE is shared across studies.** Each study has
-  its own baseline level through its intercept, but a single set of
-  spline (or step) coefficients is shared, so the studies are assumed to
-  have proportional baseline hazards. `multinma` permits study-specific
-  baseline shapes. If the studies plausibly have differently shaped
-  baselines, this model is misspecified and the shared shape should not
-  be used.
+- **Each study has its own baseline hazard shape.** Every study carries
+  its own set of spline (or step) coefficients, smoothed toward a common
+  shape by a shared random-walk scale (`prior_aux_sd`), so the treatment
+  effects do not have to absorb baseline misfit. A single global spline
+  basis is built from the pooled follow-up range, so a study with much
+  shorter follow-up may not inform the coefficients of the latest basis
+  functions; those are then determined by the smoothing prior rather
+  than by that study's data.
+
+## Scope and current limitations
+
+Two gaps are worth naming for anyone comparing this with `multinma`.
+
+- **Effects are reported as conditional contrasts at a covariate
+  value**, `(C_t - C_u)'(beta + Gamma x)`, on the linear-predictor
+  scale.
+  [`relative_effects()`](https://choxos.github.io/cpaic/reference/relative_effects.md)
+  evaluates this at the target in `newdata`. There is no marginal
+  (population-standardized) effect path yet: on a non-collapsible scale
+  the conditional effect at a point differs from the average effect over
+  a population with a distribution of covariates, and only the former is
+  returned.
+
+- **Every effect modifier enters both the prognostic terms and the full
+  set of component interactions.** There is no prognostic-only covariate
+  role (unlike
+  [`cstc()`](https://choxos.github.io/cpaic/reference/cstc.md), which
+  separates `prognostics`), so a covariate that shifts outcomes without
+  modifying any component effect still adds interaction parameters that
+  the data must then constrain toward zero.
 
 ## Identifiability
 

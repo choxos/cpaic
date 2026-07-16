@@ -46,6 +46,17 @@ so edge `j` influences the answer only through its weight `w_j`. An IPD
 edge with `w_j` of zero contributes nothing to that contrast, and
 adjusting it changes nothing.
 
+The weight uses a diagonal `W` of inverse edge variances. The fit itself
+is produced by
+[`netmeta::discomb()`](https://rdrr.io/pkg/netmeta/man/discomb.html),
+which accounts for the within-study covariance of a multi-arm trial, so
+in a network containing multi-arm studies the weight reported here is a
+close approximation to the fitted estimator's influence rather than its
+exact value. It is intended as a screening diagnostic, to flag an IPD
+edge that carries little or no weight on the contrast; read a weight
+near zero as "this edge barely matters here", not as an exact
+sensitivity.
+
 This matters because the usual diagnostic cannot detect the problem. In
 simulation, putting the IPD on an edge that does not bridge the gap left
 cMAIC numerically identical to the unadjusted analysis (bias +0.374,
@@ -70,6 +81,6 @@ edge_influence(br, treatment = "A+B+C")
 #> 1      S1      A Placebo   FALSE 1.0000000
 #> 2      S2      B Placebo   FALSE 1.0000000
 #> 3      S3  A+B+C     A+B   FALSE 0.7065349
-#> 4      S4  A+B+D     A+B   FALSE 0.2934651
-#> 5      S5  A+B+C   A+B+D   FALSE 0.2934651
+#> 4      S5  A+B+C   A+B+D   FALSE 0.2934651
+#> 5      S4  A+B+D     A+B   FALSE 0.2934651
 ```

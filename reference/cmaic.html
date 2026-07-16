@@ -130,6 +130,22 @@ structure via <code>$bridge</code>), with the bridged fit, per-study effective
 sample sizes, and the target population.</p>
     </div>
     <div class="section level2">
+    <h2 id="what-the-two-stage-bridge-does-and-does-not-adjust">What the two-stage bridge does and does not adjust<a class="anchor" aria-label="anchor" href="#what-the-two-stage-bridge-does-and-does-not-adjust"></a></h2>
+
+
+<p>Only the edges carrying individual patient data are population-adjusted to the
+target. Every aggregate-only edge keeps its published, study-population
+contrast, and the additive bridge then combines all edges as if they estimated
+the same component effects. Under effect modification they do not: an aggregate
+edge estimates its contrast in <em>its own</em> trial population, while the reweighted
+IPD edge estimates it at the target. The two agree only when the aggregate
+populations resemble the target, or when the components on those edges are not
+effect-modified. Treat a cross-network contrast that leans on aggregate-only
+edges as adjusted for the IPD part alone, and prefer <code><a href="cmlnmr.html">cmlnmr()</a></code>, which carries
+the component by effect-modifier interactions through the whole network and so
+adjusts every edge to the same target population coherently.</p>
+    </div>
+    <div class="section level2">
     <h2 id="non-collapsibility-and-the-additive-model">Non-collapsibility and the additive model<a class="anchor" aria-label="anchor" href="#non-collapsibility-and-the-additive-model"></a></h2>
 
 

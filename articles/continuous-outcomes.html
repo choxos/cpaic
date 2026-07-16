@@ -846,12 +846,16 @@ check <em>at the target</em>.</p>
 <span>                     reference <span class="op">=</span> <span class="st">"Met"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Estimability of the population-adjusted relative effects</span></span>
 <span><span class="co">#&gt;   Target population: bhba1c_c = -0.5</span></span>
-<span><span class="co">#&gt;  treatment comparator estimable identified_by          basis</span></span>
-<span><span class="co">#&gt;       Diet        Met      TRUE     aggregate          exact</span></span>
-<span><span class="co">#&gt;   Met+DPP4        Met     FALSE          none not identified</span></span>
-<span><span class="co">#&gt;  Met+SGLT2        Met      TRUE           IPD          exact</span></span>
-<span><span class="co">#&gt;     Met+SU        Met      TRUE           IPD          exact</span></span>
-<span><span class="co">#&gt;         SU        Met      TRUE     aggregate          exact</span></span>
+<span><span class="co">#&gt;  treatment comparator estimable identified_by              basis</span></span>
+<span><span class="co">#&gt;       Diet        Met      TRUE     aggregate first-order screen</span></span>
+<span><span class="co">#&gt;   Met+DPP4        Met     FALSE          none     not identified</span></span>
+<span><span class="co">#&gt;  Met+SGLT2        Met      TRUE           IPD              exact</span></span>
+<span><span class="co">#&gt;     Met+SU        Met      TRUE           IPD              exact</span></span>
+<span><span class="co">#&gt;         SU        Met      TRUE     aggregate first-order screen</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt;   Rows marked "first-order screen" are estimable by the linear criterion, which</span></span>
+<span><span class="co">#&gt;   is only a design-based screen for them (aggregate identification, or a</span></span>
+<span><span class="co">#&gt;   survival baseline) and can be optimistic. Check them with prior_sensitivity().</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt;   Rows marked "not identified" carry no first-order information; a number</span></span>
 <span><span class="co">#&gt;   reported for them would be the prior. relative_effects() returns NA there.</span></span></code></pre></div>

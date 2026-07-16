@@ -362,7 +362,15 @@ cpaic_connectivity(net)
 
 ``` r
 
-plot(net)
+# plot() returns a ggplot object, so the usual verbs apply; here they move the
+# four legends below the panel and give the treatment labels room to breathe.
+plot(net) +
+  theme(legend.position = "bottom", legend.box = "vertical",
+        legend.margin = margin(0, 0, 0, 0),
+        legend.title = element_text(size = 8),
+        legend.text = element_text(size = 7)) +
+  scale_x_continuous(expand = expansion(mult = 0.22)) +
+  scale_y_continuous(expand = expansion(mult = 0.22))
 ```
 
 ![plot of chunk network-plot](figure/count-network-plot-1.png)
@@ -622,10 +630,10 @@ fit
 #>   For a target population use relative_effects(fit, newdata = ...).
 #> 
 #>  component estimate    se  lower upper
-#>        ICS   -0.129 0.181 -0.476 0.209
-#>       LABA   -0.141 0.087 -0.313 0.034
-#>       LAMA   -0.127 0.131 -0.373 0.126
-#>        ROF   -0.406 1.080 -3.026 1.181
+#>        ICS   -0.126 0.178 -0.450 0.192
+#>       LABA   -0.133 0.099 -0.319 0.046
+#>       LAMA   -0.122 0.148 -0.368 0.184
+#>        ROF   -0.387 1.061 -2.848 1.181
 ```
 
 The `[bernoulli]` and `[normal]` tags in the print output are the
@@ -679,15 +687,18 @@ plot_prior_posterior(fit)
 
 plot of chunk prior-posterior
 
-The study intercepts `mu`, the component main effects `beta` and the
-prognostic coefficients `breg` have posteriors far narrower than their
-priors: the likelihood moved them. The interactions `gamma` split into
-two groups, and the indexing is what makes the panels readable: the
-first index runs over the components in the order `ICS`, `LABA`, `LAMA`,
-`ROF`, the second over the modifiers `eos` and `freqex`. Six of the
-eight interactions are pulled well inside their prior. The two that are
-not, together with the widest of the four `beta` panels, all belong to
-roflumilast, and we return to them under prior sensitivity.
+The seven study intercepts `mu` and the two prognostic coefficients
+`breg` are spikes against a broad prior: the likelihood moved them, and
+hard. Three of the four component main effects `beta` do the same. The
+interactions `gamma` split into two groups, and the indexing is what
+makes the panels readable: the first index runs over the components in
+the order `ICS`, `LABA`, `LAMA`, `ROF`, the second over the modifiers
+`eos` and `freqex`. Six of the eight interactions are pulled well inside
+their prior. The two that are not, `gamma[4,1]` and `gamma[4,2]`, sit
+squarely on top of the red curve, and the one `beta` that barely moved
+is `beta[4]`. All three belong to roflumilast. We return to them under
+prior sensitivity, and they will turn up again, uninvited, in the
+integration diagnostics below.
 
 ### Convergence
 
@@ -701,7 +712,7 @@ data.frame(
                                               "tau"))$ess_bulk, na.rm = TRUE))
 )
 #>   divergences max_treedepth max_rhat min_ess_bulk
-#> 1           0             0   1.0113          365
+#> 1           4             1   1.0085          396
 ```
 
 No divergences, and $`\hat R`$ and the effective sample sizes are fine.
@@ -738,11 +749,14 @@ plot of chunk rhat
 The chains overlay one another and sweep the whole support of each
 parameter, with no drift and no chain exploring a region of its own;
 every $`\hat R`$ sits in the lowest band. Now notice what these two
-figures **cannot** tell you. The interactions that no trial identifies
-mix exactly as well as the ones that are pinned down by IPD, because
-sampling from a prior is easy and a sampler has no way of minding that
+figures **cannot** tell you. Compare the `gamma[4, ]` panels, which
+range across roughly plus or minus 3, with `gamma[2, ]`, which barely
+leave a tenth of that. The wide pair belongs to roflumilast, whose
+interactions no trial in this network identifies; the narrow pair
+belongs to `LABA`, which two IPD arms pin down. Both mix beautifully.
+Sampling from a prior is easy, and a sampler has no way of minding that
 it is doing so. Convergence diagnostics certify that the posterior was
-explored. They say nothing whatever about whether it was informed, and
+explored; they say nothing whatever about whether it was informed, and
 the rest of this vignette is about the difference.
 
 ### Integration accuracy
@@ -764,12 +778,33 @@ plot_integration_error(fit)
 
 plot of chunk integration-error
 
-The error in every aggregate arm has collapsed inside the envelope well
-before the right-hand edge, so `n_int = 64` is enough integration points
-here: the aggregation bias described above is genuinely being removed
-rather than swapped for numerical noise. Were a facet still wandering at
-64 points, the remedy would be to refit with a larger `n_int`, not to
-reason about the estimates as they stand.
+Nine of the ten aggregate arms behave as they should: the error
+collapses onto zero well inside the envelope, long before 64 points. The
+tenth does not, and it is worth knowing which one. `ADD-2`’s
+`LABA+LAMA+ROF` arm has an error an order of magnitude larger than any
+other arm’s, still smeared across the envelope at the right-hand edge.
+
+More integration points would not fix it, because the spread is not
+really across integration points: it is across **posterior draws**.
+Roflumilast’s interactions are the ones no trial identifies, and their
+posterior therefore runs over the whole prior, as the
+prior-versus-posterior figure above already showed. A draw with a large
+`gamma[4, ]` makes the integrand $`\exp(x^\top(b + \Gamma^\top C_k))`$
+vary enormously across the covariate distribution, and any Monte-Carlo
+average of a wildly varying integrand converges slowly. The control is
+sitting right beside it: `ADD-2`’s **other** arm, `LABA+LAMA`,
+integrates perfectly cleanly. Same trial, same patients, same covariate
+distribution, same 64 points. The only difference between the two arms
+is the `ROF` component.
+
+So the numerical diagnostic has independently fingered the same
+component the estimability algebra refuses to report, and that is the
+lesson worth carrying away: a badly behaved integration facet is
+sometimes a symptom of a badly identified parameter rather than of too
+few integration points. Nothing here contaminates the results, because
+every contrast involving `ROF` is returned as `NA` in any case. Had a
+facet misbehaved on an arm whose contrasts we *do* report, the remedy
+would be to refit with a larger `n_int` before reading the estimates.
 
 ## Estimability: more effect modifiers, fewer estimable effects
 
@@ -831,9 +866,9 @@ estimable_effects_at(fit, newdata = own, reference = "LAMA")
 #>  LABA+LAMA+ROF       LAMA     FALSE          none     not identified
 #>            PBO       LAMA      TRUE     aggregate first-order screen
 #> 
-#>   Rows marked "first-order screen" are identified only through aggregate arms
-#>   under a nonlinear link, where the criterion can be optimistic. Check them
-#>   with prior_sensitivity().
+#>   Rows marked "first-order screen" are estimable by the linear criterion, which
+#>   is only a design-based screen for them (aggregate identification, or a
+#>   survival baseline) and can be optimistic. Check them with prior_sensitivity().
 #> 
 #>   Rows marked "not identified" carry no first-order information; a number
 #>   reported for them would be the prior. relative_effects() returns NA there.
@@ -855,7 +890,8 @@ own population.
 
 eos_grid <- own$eos + seq(-1, 3, by = 0.5)
 plot_estimability(fit, em = "eos", values = eos_grid,
-                  at = c(freqex = own$freqex), reference = "LAMA")
+                  at = c(freqex = own$freqex), reference = "LAMA") +
+  theme(plot.caption = element_text(size = 6.5))
 ```
 
 ![plot of chunk estimability-map](figure/count-estimability-map-1.png)
@@ -883,11 +919,11 @@ The same algebra reaches the component effects:
 ``` r
 
 component_effects(fit, newdata = target)
-#>   component   estimate         se      lower      upper
-#> 1       ICS         NA         NA         NA         NA
-#> 2      LABA -0.1481942 0.08995091 -0.3221309 0.02926425
-#> 3      LAMA         NA         NA         NA         NA
-#> 4       ROF         NA         NA         NA         NA
+#>   component   estimate        se      lower      upper
+#> 1       ICS         NA        NA         NA         NA
+#> 2      LABA -0.1474449 0.1058796 -0.3378115 0.03994639
+#> 3      LAMA         NA        NA         NA         NA
+#> 4       ROF         NA        NA         NA         NA
 ```
 
 `LABA` is identified. `ICS`, `LAMA` and `ROF` individually are not; but
@@ -925,8 +961,8 @@ relative_effects(fit, reference = "LAMA", newdata = target)
 #>   Target population: eos = 1.5, freqex = 0.55
 #>      treatment comparator estimate    se lower upper pr_gt0
 #>           LABA       LAMA       NA    NA    NA    NA     NA
-#>       LABA+ICS       LAMA    0.713 0.137 0.548 0.922  0.013
-#>      LABA+LAMA       LAMA    0.866 0.090 0.725 1.030  0.044
+#>       LABA+ICS       LAMA    0.711 0.154 0.528 0.911  0.009
+#>      LABA+LAMA       LAMA    0.868 0.106 0.713 1.041  0.054
 #>  LABA+LAMA+ROF       LAMA       NA    NA    NA    NA     NA
 #>            PBO       LAMA       NA    NA    NA    NA     NA
 #>   NA = not uniquely estimable from this component design (see estimable_effects()).
@@ -934,7 +970,8 @@ relative_effects(fit, reference = "LAMA", newdata = target)
 
 ``` r
 
-forest(fit, newdata = target, reference = "LAMA")
+forest(fit, newdata = target, reference = "LAMA") +
+  theme(plot.caption = element_text(size = 6.5))
 ```
 
 ![plot of chunk forest-bayes](figure/count-forest-bayes-1.png)
@@ -956,8 +993,8 @@ relative_effects(fit, reference = "LAMA", newdata = target_low)
 #>   Target population: eos = -0.5, freqex = 0.2
 #>      treatment comparator estimate    se lower upper pr_gt0
 #>           LABA       LAMA       NA    NA    NA    NA     NA
-#>       LABA+ICS       LAMA    1.002 0.153 0.729 1.341  0.480
-#>      LABA+LAMA       LAMA    0.875 0.085 0.735 1.028  0.047
+#>       LABA+ICS       LAMA    1.009 0.158 0.728 1.318  0.505
+#>      LABA+LAMA       LAMA    0.882 0.097 0.731 1.050  0.064
 #>  LABA+LAMA+ROF       LAMA       NA    NA    NA    NA     NA
 #>            PBO       LAMA       NA    NA    NA    NA     NA
 #>   NA = not uniquely estimable from this component design (see estimable_effects()).
@@ -1002,8 +1039,8 @@ knitr::kable(recovery, digits = 3, row.names = FALSE,
 
 | Contrast | True_RR | cSTC | cSTC covers | cMAIC | cML-NMR | cML-NMR 95% CrI | cML-NMR covers |
 |:---|---:|---:|:---|---:|---:|:---|:---|
-| LABA+ICS vs LAMA | 0.676 | 0.790 | yes | 0.803 | 0.713 | (0.55, 0.92) | yes |
-| LABA+LAMA vs LAMA | 0.877 | 0.873 | yes | 0.870 | 0.866 | (0.72, 1.03) | yes |
+| LABA+ICS vs LAMA | 0.676 | 0.790 | yes | 0.803 | 0.711 | (0.53, 0.91) | yes |
+| LABA+LAMA vs LAMA | 0.877 | 0.873 | yes | 0.870 | 0.868 | (0.71, 1.04) | yes |
 
 Rate ratios in the target population, against the truth {.table}
 
@@ -1048,12 +1085,12 @@ knitr::kable(league_table(fit, newdata = target),
 
 |  | LABA | LABA+ICS | LABA+LAMA | LABA+LAMA+ROF | LAMA | PBO |
 |:---|:---|:---|:---|:---|:---|:---|
-| LABA | LABA |  |  |  |  | 0.87 (0.72, 1.03) |
-| LABA+ICS |  | LABA+ICS | 0.82 (0.68, 1.01) |  | 0.71 (0.55, 0.92) |  |
-| LABA+LAMA |  | 1.23 (0.99, 1.47) | LABA+LAMA |  | 0.87 (0.72, 1.03) |  |
+| LABA | LABA |  |  |  |  | 0.87 (0.71, 1.04) |
+| LABA+ICS |  | LABA+ICS | 0.82 (0.66, 0.98) |  | 0.71 (0.53, 0.91) |  |
+| LABA+LAMA |  | 1.23 (1.02, 1.51) | LABA+LAMA |  | 0.87 (0.71, 1.04) |  |
 | LABA+LAMA+ROF |  |  |  | LABA+LAMA+ROF |  |  |
-| LAMA |  | 1.43 (1.08, 1.83) | 1.16 (0.97, 1.38) |  | LAMA |  |
-| PBO | 1.16 (0.97, 1.38) |  |  |  |  | PBO |
+| LAMA |  | 1.44 (1.10, 1.89) | 1.17 (0.96, 1.40) |  | LAMA |  |
+| PBO | 1.17 (0.96, 1.40) |  |  |  |  | PBO |
 
 League table in the target population: rate ratio of the row treatment
 versus the column treatment, with its 95% credible interval. Blank cells
@@ -1215,12 +1252,16 @@ plot of chunk rankogram-own
 
 Four treatments are now estimable and therefore ranked, each panel
 giving the posterior probability that the treatment takes each rank,
-with rank 1 the fewest exacerbations. `LABA+LAMA+ROF` is still missing,
-because nothing identifies roflumilast in this population either. The
-point is not that `MONO-2`’s population is a better one to decide in; it
-is that the hierarchy, exactly like the estimable set and the relative
-effects themselves, is a property of the target population and not of
-the network.
+with rank 1 the fewest exacerbations. The dual bronchodilator
+`LABA+LAMA` takes first place with high probability, and `LABA` alone is
+most likely to come last, which is what one would expect of the weakest
+active regimen in a low-eosinophil population where the steroid has
+little to offer. `LABA+LAMA+ROF` is still absent, because nothing
+identifies roflumilast in this population either. The point is not that
+`MONO-2`’s population is a better one to decide in; it is that the
+hierarchy, exactly like the estimable set and the relative effects
+themselves, is a property of the target population and not of the
+network.
 
 The rank curve is designed to show that dependence directly, tracing
 each element’s SUCRA as the target moves:
@@ -1228,24 +1269,26 @@ each element’s SUCRA as the target moves:
 ``` r
 
 plot_rank_curve(fit, em = "eos", values = seq(-1, 3, by = 0.5),
-                at = c(freqex = 0.55), lower_is_better = TRUE)
+                at = c(freqex = 0.55), lower_is_better = TRUE) +
+  theme(plot.subtitle = element_text(size = 7.5))
 ```
 
 ![plot of chunk rank-curve](figure/count-rank-curve-1.png)
 
 plot of chunk rank-curve
 
-Two nearly flat lines that never cross, and it would be a serious
-misreading to take that as reassurance. The curve is flat because at
-every target on this axis Step 3 leaves the *same two-element set*,
+Two lines, a wide gap apart, that never come close to crossing, and it
+would be a serious misreading to take that as reassurance. The plot’s
+own subtitle offers to show you where the ordering reverses, and nothing
+reverses; but the reason is not that the hierarchy is stable. It is that
+at every target on this axis Step 3 leaves the *same two-element set*,
 placebo and `LABA`, and a two-element hierarchy contains nothing that
-could cross. What the curve is really tracing is the posterior
-probability that `LABA` beats placebo. A stable-looking rank curve means
+could cross. What the curve actually traces is the posterior probability
+that `LABA` beats placebo. A rank curve that refuses to move means
 something only once the estimability map beside it has confirmed that
 there was more than one thing there to move. The figure this one is
-failing to be is a set of curves that cross, showing a hierarchy that
-genuinely reverses between populations; the failure is a property of the
-evidence, not of the plot.
+failing to be is a set of curves that cross; the failure is a property
+of the evidence, not of the plot.
 
 ### Random effects and model comparison
 
@@ -1259,9 +1302,9 @@ knitr::kable(fit$fit$summary("tau")[, c("variable", "mean", "sd", "q5", "q95",
                                         "rhat", "ess_bulk")], digits = 3)
 ```
 
-| variable |  mean |    sd |    q5 |   q95 |  rhat | ess_bulk |
-|:---------|------:|------:|------:|------:|------:|---------:|
-| tau\[1\] | 0.077 | 0.081 | 0.005 | 0.234 | 1.012 |  365.411 |
+| variable |  mean |    sd |    q5 |  q95 |  rhat | ess_bulk |
+|:---------|------:|------:|------:|-----:|------:|---------:|
+| tau\[1\] | 0.082 | 0.094 | 0.006 | 0.25 | 1.015 |  396.395 |
 
 Compare against a fixed-effect fit by leave-one-out cross-validation
 ([Vehtari et al. 2017](#ref-vehtari2017)) and DIC ([Spiegelhalter et al.
@@ -1277,8 +1320,8 @@ fit_fixed <- cmlnmr(ipd, agd, effect_modifiers = ems, inactive = "PBO",
 
 loo::loo_compare(list(random = loo::loo(fit), fixed = loo::loo(fit_fixed)))
 #>   model elpd_diff se_diff p_worse       diag_diff      diag_elpd
-#>   fixed       0.0     0.0      NA                 6 k_psis > 0.7
-#>  random      -2.0     0.9    0.99 |elpd_diff| < 4 9 k_psis > 0.7
+#>   fixed       0.0     0.0      NA                 4 k_psis > 0.7
+#>  random      -1.1     0.7    0.94 |elpd_diff| < 4 8 k_psis > 0.7
 
 knitr::kable(data.frame(
   model = c("random", "fixed"),
@@ -1289,8 +1332,8 @@ knitr::kable(data.frame(
 
 | model  |    DIC | p_eff |
 |:-------|-------:|------:|
-| random | 6244.3 |  20.2 |
-| fixed  | 6242.1 |  18.3 |
+| random | 6244.1 |  20.4 |
+| fixed  | 6241.0 |  17.3 |
 
 Deviance information criterion {.table}
 
@@ -1318,12 +1361,16 @@ plot of chunk devdev
 
 Each dot is one data point’s posterior mean deviance under the
 fixed-effect model against its deviance under the random-effects model;
-below the line of equality the random-effects model fits it better. The
-dense cloud is the individual patient data, of which there are 2400
-rows, and it lies on the line, as it must: random study-arm effects
-change the fit of a patient inside an IPD trial hardly at all. Any
-movement worth seeing belongs to the ten aggregate arms, which is where
-the study-level heterogeneity that `tau` is modeling actually lives.
+below the line of equality the random-effects model fits it better,
+above it the fixed-effect model does. Nothing is below the line and
+nothing is above it. All 2410 points, the 2400 individual patients in
+the dense lower-left mass and the 10 aggregate arms trailing out to the
+upper right, are fitted identically by the two models. That is the DIC
+and LOO comparison drawn point by point rather than summed: `tau` is
+small enough that permitting study-arm heterogeneity changes no
+individual fit, which is why neither criterion can separate the models
+and why the choice between them here has to be made on grounds other
+than fit.
 
 [`plot_leverage()`](https://choxos.github.io/cpaic/reference/plot_leverage.md)
 asks which data points are buying that fit, plotting each point’s
@@ -1340,13 +1387,19 @@ plot_leverage(fit)
 
 plot of chunk leverage
 
-An individual patient contributes about one unit of deviance and almost
-no leverage, which is why the IPD form a low band. The aggregate arms
-carry the leverage, because each is an entire trial compressed to a
-single count, and a point outside the `DIC = 3` contour is one the model
-is paying for. (This plot needs a saturated model to measure residual
-deviance against. Poisson counts have one; censored survival times do
-not, which is why the survival vignette cannot draw it.)
+An individual patient carries almost no leverage, so the IPD lie in a
+flat band along the bottom. Their residual deviances fan out to either
+side, and a few sit beyond the outermost contour; that is expected
+rather than alarming, because a single Poisson count has irreducible
+deviance and no model fits one patient exactly. The contours are
+calibrated for arm-level points, and there the reading is clean: the
+aggregate arms sit an order of magnitude higher, at a leverage near one
+apiece, each being an entire trial compressed into a single count, and
+every one of them falls inside the `DIC = 3` contour. No aggregate arm
+is spoiling the fit. (This plot needs a saturated model to measure
+residual deviance against. Poisson counts have one; censored survival
+times do not, which is why a survival model cannot be given a leverage
+plot at all.)
 
 The frequentist bridge offers a Cochran $`Q`$. Read `Q.diff`, not `Q`:
 only the former tests the additivity restrictions, and on a disconnected
@@ -1395,11 +1448,11 @@ ps <- prior_sensitivity(fit, newdata = target, reference = "LAMA",
 ps
 #> cML-NMR prior sensitivity: gamma prior
 #>      treatment comparator estimate tighter looser move_tighter move_looser max_movement estimable
-#>           LABA       LAMA    0.140   0.159  0.139        0.019       0.002        0.019     FALSE
-#>       LABA+ICS       LAMA   -0.348  -0.343 -0.343        0.004       0.005        0.005      TRUE
-#>      LABA+LAMA       LAMA   -0.148  -0.146 -0.146        0.002       0.002        0.002      TRUE
-#>  LABA+LAMA+ROF       LAMA   -0.762  -0.343 -1.826        0.420       1.064        1.064     FALSE
-#>            PBO       LAMA    0.288   0.306  0.285        0.017       0.003        0.017     FALSE
+#>           LABA       LAMA    0.130   0.120  0.152        0.010       0.023        0.023     FALSE
+#>       LABA+ICS       LAMA   -0.353  -0.328 -0.335        0.025       0.018        0.025      TRUE
+#>      LABA+LAMA       LAMA   -0.147  -0.138 -0.141        0.010       0.007        0.010      TRUE
+#>  LABA+LAMA+ROF       LAMA   -0.742  -0.380 -1.967        0.362       1.225        1.225     FALSE
+#>            PBO       LAMA    0.277   0.258  0.293        0.020       0.016        0.020     FALSE
 ```
 
 Read `max_movement` against `estimable`. The estimable contrasts barely
