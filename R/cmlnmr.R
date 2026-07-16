@@ -54,6 +54,28 @@
   }, character(1))
 }
 
+#' Observed-to-latent correlation adjustment for the Gaussian copula
+#'
+#' The copula correlation lives on the LATENT normal scale, but an observed
+#' Pearson correlation among the covariates equals the latent one only for normal
+#' margins. This applies the closed-form adjustment `multinma` uses for its
+#' default `cor_adjust = "pearson"` (see `multinma::add_integration`, GPL-3):
+#' `sin(pi r / 2)` for a binary-binary pair (the tetrachoric value for a median
+#' split) and `sqrt(pi / 2) r` for a binary-continuous pair, with continuous
+#' pairs left unchanged. `types` marks each margin as `"bernoulli"` or not.
+#' @noRd
+.cpaic_cor_adjust_pearson <- function(R, types) {
+  bin <- types == "bernoulli"
+  cont <- !bin
+  if (any(bin)) {
+    R[bin, bin] <- sin(pi * R[bin, bin, drop = FALSE] / 2)
+    R[cont, bin] <- sqrt(pi / 2) * R[cont, bin, drop = FALSE]
+    R[bin, cont] <- sqrt(pi / 2) * R[bin, cont, drop = FALSE]
+  }
+  diag(R) <- 1
+  pmin(pmax(R, -0.999), 0.999) * (1 - diag(nrow(R))) + diag(nrow(R))
+}
+
 #' Covariate correlation matrix for the Gaussian copula
 #'
 #' The copula needs the correlation *within* a population. Pooling all IPD
@@ -61,9 +83,13 @@
 #' between-study shifts in the covariate means, which can manufacture a large
 #' correlation where none exists. Correlations are therefore computed within
 #' each IPD study and pooled on the Fisher z scale, weighted by `n - 3`, as in
-#' `multinma`.
+#' `multinma`. The pooled observed correlation is then mapped to the latent
+#' copula scale with the `multinma` Pearson adjustment when any margin is
+#' Bernoulli (see [.cpaic_cor_adjust_pearson()]); a user-supplied `cor` is taken
+#' as already being on the latent scale.
 #' @noRd
-.cpaic_copula_cor <- function(ipd, effect_modifiers, study_col, given = NULL) {
+.cpaic_copula_cor <- function(ipd, effect_modifiers, study_col, given = NULL,
+                              margins = NULL) {
   Q <- length(effect_modifiers)
   if (Q < 2L) return(NULL)
 
@@ -101,6 +127,13 @@
   R <- tanh(Zsum / pmax(Wsum, 1))
   diag(R) <- 1
   R <- (R + t(R)) / 2
+  # Map the observed correlation to the latent copula scale. For a Bernoulli
+  # margin the observed Pearson correlation is not the latent one, so without
+  # this the copula would reproduce the observed association only approximately.
+  if (!is.null(margins) && any(margins == "bernoulli")) {
+    R <- .cpaic_cor_adjust_pearson(R, margins)
+    R <- (R + t(R)) / 2
+  }
   if (min(eigen(R, symmetric = TRUE, only.values = TRUE)$values) <= 1e-8) {
     R <- as.matrix(Matrix::nearPD(R, corr = TRUE)$mat)
   }
@@ -192,6 +225,22 @@
 #'   the pooled follow-up range, so a study with much shorter follow-up may not
 #'   inform the coefficients of the latest basis functions; those are then
 #'   determined by the smoothing prior rather than by that study's data.
+#'
+#' @section Scope and current limitations:
+#' Two gaps are worth naming for anyone comparing this with `multinma`.
+#'
+#' * **Effects are reported as conditional contrasts at a covariate value**,
+#'   `(C_t - C_u)'(beta + Gamma x)`, on the linear-predictor scale.
+#'   [relative_effects()] evaluates this at the target in `newdata`. There is no
+#'   marginal (population-standardized) effect path yet: on a non-collapsible
+#'   scale the conditional effect at a point differs from the average effect over
+#'   a population with a distribution of covariates, and only the former is
+#'   returned.
+#' * **Every effect modifier enters both the prognostic terms and the full set of
+#'   component interactions.** There is no prognostic-only covariate role (unlike
+#'   [cstc()], which separates `prognostics`), so a covariate that shifts outcomes
+#'   without modifying any component effect still adds interaction parameters that
+#'   the data must then constrain toward zero.
 #'
 #' @section Identifiability:
 #' A relative effect is uniquely estimable only if its component contrast lies
@@ -571,24 +620,12 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
   # Covariate correlation for the Gaussian-copula integration, pooled WITHIN
   # IPD studies (pooling across studies would confound within-study
   # association with between-study mean shifts).
-  cor_mat <- .cpaic_copula_cor(ipd, effect_modifiers, study, cor)
-
-  # The copula takes its correlation on the LATENT Gaussian scale. When the
-  # correlation is estimated automatically it is an observed Pearson correlation,
-  # which equals the latent one only for normal margins. For a Bernoulli margin
-  # the two differ, so an auto-estimated correlation reproduces the observed
-  # association only approximately. A correct observed-to-latent transform (as in
-  # multinma) is not applied here; supply `cor` on the latent scale if the exact
-  # association matters. Only warn when it can actually bite: two or more
-  # correlated modifiers with at least one Bernoulli margin, and no user `cor`.
-  if (is.null(cor) && !is.null(cor_mat) && any(margins == "bernoulli") &&
-      length(effect_modifiers) >= 2L) {
-    warning("The auto-estimated covariate correlation is an observed Pearson ",
-            "correlation but is used as a latent copula correlation. For the ",
-            "Bernoulli margin(s) present these differ, so the integration ",
-            "reproduces the observed association only approximately. Supply ",
-            "`cor` on the latent scale for an exact match.", call. = FALSE)
-  }
+  # An auto-estimated correlation is an observed Pearson correlation, which the
+  # copula needs on the latent scale; `.cpaic_copula_cor` applies the multinma
+  # Pearson adjustment for Bernoulli margins. A user-supplied `cor` is taken as
+  # already latent and passed through unchanged.
+  cor_mat <- .cpaic_copula_cor(ipd, effect_modifiers, study, cor,
+                               margins = margins)
 
   # First-order information design for the population-adjusted estimand
   # (beta, vec(Gamma)). This decides which contrasts are estimable AT A GIVEN

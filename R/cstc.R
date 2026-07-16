@@ -95,6 +95,19 @@
 #'   the effect modifiers (so each enters as main effect + interaction).
 #' @param common,random Passed to [cnma_bridge()].
 #'
+#' @section What the two-stage bridge does and does not adjust:
+#' Only the edges carrying individual patient data are population-adjusted to the
+#' target. Every aggregate-only edge keeps its published, study-population
+#' contrast, and the additive bridge then combines all edges as if they estimated
+#' the same component effects. Under effect modification they do not: an aggregate
+#' edge estimates its contrast in *its own* trial population, while the adjusted
+#' IPD edge estimates it at the target. The two agree only when the aggregate
+#' populations resemble the target, or when the components on those edges are not
+#' effect-modified. Treat a cross-network contrast that leans on aggregate-only
+#' edges as adjusted for the IPD part alone, and prefer [cmlnmr()], which carries
+#' the component by effect-modifier interactions through the whole network and so
+#' adjusts every edge to the same target population coherently.
+#'
 #' @return An object of class `cpaic_stc` (and `cpaic_fit`).
 #' @seealso [cmaic()], [cnma_bridge()]
 #' @examples

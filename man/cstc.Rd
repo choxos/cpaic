@@ -48,6 +48,21 @@ collapsible measures the two coincide. It is implemented natively here
 because \code{mlumr::stc()} targets the \emph{unanchored} two-trial case; the link
 and standard-error machinery is adapted from that package.
 }
+\section{What the two-stage bridge does and does not adjust}{
+
+Only the edges carrying individual patient data are population-adjusted to the
+target. Every aggregate-only edge keeps its published, study-population
+contrast, and the additive bridge then combines all edges as if they estimated
+the same component effects. Under effect modification they do not: an aggregate
+edge estimates its contrast in \emph{its own} trial population, while the adjusted
+IPD edge estimates it at the target. The two agree only when the aggregate
+populations resemble the target, or when the components on those edges are not
+effect-modified. Treat a cross-network contrast that leans on aggregate-only
+edges as adjusted for the IPD part alone, and prefer \code{\link[=cmlnmr]{cmlnmr()}}, which carries
+the component by effect-modifier interactions through the whole network and so
+adjusts every edge to the same target population coherently.
+}
+
 \examples{
 net <- cpaic_network(cpaic_bin_agd, ipd = cpaic_bin_ipd, sm = "OR",
                      family = "binomial", ipd_covariates = "x1",

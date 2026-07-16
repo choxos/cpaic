@@ -93,8 +93,15 @@
   X <- as.matrix(X)
   if (!nrow(X) || !ncol(X)) return(matrix(0, ncol(X), 0L))
   s <- svd(X, nu = 0L, nv = ncol(X))
-  keep <- s$d > tol * max(1, max(s$d))
-  if (!any(keep)) return(matrix(0, ncol(X), 0L))
+  # `s$d` has length min(nrow, ncol), while `s$v` has ncol(X) columns. When
+  # nrow < ncol the singular values run out before the columns of `s$v`, so a
+  # logical `keep` of length min(nrow, ncol) would RECYCLE across the extra
+  # columns and return null-space directions as if they spanned the row space:
+  # a thin arm (fewer patients than 1 + Q) would then look fully supported and a
+  # prior-only contrast would be called identified. Indexing by position keeps
+  # only genuine singular directions and never reaches the padding columns.
+  keep <- which(s$d > tol * max(1, max(s$d)))
+  if (!length(keep)) return(matrix(0, ncol(X), 0L))
   s$v[, keep, drop = FALSE]
 }
 

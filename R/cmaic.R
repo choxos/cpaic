@@ -140,6 +140,19 @@
 #' additive component model, yielding relative effects that are both
 #' connected across sub-networks and adjusted to the target population.
 #'
+#' @section What the two-stage bridge does and does not adjust:
+#' Only the edges carrying individual patient data are population-adjusted to the
+#' target. Every aggregate-only edge keeps its published, study-population
+#' contrast, and the additive bridge then combines all edges as if they estimated
+#' the same component effects. Under effect modification they do not: an aggregate
+#' edge estimates its contrast in *its own* trial population, while the reweighted
+#' IPD edge estimates it at the target. The two agree only when the aggregate
+#' populations resemble the target, or when the components on those edges are not
+#' effect-modified. Treat a cross-network contrast that leans on aggregate-only
+#' edges as adjusted for the IPD part alone, and prefer [cmlnmr()], which carries
+#' the component by effect-modifier interactions through the whole network and so
+#' adjusts every edge to the same target population coherently.
+#'
 #' @section Non-collapsibility and the additive model:
 #' cMAIC returns a **marginal** effect in the target population, and the additive
 #' component model assumes effects add. On a non-collapsible scale (the odds

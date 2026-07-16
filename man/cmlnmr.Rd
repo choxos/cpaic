@@ -267,6 +267,25 @@ determined by the smoothing prior rather than by that study's data.
 }
 }
 
+\section{Scope and current limitations}{
+
+Two gaps are worth naming for anyone comparing this with \code{multinma}.
+\itemize{
+\item \strong{Effects are reported as conditional contrasts at a covariate value},
+\verb{(C_t - C_u)'(beta + Gamma x)}, on the linear-predictor scale.
+\code{\link[=relative_effects]{relative_effects()}} evaluates this at the target in \code{newdata}. There is no
+marginal (population-standardized) effect path yet: on a non-collapsible
+scale the conditional effect at a point differs from the average effect over
+a population with a distribution of covariates, and only the former is
+returned.
+\item \strong{Every effect modifier enters both the prognostic terms and the full set of
+component interactions.} There is no prognostic-only covariate role (unlike
+\code{\link[=cstc]{cstc()}}, which separates \code{prognostics}), so a covariate that shifts outcomes
+without modifying any component effect still adds interaction parameters that
+the data must then constrain toward zero.
+}
+}
+
 \section{Identifiability}{
 
 A relative effect is uniquely estimable only if its component contrast lies
