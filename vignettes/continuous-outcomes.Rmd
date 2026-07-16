@@ -679,12 +679,16 @@ estimable_effects_at(fit, newdata = data.frame(bhba1c_c = -0.5),
                      reference = "Met")
 #> Estimability of the population-adjusted relative effects
 #>   Target population: bhba1c_c = -0.5
-#>  treatment comparator estimable identified_by          basis
-#>       Diet        Met      TRUE     aggregate          exact
-#>   Met+DPP4        Met     FALSE          none not identified
-#>  Met+SGLT2        Met      TRUE           IPD          exact
-#>     Met+SU        Met      TRUE           IPD          exact
-#>         SU        Met      TRUE     aggregate          exact
+#>  treatment comparator estimable identified_by              basis
+#>       Diet        Met      TRUE     aggregate first-order screen
+#>   Met+DPP4        Met     FALSE          none     not identified
+#>  Met+SGLT2        Met      TRUE           IPD              exact
+#>     Met+SU        Met      TRUE           IPD              exact
+#>         SU        Met      TRUE     aggregate first-order screen
+#> 
+#>   Rows marked "first-order screen" are estimable by the linear criterion, which
+#>   is only a design-based screen for them (aggregate identification, or a
+#>   survival baseline) and can be optimistic. Check them with prior_sensitivity().
 #> 
 #>   Rows marked "not identified" carry no first-order information; a number
 #>   reported for them would be the prior. relative_effects() returns NA there.

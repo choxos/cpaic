@@ -807,9 +807,9 @@ estimable_effects_at(fit, newdata = own, reference = "UC")
 #>    CBT+VAR         UC      TRUE     aggregate first-order screen
 #>        NRT         UC      TRUE     aggregate first-order screen
 #> 
-#>   Rows marked "first-order screen" are identified only through aggregate arms
-#>   under a nonlinear link, where the criterion can be optimistic. Check them
-#>   with prior_sensitivity().
+#>   Rows marked "first-order screen" are estimable by the linear criterion, which
+#>   is only a design-based screen for them (aggregate identification, or a
+#>   survival baseline) and can be optimistic. Check them with prior_sensitivity().
 #> 
 #>   Rows marked "not identified" carry no first-order information; a number
 #>   reported for them would be the prior. relative_effects() returns NA there.
