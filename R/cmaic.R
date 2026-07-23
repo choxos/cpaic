@@ -164,7 +164,8 @@
       treat1 = arms_non_ref, treat2 = ref_arm,
       TE = unname(point), seTE = unname(se[arms_non_ref]),
       stringsAsFactors = FALSE),
-    ess = ess, weights = w, n = nrow(ipd_s)
+    ess = ess, weights = w, n = nrow(ipd_s),
+    diagnostics = .cpaic_weight_diagnostics(w, centered, em_centered_cols)
   )
 }
 
@@ -228,6 +229,8 @@
 #' @param min_boot_success Minimum fraction of bootstrap resamples that must
 #'   succeed for a contrast; below this threshold the edge is rejected rather
 #'   than given a fragile standard error from a selected subset. Default `0.8`.
+#' @param reference Optional anchor (comparator) arm to use in every IPD study
+#'   in which it appears, instead of inferring it from the aggregate row order.
 #' @param seed Optional RNG seed for reproducible bootstrap. The caller's global
 #'   RNG state is restored on exit, so calling `cmaic()` does not perturb a
 #'   downstream random stream.
@@ -249,8 +252,8 @@
 #' }
 #' @export
 cmaic <- function(network, target, effect_modifiers = NULL, target_sd = NULL,
-                  n_boot = 500, min_boot_success = 0.8, seed = NULL,
-                  common = FALSE, random = TRUE) {
+                  n_boot = 500, min_boot_success = 0.8, reference = NULL,
+                  seed = NULL, common = FALSE, random = TRUE) {
   stopifnot(inherits(network, "cpaic_network"))
   if (is.null(network$ipd)) {
     stop("`network` has no IPD; cmaic() requires individual patient data.",
@@ -315,6 +318,7 @@ cmaic <- function(network, target, effect_modifiers = NULL, target_sd = NULL,
   agd <- network$agd
   cols <- network$cols
   adj <- vector("list", length(info$studies))
+  wdiag <- vector("list", length(info$studies))
   ess <- setNames(numeric(length(info$studies)), info$studies)
 
   for (i in seq_along(info$studies)) {
@@ -333,7 +337,9 @@ cmaic <- function(network, target, effect_modifiers = NULL, target_sd = NULL,
       stop("IPD study '", s, "' has ", length(arms), " arms; cmaic() ",
            "supports two-arm IPD studies in this version.", call. = FALSE)
     }
-    ref_arm <- if (nrow(agd_s)) {
+    ref_arm <- if (!is.null(reference) && reference %in% arms) {
+      reference
+    } else if (nrow(agd_s)) {
       as.character(agd_s[[cols$treat2]][1])
     } else if (network$reference %in% arms) {
       network$reference
@@ -348,9 +354,12 @@ cmaic <- function(network, target, effect_modifiers = NULL, target_sd = NULL,
     res$contrasts[[cols$studlab]] <- s
     adj[[i]] <- res$contrasts
     ess[s] <- res$ess
+    res$diagnostics <- cbind(study = s, res$diagnostics)
+    wdiag[[i]] <- res$diagnostics
   }
 
   adj_df <- do.call(rbind, adj)
+  wdiag_df <- do.call(rbind, wdiag)
   agd2 <- .cpaic_replace_contrasts(agd, adj_df, cols)
 
   net2 <- network
@@ -362,6 +371,7 @@ cmaic <- function(network, target, effect_modifiers = NULL, target_sd = NULL,
       bridge = bridge,
       components = bridge$components,
       ess = ess,
+      weight_diagnostics = wdiag_df,
       target = target_mean,
       effect_modifiers = effect_modifiers,
       n_boot = n_boot,
@@ -370,6 +380,25 @@ cmaic <- function(network, target, effect_modifiers = NULL, target_sd = NULL,
     ),
     class = c("cpaic_maic", "cpaic_fit")
   )
+}
+
+#' Weight-quality diagnostics for a cMAIC fit
+#'
+#' Per IPD study, the effective sample size, weight-entropy efficiency,
+#' coefficient of variation, largest normalized weight, mass in the top 5% of
+#' weights, and the largest residual effect-modifier imbalance after weighting.
+#' A high maximum weight or low entropy efficiency signals a few dominant
+#' individuals, which the effective sample size alone can hide.
+#'
+#' @param object A [cmaic()] fit.
+#' @return A data frame, one row per IPD study.
+#' @seealso [cmaic()], [effective_sample_size()]
+#' @export
+weight_diagnostics <- function(object) {
+  if (!inherits(object, "cpaic_maic") || is.null(object$weight_diagnostics)) {
+    stop("`object` must be a cmaic() fit.", call. = FALSE)
+  }
+  object$weight_diagnostics
 }
 
 #' Set one cell to a value, preserving the column's type (expanding factor

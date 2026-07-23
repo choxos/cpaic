@@ -121,6 +121,8 @@
 #'   (centered at `target`). Defaults to all IPD covariates.
 #' @param prognostics Covariates included as main effects only. Defaults to
 #'   the effect modifiers (so each enters as main effect + interaction).
+#' @param reference Optional anchor (comparator) arm to use in every IPD study
+#'   in which it appears, instead of inferring it from the aggregate row order.
 #' @param common,random Passed to [cnma_bridge()].
 #'
 #' @section What the two-stage bridge does and does not adjust:
@@ -147,7 +149,8 @@
 #' additivity_test(fit)
 #' @export
 cstc <- function(network, target, effect_modifiers = NULL,
-                 prognostics = NULL, common = FALSE, random = TRUE) {
+                 prognostics = NULL, reference = NULL,
+                 common = FALSE, random = TRUE) {
   stopifnot(inherits(network, "cpaic_network"))
   if (is.null(network$ipd)) {
     stop("`network` has no IPD; cstc() requires individual patient data.",
@@ -194,7 +197,9 @@ cstc <- function(network, target, effect_modifiers = NULL,
       stop("IPD study '", s, "' has ", length(arms), " arms; cstc() ",
            "supports two-arm IPD studies in this version.", call. = FALSE)
     }
-    ref_arm <- if (nrow(agd_s)) {
+    ref_arm <- if (!is.null(reference) && reference %in% arms) {
+      reference
+    } else if (nrow(agd_s)) {
       as.character(agd_s[[cols$treat2]][1])
     } else if (network$reference %in% arms) {
       network$reference

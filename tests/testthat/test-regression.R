@@ -216,6 +216,17 @@ test_that("cmlnmr rejects data overrides, source overlap, and non-integer n_int"
                "whole number")
 })
 
+test_that("bridge fragility threshold math is correct", {
+  # Contrast fixed at 2, drift loading 4, threshold 0: BFT = |2 - 0| / 4 = 0.5.
+  s <- cpaic:::.cpaic_bft_stats(rep(2, 200), loading = 4, threshold = 0,
+                                plausible_drift = 0.4)
+  expect_equal(s$bft_median, 0.5)
+  # Drift 0.4 moves the contrast by at most 0.4 * 4 = 1.6 < 2, so every draw is
+  # robust; 0.6 moves it by 2.4 > 2, so none is.
+  expect_equal(s$p_robust, 1)
+  expect_equal(cpaic:::.cpaic_bft_stats(rep(2, 200), 4, 0, 0.6)$p_robust, 0)
+})
+
 test_that("redact_fit removes raw data and blocks refitting", {
   obj <- structure(list(refit_args = list(ipd = data.frame(x = 1),
                                           agd = data.frame(y = 1)),

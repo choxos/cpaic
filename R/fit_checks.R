@@ -125,6 +125,34 @@
   unique(probs)
 }
 
+#' Weight-quality diagnostics for one MAIC study
+#'
+#' All computed from the achieved weights, so they are free. ESS alone hides a
+#' few extreme weights or residual imbalance; these expose them.
+#' @noRd
+.cpaic_weight_diagnostics <- function(w, centered, centered_cols) {
+  n <- length(w)
+  sw <- sum(w)
+  p <- w / sw
+  ord <- sort(w, decreasing = TRUE)
+  top <- sum(ord[seq_len(max(1L, ceiling(0.05 * n)))]) / sw
+  present <- intersect(centered_cols, names(centered))
+  bal <- if (length(present)) {
+    max(abs(vapply(present, function(cc) sum(w * centered[[cc]]) / sw,
+                   numeric(1))))
+  } else NA_real_
+  pnz <- p[p > 0]
+  data.frame(
+    ess = sw^2 / sum(w^2),
+    n = n,
+    entropy_eff = (-sum(pnz * log(pnz))) / log(n),
+    cv = stats::sd(w) / mean(w),
+    max_weight = max(w) / sw,
+    top5pct_mass = top,
+    max_abs_balance = bal,
+    row.names = NULL, stringsAsFactors = FALSE)
+}
+
 #' Stop with a structured message when an adjusted edge is invalid
 #' @noRd
 .cpaic_stop_invalid_edge <- function(method, study_id, problems) {
