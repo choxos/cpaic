@@ -163,7 +163,7 @@ prior_sensitivity <- function(object, newdata,
   if (!inherits(object, "cpaic_mlnmr") || is.null(object$refit_args)) {
     stop("`object` must be a refittable cmlnmr() fit.", call. = FALSE)
   }
-  if (isTRUE(attr(object, "redacted")) || is.null(object$refit_args$ipd)) {
+  if (isTRUE(attr(object, "redacted"))) {
     stop("`object` has been redacted (raw data removed by redact_fit()); ",
          "prior sensitivity needs the data to refit.", call. = FALSE)
   }

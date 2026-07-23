@@ -584,6 +584,14 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
       n_int < 1L || n_int != as.integer(n_int)) {
     stop("`n_int` must be a positive integer (not, e.g., 64.5).", call. = FALSE)
   }
+  # Reject a malformed seed at the front door, before the (slow) Stan compile,
+  # so bad input fails fast instead of after model compilation.
+  if (!is.null(seed) && (!is.numeric(seed) || length(seed) != 1L ||
+                         !is.finite(seed) || seed != round(seed) ||
+                         seed < 0 || seed > .Machine$integer.max)) {
+    stop("`seed` must be a non-negative whole number within the integer range ",
+         "(<= ", .Machine$integer.max, "), or NULL.", call. = FALSE)
+  }
   miss_em <- setdiff(effect_modifiers, names(ipd))
   if (length(miss_em)) {
     stop("`ipd` is missing effect-modifier column(s): ",
@@ -932,12 +940,7 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
   stan_md5 <- unname(tools::md5sum(stan_path))
   # A NULL seed must not silently become a fixed constant, or unseeded fits look
   # identical run to run. Draw one, use it, and record it so the fit reproduces.
-  if (!is.null(seed) && (!is.numeric(seed) || length(seed) != 1L ||
-                         !is.finite(seed) || seed != round(seed) ||
-                         seed < 0 || seed > .Machine$integer.max)) {
-    stop("`seed` must be a non-negative whole number within the integer range ",
-         "(<= ", .Machine$integer.max, "), or NULL.", call. = FALSE)
-  }
+  # (Seed validity is checked at the front door, before the compile above.)
   seed_used <- if (is.null(seed)) sample.int(.Machine$integer.max, 1L) else
     as.integer(seed)
   sample_defaults <- list(
