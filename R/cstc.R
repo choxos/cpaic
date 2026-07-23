@@ -149,8 +149,8 @@
 #' additivity_test(fit)
 #' @export
 cstc <- function(network, target, effect_modifiers = NULL,
-                 prognostics = NULL, reference = NULL,
-                 common = FALSE, random = TRUE) {
+                 prognostics = NULL, common = FALSE, random = TRUE,
+                 reference = NULL) {
   stopifnot(inherits(network, "cpaic_network"))
   if (is.null(network$ipd)) {
     stop("`network` has no IPD; cstc() requires individual patient data.",

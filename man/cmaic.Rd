@@ -11,10 +11,10 @@ cmaic(
   target_sd = NULL,
   n_boot = 500,
   min_boot_success = 0.8,
-  reference = NULL,
   seed = NULL,
   common = FALSE,
-  random = TRUE
+  random = TRUE,
+  reference = NULL
 )
 }
 \arguments{
@@ -37,14 +37,14 @@ standard errors. Default \code{500}.}
 succeed for a contrast; below this threshold the edge is rejected rather
 than given a fragile standard error from a selected subset. Default \code{0.8}.}
 
-\item{reference}{Optional anchor (comparator) arm to use in every IPD study
-in which it appears, instead of inferring it from the aggregate row order.}
-
 \item{seed}{Optional RNG seed for reproducible bootstrap. The caller's global
 RNG state is restored on exit, so calling \code{cmaic()} does not perturb a
 downstream random stream.}
 
 \item{common, random}{Passed to \code{\link[=cnma_bridge]{cnma_bridge()}}.}
+
+\item{reference}{Optional anchor (comparator) arm to use in every IPD study
+in which it appears, instead of inferring it from the aggregate row order.}
 }
 \value{
 An object of class \code{cpaic_maic} (also inheriting \code{cpaic_bridge}

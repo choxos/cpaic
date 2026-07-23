@@ -252,8 +252,8 @@
 #' }
 #' @export
 cmaic <- function(network, target, effect_modifiers = NULL, target_sd = NULL,
-                  n_boot = 500, min_boot_success = 0.8, reference = NULL,
-                  seed = NULL, common = FALSE, random = TRUE) {
+                  n_boot = 500, min_boot_success = 0.8, seed = NULL,
+                  common = FALSE, random = TRUE, reference = NULL) {
   stopifnot(inherits(network, "cpaic_network"))
   if (is.null(network$ipd)) {
     stop("`network` has no IPD; cmaic() requires individual patient data.",

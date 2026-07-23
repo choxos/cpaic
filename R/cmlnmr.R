@@ -176,6 +176,16 @@
     R <- .cpaic_cor_adjust_pearson(R, margins)
     R <- (R + t(R)) / 2
   }
+  # For gamma/lognormal/beta margins the observed Pearson correlation is not the
+  # latent Gaussian-copula correlation, and only the Bernoulli case is adjusted
+  # above; for those margins the pooled correlation is used as an approximation.
+  if (!is.null(margins) &&
+      any(margins %in% c("gamma", "lognormal", "beta"))) {
+    warning("The auto-estimated covariate correlation is used as an ",
+            "approximation to the latent Gaussian-copula correlation for the ",
+            "gamma/lognormal/beta margin(s); supply `cor` on the latent scale ",
+            "to set it exactly.", call. = FALSE)
+  }
   if (min(eigen(R, symmetric = TRUE, only.values = TRUE)$values) <= 1e-8) {
     R_before <- R
     R <- as.matrix(Matrix::nearPD(R, corr = TRUE)$mat)
@@ -336,7 +346,10 @@
 #' @param n_basis Number of cubic M-spline basis functions. Must be at least 4.
 #' @param cor Optional covariate correlation matrix for the Gaussian-copula
 #'   integration. Must be a positive-definite correlation matrix (unit
-#'   diagonal). Defaults to the within-study IPD correlation.
+#'   diagonal). Defaults to the within-study IPD correlation. For gamma,
+#'   lognormal, or beta margins the auto-estimated correlation is only an
+#'   approximation to the latent copula correlation; supply `cor` on the latent
+#'   scale to control it exactly.
 #' @param n_int Integration points per aggregate arm (ignored for `gaussian`,
 #'   which is exact at the covariate means).
 #'
@@ -1007,8 +1020,9 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
            package_version = tryCatch(
              as.character(utils::packageVersion("cpaic")),
              error = function(e) NA_character_),
-           cmdstan_version = tryCatch(cmdstanr::cmdstan_version(),
-                                      error = function(e) NA_character_),
+           cmdstan_version = tryCatch(
+             as.character(cmdstanr::cmdstan_version()),
+             error = function(e) NA_character_),
            stan_source_md5 = stan_md5, seed = seed_used, n_int = n_int_eff,
            assumptions = list(
              component_additivity = TRUE,

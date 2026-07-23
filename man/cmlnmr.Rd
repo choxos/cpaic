@@ -105,7 +105,10 @@ integrated basis).}
 
 \item{cor}{Optional covariate correlation matrix for the Gaussian-copula
 integration. Must be a positive-definite correlation matrix (unit
-diagonal). Defaults to the within-study IPD correlation.}
+diagonal). Defaults to the within-study IPD correlation. For gamma,
+lognormal, or beta margins the auto-estimated correlation is only an
+approximation to the latent copula correlation; supply \code{cor} on the latent
+scale to control it exactly.}
 
 \item{n_int}{Integration points per aggregate arm (ignored for \code{gaussian},
 which is exact at the covariate means).
