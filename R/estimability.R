@@ -238,15 +238,31 @@
   }
 
   # --- Aggregate studies: one row per contrast, at that study's own mean -----
+  # Collapse to one summary per {study, arm} first, so neither the contrasts nor
+  # the covariate anchor depends on how many rows a storage format repeats. A
+  # survival aggregate arm is stored as many reconstructed rows that repeat the
+  # same arm-level mean, so averaging over rows (rather than arms) would weight
+  # the anchor by pseudo-sample size. Arm summaries must be constant within arm.
   if (!is.null(agd) && nrow(agd)) {
     for (ss in unique(as.character(agd[[study]]))) {
       sub <- agd[as.character(agd[[study]]) == ss, , drop = FALSE]
-      ts <- as.character(sub[[trt]])
-      if (length(ts) < 2L) next
-      M <- contrasts_of(ts)
+      arms <- unique(as.character(sub[[trt]]))
+      if (length(arms) < 2L) next
+      M <- contrasts_of(arms)
       xbar <- if (Q) {
-        vapply(effect_modifiers,
-               function(v) mean(sub[[paste0(v, "_mean")]]), numeric(1))
+        vapply(effect_modifiers, function(v) {
+          col <- sub[[paste0(v, "_mean")]]
+          per_arm <- vapply(arms, function(a) {
+            u <- unique(col[as.character(sub[[trt]]) == a])
+            if (length(u) != 1L) {
+              stop("Aggregate study '", ss, "' has a non-constant `", v,
+                   "_mean` within arm '", a, "'; arm covariate summaries must ",
+                   "be constant within an arm.", call. = FALSE)
+            }
+            u
+          }, numeric(1))
+          mean(per_arm)
+        }, numeric(1))
       } else numeric(0)
       for (r in seq_len(nrow(M))) {
         rows[[length(rows) + 1L]] <- .cpaic_target_vec(M[r, ], xbar)

@@ -11,6 +11,7 @@ rank_curve(
   at = NULL,
   what = c("treatment", "component"),
   lower_is_better = FALSE,
+  include_screen_only = FALSE,
   ...
 )
 }
@@ -24,7 +25,7 @@ rank_curve(
 \item{at}{Optional named vector fixing the other effect modifiers. Defaults
 to 0 for each.}
 
-\item{what, lower_is_better}{See \code{\link[=cpaic_ranks]{cpaic_ranks()}}.}
+\item{what, lower_is_better, include_screen_only}{See \code{\link[=cpaic_ranks]{cpaic_ranks()}}.}
 
 \item{...}{Unused.}
 }

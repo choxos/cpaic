@@ -15,12 +15,22 @@
 
 #' Pareto-smoothed importance sampling leave-one-out cross-validation
 #'
+#' This is **observation-level** LOO: it measures within-study interpolation
+#' (leaving out one IPD patient or one reconstructed pseudo-observation), which
+#' is not the scientific question in a disconnected network. It does **not**
+#' validate cross-gap prediction (a new study, a held-out treatment contrast, or
+#' a held-out sub-network); a good pointwise LOO can coexist with a wrong
+#' cross-gap extrapolation. Grouped leave-one-study-out is not yet implemented,
+#' so `unit` accepts only `"observation"`.
+#'
 #' @param x A [cmlnmr()] fit.
+#' @param unit Predictive unit; only `"observation"` is supported.
 #' @param ... Passed to [loo::loo.matrix()].
 #' @return A `psis_loo` object from the `loo` package.
 #' @importFrom loo loo
 #' @export
-loo.cpaic_mlnmr <- function(x, ...) {
+loo.cpaic_mlnmr <- function(x, unit = "observation", ...) {
+  unit <- match.arg(unit, "observation")
   loo::loo(.cpaic_log_lik(x), ...)
 }
 
@@ -153,6 +163,10 @@ prior_sensitivity <- function(object, newdata,
   if (!inherits(object, "cpaic_mlnmr") || is.null(object$refit_args)) {
     stop("`object` must be a refittable cmlnmr() fit.", call. = FALSE)
   }
+  if (isTRUE(attr(object, "redacted"))) {
+    stop("`object` has been redacted (raw data removed by redact_fit()); ",
+         "prior sensitivity needs the data to refit.", call. = FALSE)
+  }
   prior <- match.arg(prior)
   if (any(!is.finite(c(tighter, looser))) || tighter <= 0 || looser <= 0 ||
       tighter >= 1 || looser <= 1) {
@@ -171,9 +185,19 @@ prior_sensitivity <- function(object, newdata,
     prior,
     gamma = "prior_gamma_scale",
     beta = "prior_beta_sd",
-    all = c("prior_intercept_sd", "prior_beta_sd", "prior_reg_sd",
-            "prior_gamma_scale", "prior_tau_scale")
+    all = c("prior_intercept_sd", "prior_beta_sd", "prior_sigma_sd",
+            "prior_reg_sd", "prior_aux_sd", "prior_gamma_scale",
+            "prior_tau_scale")
   )
+  # A scale that is not part of the fitted call (e.g. absent from an older
+  # refit) is skipped rather than multiplied into an empty value.
+  scale_names <- scale_names[
+    vapply(scale_names, function(nm) is.numeric(object$refit_args[[nm]]) &&
+             length(object$refit_args[[nm]]) == 1L, logical(1))]
+  if (!length(scale_names)) {
+    stop("No prior scales are available to vary for prior = \"", prior,
+         "\"; the movement would be spuriously zero.", call. = FALSE)
+  }
   scaled_args <- function(multiplier) {
     args <- object$refit_args
     for (name in scale_names) args[[name]] <- args[[name]] * multiplier

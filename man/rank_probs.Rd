@@ -10,6 +10,7 @@ rank_probs(
   what = c("treatment", "component"),
   lower_is_better = FALSE,
   cumulative = FALSE,
+  include_screen_only = FALSE,
   ...
 )
 }
@@ -25,6 +26,9 @@ effect-modifier values.}
 
 \item{cumulative}{Return cumulative rank probabilities (the quantity SUCRA
 summarizes) instead of the rankogram? Default \code{FALSE}.}
+
+\item{include_screen_only}{If \code{FALSE} (default), elements identified only by
+aggregate arms (a first-order screen) are excluded, as in \code{\link[=cpaic_ranks]{cpaic_ranks()}}.}
 
 \item{...}{Unused.}
 }

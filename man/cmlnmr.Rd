@@ -35,6 +35,7 @@ cmlnmr(
   prior_intercept_sd = 2.5,
   prior_aux_sd = 1,
   prior_beta_sd = 2.5,
+  prior_sigma_sd = 2.5,
   prior_reg_sd = 1,
   prior_gamma_dist = c("normal", "student_t"),
   prior_gamma_scale = 1,
@@ -67,8 +68,11 @@ which every unit receives its own parameter (Wigle & Béliveau 2022).}
 \code{"survival"}.}
 
 \item{margins}{Optional named character vector giving the integration
-margin of each effect modifier: \code{"normal"} or \code{"bernoulli"}. Defaults to
-Bernoulli for 0/1 covariates and normal otherwise.}
+margin of each effect modifier: \code{"normal"}, \code{"bernoulli"}, \code{"gamma"},
+\code{"lognormal"}, or \code{"beta"}. The last three are set from the study mean and
+SD by method of moments (\code{gamma}/\code{lognormal} need a positive mean; \code{beta}
+needs a mean in \verb{(0, 1)} and \code{sd^2 < mean(1 - mean)}). Defaults to Bernoulli
+for 0/1 covariates and normal otherwise.}
 
 \item{study, trt}{Column names (in both \code{ipd} and \code{agd}).}
 
@@ -101,7 +105,10 @@ integrated basis).}
 
 \item{cor}{Optional covariate correlation matrix for the Gaussian-copula
 integration. Must be a positive-definite correlation matrix (unit
-diagonal). Defaults to the within-study IPD correlation.}
+diagonal). Defaults to the within-study IPD correlation. For gamma,
+lognormal, or beta margins the auto-estimated correlation is only an
+approximation to the latent copula correlation; supply \code{cor} on the latent
+scale to control it exactly.}
 
 \item{n_int}{Integration points per aggregate arm (ignored for \code{gaussian},
 which is exact at the covariate means).
@@ -152,6 +159,11 @@ of the smoothing prior in \code{multinma}, not the same prior: smaller values
 shrink every study's baseline toward equal spline weights, which is a smooth
 default shape and not a constant hazard. The default of 1 follows the Stan
 recommendation of a half-normal(0, 1) prior for a hierarchical scale.}
+
+\item{prior_sigma_sd}{Scale of the half-normal prior on the Gaussian residual
+standard deviation (gaussian family only), kept separate from
+\code{prior_beta_sd} so the treatment-effect prior and the residual-noise prior
+are independent.}
 
 \item{prior_gamma_dist, prior_gamma_scale, prior_gamma_df}{Distribution, scale,
 and degrees of freedom for interaction priors. The Student t option uses

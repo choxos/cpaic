@@ -30,13 +30,25 @@
 
   out <- matrix(0, nrow = n_int, ncol = P)
   for (p in seq_len(P)) {
+    u_p <- stats::pnorm(z[, p])
+    m_p <- means[p]
+    s_p <- sds[p]
     out[, p] <- switch(
       margins[p],
-      bernoulli = stats::qbinom(stats::pnorm(z[, p]), size = 1L,
-                                prob = means[p]),
-      normal = means[p] + sds[p] * z[, p],
+      bernoulli = stats::qbinom(u_p, size = 1L, prob = m_p),
+      normal = m_p + s_p * z[, p],
+      # Method-of-moments margins: shape/scale set from the study mean and SD.
+      gamma = stats::qgamma(u_p, shape = m_p^2 / s_p^2, rate = m_p / s_p^2),
+      lognormal = stats::qlnorm(
+        u_p, meanlog = log(m_p^2 / sqrt(s_p^2 + m_p^2)),
+        sdlog = sqrt(log1p(s_p^2 / m_p^2))),
+      beta = {
+        k <- m_p * (1 - m_p) / s_p^2 - 1
+        stats::qbeta(u_p, m_p * k, (1 - m_p) * k)
+      },
       stop("Unsupported integration margin '", margins[p],
-           "'; use \"normal\" or \"bernoulli\".", call. = FALSE)
+           "'; use normal, bernoulli, gamma, lognormal, or beta.",
+           call. = FALSE)
     )
   }
   out
@@ -85,7 +97,7 @@
 #' each IPD study and pooled on the Fisher z scale, weighted by `n - 3`, as in
 #' `multinma`. The pooled observed correlation is then mapped to the latent
 #' copula scale with the `multinma` Pearson adjustment when any margin is
-#' Bernoulli (see [.cpaic_cor_adjust_pearson()]); a user-supplied `cor` is taken
+#' Bernoulli (see `.cpaic_cor_adjust_pearson()`); a user-supplied `cor` is taken
 #' as already being on the latent scale.
 #' @noRd
 .cpaic_copula_cor <- function(ipd, effect_modifiers, study_col, given = NULL,
@@ -100,6 +112,20 @@
       stop("`cor` must be a finite symmetric ", Q, "x", Q, " matrix.",
            call. = FALSE)
     }
+    # If the matrix carries names, it is applied POSITIONALLY to the integration
+    # columns (which are in `effect_modifiers` order), so a correctly named but
+    # differently ordered matrix would attach correlations to the wrong pairs.
+    # Reorder to `effect_modifiers`; an unnamed matrix is taken as already in
+    # that order.
+    nm <- rownames(R) %||% colnames(R)
+    if (!is.null(nm)) {
+      if (!setequal(nm, effect_modifiers)) {
+        stop("`cor` dimnames must be exactly the effect modifiers (",
+             paste(effect_modifiers, collapse = ", "), ").", call. = FALSE)
+      }
+      ord <- match(effect_modifiers, nm)
+      R <- R[ord, ord, drop = FALSE]
+    }
     if (!isTRUE(all.equal(diag(R), rep(1, Q), check.attributes = FALSE))) {
       stop("`cor` must be a correlation matrix (unit diagonal).",
            call. = FALSE)
@@ -113,13 +139,21 @@
   idx <- split(seq_len(nrow(ipd)), as.character(ipd[[study_col]]))
   Zsum <- matrix(0, Q, Q)
   Wsum <- matrix(0, Q, Q)
+  zeroed <- FALSE
   for (rows in idx) {
     if (length(rows) < 4L) next
     Xs <- as.matrix(ipd[rows, effect_modifiers, drop = FALSE])
+    ok <- is.finite(Xs)
+    # Pair-specific complete-case counts: a correlation estimated from few
+    # jointly observed rows must not receive the whole study's `n - 3` weight.
+    npair <- crossprod(ok)
     R <- suppressWarnings(stats::cor(Xs, use = "pairwise.complete.obs"))
-    R[!is.finite(R)] <- 0
+    degenerate <- !is.finite(R)
+    if (any(degenerate[upper.tri(degenerate)])) zeroed <- TRUE
+    R[degenerate] <- 0
     R <- pmin(pmax(R, -0.999), 0.999)
-    w <- length(rows) - 3L
+    w <- pmax(npair - 3L, 0)          # Fisher-z variance uses (n - 3)
+    w[degenerate] <- 0
     Zsum <- Zsum + w * atanh(R)
     Wsum <- Wsum + w
   }
@@ -127,6 +161,14 @@
   R <- tanh(Zsum / pmax(Wsum, 1))
   diag(R) <- 1
   R <- (R + t(R)) / 2
+  # A non-estimable correlation (a covariate constant within a study) is not the
+  # same as an independent one; say so rather than silently treating it as zero.
+  if (zeroed) {
+    warning("Some within-study covariate correlations were not estimable ",
+            "(a covariate was constant within a study) and were treated as 0 ",
+            "in the copula. Supply `cor` to control the integration ",
+            "dependence.", call. = FALSE)
+  }
   # Map the observed correlation to the latent copula scale. For a Bernoulli
   # margin the observed Pearson correlation is not the latent one, so without
   # this the copula would reproduce the observed association only approximately.
@@ -134,8 +176,23 @@
     R <- .cpaic_cor_adjust_pearson(R, margins)
     R <- (R + t(R)) / 2
   }
+  # For gamma/lognormal/beta margins the observed Pearson correlation is not the
+  # latent Gaussian-copula correlation, and only the Bernoulli case is adjusted
+  # above; for those margins the pooled correlation is used as an approximation.
+  if (!is.null(margins) &&
+      any(margins %in% c("gamma", "lognormal", "beta"))) {
+    warning("The auto-estimated covariate correlation is used as an ",
+            "approximation to the latent Gaussian-copula correlation for the ",
+            "gamma/lognormal/beta margin(s); supply `cor` on the latent scale ",
+            "to set it exactly.", call. = FALSE)
+  }
   if (min(eigen(R, symmetric = TRUE, only.values = TRUE)$values) <= 1e-8) {
+    R_before <- R
     R <- as.matrix(Matrix::nearPD(R, corr = TRUE)$mat)
+    warning("The pooled covariate correlation was not positive definite and ",
+            "was projected to the nearest correlation matrix (largest element ",
+            "change ", round(max(abs(R - R_before)), 3),
+            "). Supply `cor` to control it.", call. = FALSE)
   }
   R
 }
@@ -257,8 +314,11 @@
 #'   modifier `x`.
 #' @param effect_modifiers Character vector of effect-modifier names.
 #' @param margins Optional named character vector giving the integration
-#'   margin of each effect modifier: `"normal"` or `"bernoulli"`. Defaults to
-#'   Bernoulli for 0/1 covariates and normal otherwise.
+#'   margin of each effect modifier: `"normal"`, `"bernoulli"`, `"gamma"`,
+#'   `"lognormal"`, or `"beta"`. The last three are set from the study mean and
+#'   SD by method of moments (`gamma`/`lognormal` need a positive mean; `beta`
+#'   needs a mean in `(0, 1)` and `sd^2 < mean(1 - mean)`). Defaults to Bernoulli
+#'   for 0/1 covariates and normal otherwise.
 #' @param inactive,sep.comps Component coding (see [cpaic_network()]).
 #'   `inactive = NULL` gives the *unanchored* component parameterization, in
 #'   which every unit receives its own parameter (Wigle & Béliveau 2022).
@@ -286,7 +346,10 @@
 #' @param n_basis Number of cubic M-spline basis functions. Must be at least 4.
 #' @param cor Optional covariate correlation matrix for the Gaussian-copula
 #'   integration. Must be a positive-definite correlation matrix (unit
-#'   diagonal). Defaults to the within-study IPD correlation.
+#'   diagonal). Defaults to the within-study IPD correlation. For gamma,
+#'   lognormal, or beta margins the auto-estimated correlation is only an
+#'   approximation to the latent copula correlation; supply `cor` on the latent
+#'   scale to control it exactly.
 #' @param n_int Integration points per aggregate arm (ignored for `gaussian`,
 #'   which is exact at the covariate means).
 #'
@@ -331,6 +394,10 @@
 #'   sampling diagnostics.
 #' @param prior_intercept_sd,prior_beta_sd,prior_reg_sd Standard deviations for
 #'   study-intercept, component-effect, and prognostic-regression normal priors.
+#' @param prior_sigma_sd Scale of the half-normal prior on the Gaussian residual
+#'   standard deviation (gaussian family only), kept separate from
+#'   `prior_beta_sd` so the treatment-effect prior and the residual-noise prior
+#'   are independent.
 #' @param prior_gamma_dist,prior_gamma_scale,prior_gamma_df Distribution, scale,
 #'   and degrees of freedom for interaction priors. The Student t option uses
 #'   the stated degrees of freedom.
@@ -379,7 +446,7 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
                    trt_effects = c("fixed", "random"),
                    re_parameterization = c("noncentered", "centered"),
                    prior_intercept_sd = 2.5, prior_aux_sd = 1,
-                   prior_beta_sd = 2.5,
+                   prior_beta_sd = 2.5, prior_sigma_sd = 2.5,
                    prior_reg_sd = 1,
                    prior_gamma_dist = c("normal", "student_t"),
                    prior_gamma_scale = 1, prior_gamma_df = 4,
@@ -415,6 +482,7 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
     prior_intercept_sd = prior_intercept_sd,
     prior_aux_sd = prior_aux_sd,
     prior_beta_sd = prior_beta_sd,
+    prior_sigma_sd = prior_sigma_sd,
     prior_reg_sd = prior_reg_sd,
     prior_gamma_scale = prior_gamma_scale,
     prior_gamma_df = prior_gamma_df,
@@ -431,11 +499,40 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
       (is.null(names(sample_args)) || any(!nzchar(names(sample_args))))) {
     stop("Sampler arguments in `...` must be named.", call. = FALSE)
   }
+  # `data` is built internally from `ipd`/`agd`; letting a caller override it
+  # through `...` would fit a different dataset than the returned object, its
+  # design, and its provenance all describe.
+  protected <- intersect(names(sample_args), c("data"))
+  if (length(protected)) {
+    stop("`", paste(protected, collapse = "`, `"), "` cannot be passed via ",
+         "`...`; the model data are constructed internally from `ipd`/`agd`.",
+         call. = FALSE)
+  }
   ipd_input <- as.data.frame(ipd)
   agd_input <- as.data.frame(agd)
   ipd <- ipd_input
   agd <- agd_input
   Q <- length(effect_modifiers)
+
+  # Required id columns must exist before they are used to pool treatments and
+  # studies; otherwise a missing column surfaces later as an opaque length error.
+  for (col in c(study, trt)) {
+    if (!col %in% names(ipd)) stop("`ipd` is missing the `", col, "` column.",
+                                   call. = FALSE)
+    if (!col %in% names(agd)) stop("`agd` is missing the `", col, "` column.",
+                                   call. = FALSE)
+  }
+  # A study is either individual-level or aggregate in cmlnmr(). The same study
+  # in both tables would stack two outcome likelihoods for one trial and
+  # double-count it (multinma rejects the same case).
+  overlap <- intersect(unique(as.character(ipd[[study]])),
+                       unique(as.character(agd[[study]])))
+  if (length(overlap)) {
+    stop("Study/studies present in both `ipd` and `agd`: ",
+         paste(overlap, collapse = ", "),
+         ". Keep each study in exactly one of `ipd` or `agd`; supplying it in ",
+         "both double-counts its outcomes in the likelihood.", call. = FALSE)
+  }
 
   all_trts <- sort(unique(c(as.character(ipd[[trt]]),
                             as.character(agd[[trt]]))))
@@ -483,8 +580,17 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
     stop("`cut_points` must be strictly increasing and positive.",
          call. = FALSE)
   }
-  if (as.integer(n_int) < 1L) {
-    stop("`n_int` must be a positive integer.", call. = FALSE)
+  if (!is.numeric(n_int) || length(n_int) != 1L || !is.finite(n_int) ||
+      n_int < 1L || n_int != as.integer(n_int)) {
+    stop("`n_int` must be a positive integer (not, e.g., 64.5).", call. = FALSE)
+  }
+  # Reject a malformed seed at the front door, before the (slow) Stan compile,
+  # so bad input fails fast instead of after model compilation.
+  if (!is.null(seed) && (!is.numeric(seed) || length(seed) != 1L ||
+                         !is.finite(seed) || seed != round(seed) ||
+                         seed < 0 || seed > .Machine$integer.max)) {
+    stop("`seed` must be a non-negative whole number within the integer range ",
+         "(<= ", .Machine$integer.max, "), or NULL.", call. = FALSE)
   }
   miss_em <- setdiff(effect_modifiers, names(ipd))
   if (length(miss_em)) {
@@ -503,10 +609,11 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
       stop("`margins` names unknown effect modifier(s): ",
            paste(unknown, collapse = ", "), call. = FALSE)
     }
-    bad <- setdiff(margins, c("normal", "bernoulli"))
+    bad <- setdiff(margins, c("normal", "bernoulli", "gamma", "lognormal",
+                              "beta"))
     if (length(bad)) {
-      stop("`margins` must be \"normal\" or \"bernoulli\"; got: ",
-           paste(unique(bad), collapse = ", "), call. = FALSE)
+      stop("`margins` must be one of normal, bernoulli, gamma, lognormal, ",
+           "beta; got: ", paste(unique(bad), collapse = ", "), call. = FALSE)
     }
     guessed[names(margins)] <- margins
     margins <- guessed
@@ -523,12 +630,32 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
         stop("`", v, "_mean` is a Bernoulli prevalence and must lie in [0, 1].",
              call. = FALSE)
       }
-    } else if (family != "gaussian") {
-      sdn <- paste0(v, "_sd")
-      if (!sdn %in% names(agd)) stop("`agd` is missing `", sdn, "`.",
-                                     call. = FALSE)
-      if (any(!is.finite(agd[[sdn]]) | agd[[sdn]] <= 0)) {
-        stop("`", sdn, "` must be positive and finite.", call. = FALSE)
+    } else {
+      if (any(!is.finite(agd[[paste0(v, "_mean")]]))) {
+        stop("`", v, "_mean` must be finite.", call. = FALSE)
+      }
+      if (family != "gaussian") {
+        sdn <- paste0(v, "_sd")
+        if (!sdn %in% names(agd)) stop("`agd` is missing `", sdn, "`.",
+                                       call. = FALSE)
+        if (any(!is.finite(agd[[sdn]]) | agd[[sdn]] <= 0)) {
+          stop("`", sdn, "` must be positive and finite.", call. = FALSE)
+        }
+        mv <- agd[[paste0(v, "_mean")]]
+        if (margins[[v]] %in% c("gamma", "lognormal") && any(mv <= 0)) {
+          stop("`", v, "_mean` must be positive for a ", margins[[v]],
+               " margin.", call. = FALSE)
+        }
+        if (margins[[v]] == "beta") {
+          if (any(mv <= 0 | mv >= 1)) {
+            stop("`", v, "_mean` must be in (0, 1) for a beta margin.",
+                 call. = FALSE)
+          }
+          if (any(agd[[sdn]]^2 >= mv * (1 - mv))) {
+            stop("`", sdn, "`^2 must be < mean * (1 - mean) for a beta margin.",
+                 call. = FALSE)
+          }
+        }
       }
     }
   }
@@ -544,22 +671,38 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
   pos <- function(x) is.finite(x) & x > 0
   if (family == "binomial") {
     need(c(r, n), "agd")
-    if (!all(stats::na.omit(ipd[[outcome]]) %in% c(0, 1))) {
-      stop("binomial IPD outcome must be 0 or 1.", call. = FALSE)
+    yv <- ipd[[outcome]]
+    # na.omit would let a missing IPD outcome pass here and reach Stan as NA.
+    if (any(!is.finite(yv)) || !all(yv %in% c(0, 1))) {
+      stop("binomial IPD outcome must be 0 or 1 with no missing values.",
+           call. = FALSE)
     }
-    if (any(agd[[r]] < 0 | agd[[r]] > agd[[n]])) {
-      stop("aggregate binomial counts must satisfy 0 <= r <= n.",
+    if (any(!is.finite(agd[[r]]) | !is.finite(agd[[n]])) ||
+        any(agd[[r]] < 0 | agd[[r]] > agd[[n]])) {
+      stop("aggregate binomial counts must be finite and satisfy 0 <= r <= n.",
            call. = FALSE)
     }
   } else if (family == "gaussian") {
     need(c(outcome, se), "agd")
+    if (any(!is.finite(ipd[[outcome]]))) {
+      stop("gaussian IPD outcome must be finite (no missing values).",
+           call. = FALSE)
+    }
+    if (any(!is.finite(agd[[outcome]]))) {
+      stop("aggregate gaussian outcome mean must be finite.", call. = FALSE)
+    }
     if (any(!pos(agd[[se]]))) {
       stop("aggregate gaussian `se` must be positive.", call. = FALSE)
     }
   } else if (family == "poisson") {
     need(c(r, E), "agd")
-    if (any(agd[[r]] < 0) || any(!pos(agd[[E]]))) {
-      stop("aggregate poisson needs `r` >= 0 and positive exposure `E`.",
+    yv <- ipd[[outcome]]
+    if (any(!is.finite(yv)) || any(yv < 0) || any(yv != round(yv))) {
+      stop("poisson IPD outcome must be a non-negative integer count with no ",
+           "missing values.", call. = FALSE)
+    }
+    if (any(!is.finite(agd[[r]])) || any(agd[[r]] < 0) || any(!pos(agd[[E]]))) {
+      stop("aggregate poisson needs finite `r` >= 0 and positive exposure `E`.",
            call. = FALSE)
     }
     if (!is.null(exposure) && exposure %in% names(ipd) &&
@@ -762,7 +905,8 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
       r_agd = as.integer(agd[[r]]), n_agd = as.integer(agd[[n]]))),
     gaussian = c(base, list(
       y_ipd = as.numeric(ipd[[outcome]]),
-      y_agd = as.numeric(agd[[outcome]]), se_agd = as.numeric(agd[[se]]))),
+      y_agd = as.numeric(agd[[outcome]]), se_agd = as.numeric(agd[[se]]),
+      prior_sigma_sd = prior_sigma_sd)),
     poisson = c(base, list(
       y_ipd = as.integer(ipd[[outcome]]),
       offset_ipd = as.numeric(ipd[[exposure]]),
@@ -788,10 +932,21 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
   )
 
   mod <- .cpaic_stan_model(stan_family)
+  stan_path <- system.file("stan", paste0("cpaic_", stan_family, ".stan"),
+                           package = "cpaic")
+  if (stan_path == "") {
+    stan_path <- file.path("inst", "stan", paste0("cpaic_", stan_family, ".stan"))
+  }
+  stan_md5 <- unname(tools::md5sum(stan_path))
+  # A NULL seed must not silently become a fixed constant, or unseeded fits look
+  # identical run to run. Draw one, use it, and record it so the fit reproduces.
+  # (Seed validity is checked at the front door, before the compile above.)
+  seed_used <- if (is.null(seed)) sample.int(.Machine$integer.max, 1L) else
+    as.integer(seed)
   sample_defaults <- list(
     data = standata, chains = chains, parallel_chains = chains,
     iter_warmup = iter_warmup, iter_sampling = iter_sampling,
-    seed = seed %||% 1L, refresh = 0, show_messages = FALSE
+    seed = seed_used, refresh = 0, show_messages = FALSE
   )
   if (length(sample_args)) {
     sample_defaults[names(sample_args)] <- NULL
@@ -842,13 +997,14 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
     re_parameterization = re_parameterization,
     prior_intercept_sd = prior_intercept_sd,
     prior_aux_sd = prior_aux_sd,
-    prior_beta_sd = prior_beta_sd, prior_reg_sd = prior_reg_sd,
+    prior_beta_sd = prior_beta_sd, prior_sigma_sd = prior_sigma_sd,
+    prior_reg_sd = prior_reg_sd,
     prior_gamma_dist = prior_gamma_dist,
     prior_gamma_scale = prior_gamma_scale, prior_gamma_df = prior_gamma_df,
     prior_tau_dist = prior_tau_dist, prior_tau_scale = prior_tau_scale,
     prior_tau_df = prior_tau_df, prior_predictive = prior_predictive,
     chains = chains, iter_warmup = iter_warmup,
-    iter_sampling = iter_sampling, seed = seed
+    iter_sampling = iter_sampling, seed = seed_used
   )
   if (length(sample_args)) refit_args[names(sample_args)] <- sample_args
 
@@ -862,12 +1018,31 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
          reference = reference, sm = switch(family, binomial = "OR",
            gaussian = "MD", poisson = "IRR", survival = "HR"),
          method = "cML-NMR", trt_effects = trt_effects,
-         re_parameterization = re_parameterization,
+         re_parameterization = re_parameterization, seed = seed_used,
+         provenance = list(
+           package_version = tryCatch(
+             as.character(utils::packageVersion("cpaic")),
+             error = function(e) NA_character_),
+           cmdstan_version = tryCatch(
+             as.character(cmdstanr::cmdstan_version()),
+             error = function(e) NA_character_),
+           stan_source_md5 = stan_md5, seed = seed_used, n_int = n_int_eff,
+           assumptions = list(
+             component_additivity = TRUE,
+             cross_subnetwork_constant = TRUE,
+             proportional_hazards = identical(family, "survival"),
+             copula = "gaussian", margins = margins,
+             heterogeneity = if (trt_effects == "random")
+               "single common tau" else "fixed")),
          priors = list(
            intercept = list(distribution = "normal", location = 0,
                             scale = prior_intercept_sd),
+           aux = list(distribution = "half-normal", location = 0,
+                      scale = prior_aux_sd),
            beta = list(distribution = "normal", location = 0,
                        scale = prior_beta_sd),
+           sigma = list(distribution = "half-normal", location = 0,
+                        scale = prior_sigma_sd),
            regression = list(distribution = "normal", location = 0,
                              scale = prior_reg_sd),
            gamma = list(distribution = prior_gamma_dist, location = 0,
@@ -887,6 +1062,7 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
                    error = function(e) NULL)
   nd <- 0L
   ntd <- 0L
+  ebfmi <- NA_real_
   if (!is.null(diag)) {
     nd <- sum(diag$num_divergent %||% 0)
     if (nd > 0) {
@@ -899,16 +1075,41 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
       warning(ntd, " iteration(s) saturated the maximum tree depth.",
               call. = FALSE)
     }
+    ebfmi <- diag$ebfmi %||% NA_real_
+    if (any(is.finite(ebfmi) & ebfmi < 0.3)) {
+      warning("Low E-BFMI (min ", round(min(ebfmi, na.rm = TRUE), 2),
+              " < 0.3); the sampler may be exploring the energy distribution ",
+              "inefficiently.", call. = FALSE)
+    }
   }
-  rh <- tryCatch(max(fit$summary(c("beta", "mu"))$rhat, na.rm = TRUE),
-                 error = function(e) NA_real_)
+  # Check convergence AND effective sample size across every sampled block, not
+  # only beta/mu: a non-converged or poorly-mixed gamma, tau, prognostic,
+  # residual, or baseline-scale parameter would otherwise pass silently while
+  # the fit still looks usable.
+  cand <- c("mu", "beta", "gamma", "breg", "tau", "sigma", "bsmooth",
+            "bshape_raw", "delta_aux")
+  present <- tryCatch(intersect(cand, fit$metadata()$stan_variables),
+                      error = function(e) c("beta", "mu"))
+  if (!length(present)) present <- c("beta", "mu")
+  smry <- tryCatch(fit$summary(present), error = function(e) NULL)
+  rh <- if (!is.null(smry)) max(smry$rhat, na.rm = TRUE) else NA_real_
+  min_ess <- if (!is.null(smry))
+    suppressWarnings(min(c(smry$ess_bulk, smry$ess_tail), na.rm = TRUE)) else
+    NA_real_
   if (is.finite(rh) && rh > 1.05) {
-    warning("Maximum Rhat = ", round(rh, 3), " (> 1.05); the chains may not ",
-            "have converged. Increase `iter_warmup`/`iter_sampling`.",
+    warning("Maximum Rhat = ", round(rh, 3), " (> 1.05) across ",
+            paste(present, collapse = "/"), "; the chains may not have ",
+            "converged. Increase `iter_warmup`/`iter_sampling`.",
             call. = FALSE)
   }
+  if (is.finite(min_ess) && min_ess < 100) {
+    warning("Low effective sample size (min bulk/tail ESS = ", round(min_ess),
+            " < 100); posterior summaries may be imprecise. Increase ",
+            "`iter_sampling`.", call. = FALSE)
+  }
   invisible(list(divergences = as.integer(nd),
-                 max_treedepth = as.integer(ntd), max_rhat = rh))
+                 max_treedepth = as.integer(ntd), max_rhat = rh,
+                 min_ess = min_ess, ebfmi = ebfmi))
 }
 
 #' Compile (and cache) a cpaic Stan model with cmdstanr
@@ -945,8 +1146,16 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
   cmdstanr::cmdstan_model(dest)
 }
 
+#' @param level Credible level for the component-effect intervals (default
+#'   `0.95`), for [cmlnmr()] fits.
+#' @rdname component_effects
 #' @export
-component_effects.cpaic_mlnmr <- function(object, newdata = NULL, ...) {
+component_effects.cpaic_mlnmr <- function(object, newdata = NULL, level = 0.95,
+                                          ...) {
+  if (!is.numeric(level) || length(level) != 1L || level <= 0 || level >= 1) {
+    stop("`level` must be a single number in (0, 1).", call. = FALSE)
+  }
+  a <- (1 - level) / 2
   Q <- length(object$effect_modifiers)
   x <- if (is.null(newdata)) rep(0, Q) else
     .cpaic_target_x(newdata, object$effect_modifiers)
@@ -955,8 +1164,8 @@ component_effects.cpaic_mlnmr <- function(object, newdata = NULL, ...) {
     component = object$comps,
     estimate = apply(Beff, 2, mean),
     se = apply(Beff, 2, stats::sd),
-    lower = apply(Beff, 2, stats::quantile, 0.025),
-    upper = apply(Beff, 2, stats::quantile, 0.975),
+    lower = apply(Beff, 2, stats::quantile, a),
+    upper = apply(Beff, 2, stats::quantile, 1 - a),
     row.names = NULL, stringsAsFactors = FALSE)
   # A component effect IN A TARGET POPULATION is beta_c + Gamma_c' x, so its
   # estimability must be judged against the JOINT design at that x, not against
@@ -968,6 +1177,32 @@ component_effects.cpaic_mlnmr <- function(object, newdata = NULL, ...) {
   if (any(bad)) out[bad, -1L] <- NA_real_
   attr(out, "target") <- x
   out
+}
+
+#' Strip raw individual patient data from a fitted cML-NMR object
+#'
+#' A serialized [cmlnmr()] fit retains the individual patient data in its refit
+#' arguments and observed-outcome slots. `redact_fit()` removes those, so a
+#' saved or shared object carries no row-level data; the posterior draws,
+#' component design, diagnostics, and estimability information are preserved.
+#'
+#' After redaction the object can no longer be refitted, so [prior_sensitivity()]
+#' will not run on it. The underlying `cmdstanr` fit may still hold the model
+#' data it was sampled with; for a fully data-free artifact, save only the
+#' posterior draws (for example `fit$fit$draws()`).
+#'
+#' @param object A [cmlnmr()] fit.
+#' @return The fit with raw individual patient data removed, marked redacted.
+#' @export
+redact_fit <- function(object) {
+  stopifnot(inherits(object, "cpaic_mlnmr"))
+  if (!is.null(object$refit_args)) {
+    object$refit_args$ipd <- NULL
+    object$refit_args$agd <- NULL
+  }
+  object$observed <- NULL
+  attr(object, "redacted") <- TRUE
+  object
 }
 
 #' @export
@@ -984,6 +1219,13 @@ print.cpaic_mlnmr <- function(x, ...) {
   cat("  Effect modifiers: ",
       paste(names(x$margins), " [", x$margins, "]", sep = "",
             collapse = ", "), "\n", sep = "")
+  if (!is.null(x$provenance)) {
+    p <- x$provenance
+    cat("  Provenance: cpaic ", p$package_version %||% "?", ", CmdStan ",
+        p$cmdstan_version %||% "?", ", Stan md5 ",
+        substr(p$stan_source_md5 %||% "", 1L, 8L), ", seed ", p$seed, "\n",
+        sep = "")
+  }
   cat("  Component effects below are at the covariate origin (x = 0).\n")
   cat("  For a target population use relative_effects(fit, newdata = ...).\n\n")
   comp <- x$components

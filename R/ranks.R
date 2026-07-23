@@ -50,6 +50,11 @@
 #'   set `S` of Wigle et al.). Defaults to all treatments (or all components).
 #' @param lower_is_better If `TRUE`, a smaller effect is preferred (e.g.
 #'   mortality). Default `FALSE` (a larger effect is preferred).
+#' @param include_screen_only If `FALSE` (default), elements whose relative
+#'   effect is identified only by aggregate arms (a first-order screen that can
+#'   be optimistic under a nonlinear link) are excluded from the hierarchy and
+#'   reported in the `dropped_screen` attribute. Set `TRUE` to rank them as an
+#'   explicitly exploratory hierarchy.
 #' @param ... Unused.
 #'
 #' @return A data frame, ordered from most to least preferred, with columns
@@ -67,7 +72,8 @@
 #' @export
 cpaic_ranks <- function(object, newdata = NULL,
                         what = c("treatment", "component"), set = NULL,
-                        lower_is_better = FALSE, ...) {
+                        lower_is_better = FALSE, include_screen_only = FALSE,
+                        ...) {
   stopifnot(inherits(object, "cpaic_mlnmr"))
   what <- match.arg(what)
   C <- object$C.matrix
@@ -99,12 +105,16 @@ cpaic_ranks <- function(object, newdata = NULL,
     rownames(Lmat) <- elems
   }
 
-  # Step 2: which of these are estimable IN THIS TARGET POPULATION?
+  # Step 2: which of these are estimable IN THIS TARGET POPULATION, and how
+  # strongly? An element identified only by aggregate arms (a first-order
+  # screen, which can be optimistic under a nonlinear link) is excluded by
+  # default; IPD-identified elements, including survival, are kept.
   V <- do.call(rbind, lapply(seq_along(elems), function(i) {
     .cpaic_target_vec(Lmat[i, ], x)
   }))
   ok <- .cpaic_in_rowspace(V, N)
-  names(ok) <- elems
+  by_ipd <- .cpaic_in_rowspace(V, .cpaic_null_space(object$joint_design_ipd))
+  names(ok) <- names(by_ipd) <- elems
 
   if (!is.null(set)) {
     bad <- setdiff(set, elems)
@@ -113,11 +123,11 @@ cpaic_ranks <- function(object, newdata = NULL,
            paste(bad, collapse = ", "), call. = FALSE)
     }
     keep0 <- elems %in% set
-    elems <- elems[keep0]; ok <- ok[keep0]
+    elems <- elems[keep0]; ok <- ok[keep0]; by_ipd <- by_ipd[keep0]
     Draws <- Draws[, elems, drop = FALSE]
   }
 
-  # Step 3: refine the set to the estimable elements, and say what was dropped.
+  # Step 3: refine the set, and say what was dropped and why.
   dropped <- elems[!ok]
   if (length(dropped)) {
     warning("Dropped from the hierarchy as not estimable in this target ",
@@ -125,11 +135,28 @@ cpaic_ranks <- function(object, newdata = NULL,
             ". Ranking them would rank the prior. See estimable_effects_at().",
             call. = FALSE)
   }
-  elems <- elems[ok]
+  dropped_screen <- character(0)
+  keep <- ok
+  if (!include_screen_only) {
+    dropped_screen <- elems[ok & !by_ipd]
+    if (length(dropped_screen)) {
+      warning("Dropped from the hierarchy as identified only by aggregate arms ",
+              "(a first-order screen that can be optimistic): ",
+              paste(dropped_screen, collapse = ", "),
+              ". Set include_screen_only = TRUE to rank them as an explicitly ",
+              "exploratory hierarchy.", call. = FALSE)
+    }
+    keep <- ok & by_ipd
+  }
+  elems <- elems[keep]
   if (length(elems) < 2L) {
-    stop("Fewer than two elements are estimable in this target population, so ",
-         "no hierarchy can be formed. See estimable_effects_at().",
-         call. = FALSE)
+    stop("Fewer than two elements are estimable",
+         if (!include_screen_only)
+           " (excluding elements identified only by aggregate arms)" else "",
+         " in this target population, so no hierarchy can be formed. See ",
+         "estimable_effects_at()",
+         if (!include_screen_only) " or set include_screen_only = TRUE" else "",
+         ".", call. = FALSE)
   }
   Draws <- Draws[, elems, drop = FALSE]
 
@@ -150,6 +177,7 @@ cpaic_ranks <- function(object, newdata = NULL,
   out <- out[order(out$mean_rank), ]
   rownames(out) <- NULL
   attr(out, "dropped") <- dropped
+  attr(out, "dropped_screen") <- dropped_screen
   attr(out, "target") <- x
   attr(out, "what") <- what
   class(out) <- c("cpaic_ranks", "data.frame")
@@ -174,6 +202,13 @@ print.cpaic_ranks <- function(x, digits = 3, ...) {
     cat("  Not estimable in this population, so not ranked: ",
         paste(dr, collapse = ", "), "\n", sep = "")
   }
+  ds <- attr(x, "dropped_screen")
+  if (length(ds)) {
+    cat("  Identified only by aggregate arms (first-order screen), so not ",
+        "ranked by default: ", paste(ds, collapse = ", "),
+        "\n  (set include_screen_only = TRUE to rank them as exploratory).\n",
+        sep = "")
+  }
   cat("  Ranking metrics depend on the set ranked; report them with the",
       " effects, not instead.\n", sep = "")
   invisible(x)
@@ -191,7 +226,7 @@ print.cpaic_ranks <- function(x, digits = 3, ...) {
 #' @param values Numeric vector of target values for `em`.
 #' @param at Optional named vector fixing the other effect modifiers. Defaults
 #'   to 0 for each.
-#' @param what,lower_is_better See [cpaic_ranks()].
+#' @param what,lower_is_better,include_screen_only See [cpaic_ranks()].
 #' @param ... Unused.
 #' @return A data frame with one row per (element, target value), giving `sucra`,
 #'   `mean_rank`, `p_best` and `estimate`, plus `estimable`.
@@ -201,7 +236,8 @@ print.cpaic_ranks <- function(x, digits = 3, ...) {
 #' @export
 rank_curve <- function(object, em, values, at = NULL,
                        what = c("treatment", "component"),
-                       lower_is_better = FALSE, ...) {
+                       lower_is_better = FALSE, include_screen_only = FALSE,
+                       ...) {
   stopifnot(inherits(object, "cpaic_mlnmr"))
   what <- match.arg(what)
   ems <- object$effect_modifiers
@@ -216,7 +252,8 @@ rank_curve <- function(object, em, values, at = NULL,
     nd <- as.data.frame(as.list(replace(base, em, v)))
     r <- tryCatch(
       suppressWarnings(cpaic_ranks(object, newdata = nd, what = what,
-                                   lower_is_better = lower_is_better)),
+                                   lower_is_better = lower_is_better,
+                                   include_screen_only = include_screen_only)),
       error = function(e) NULL)
     if (is.null(r)) return(NULL)
     data.frame(element = r$element, value = v, estimate = r$estimate,

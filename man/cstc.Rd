@@ -10,7 +10,8 @@ cstc(
   effect_modifiers = NULL,
   prognostics = NULL,
   common = FALSE,
-  random = TRUE
+  random = TRUE,
+  reference = NULL
 )
 }
 \arguments{
@@ -26,6 +27,9 @@ target-population means for the effect modifiers.}
 the effect modifiers (so each enters as main effect + interaction).}
 
 \item{common, random}{Passed to \code{\link[=cnma_bridge]{cnma_bridge()}}.}
+
+\item{reference}{Optional anchor (comparator) arm to use in every IPD study
+in which it appears, instead of inferring it from the aggregate row order.}
 }
 \value{
 An object of class \code{cpaic_stc} (and \code{cpaic_fit}).

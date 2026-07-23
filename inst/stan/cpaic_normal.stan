@@ -33,6 +33,7 @@ data {
   int<lower=0, upper=1> prior_only;
   real<lower=0> prior_intercept_sd;
   real<lower=0> prior_beta_sd;
+  real<lower=0> prior_sigma_sd;
   real<lower=0> prior_reg_sd;
   int<lower=1, upper=2> prior_gamma_dist;
   real<lower=0> prior_gamma_scale;
@@ -105,7 +106,7 @@ model {
   } else {
     to_vector(gamma) ~ student_t(prior_gamma_df, 0, prior_gamma_scale);
   }
-  sigma ~ normal(0, prior_beta_sd);
+  sigma ~ normal(0, prior_sigma_sd);   // residual SD: its own prior scale
 
   if (RE) {
     if (prior_tau_dist == 1) tau ~ normal(0, prior_tau_scale);

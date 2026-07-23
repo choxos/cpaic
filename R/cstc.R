@@ -11,32 +11,53 @@
 #' @noRd
 .cpaic_stc_one_study <- function(ipd_s, info, family, ref_arm, target_mean,
                                  effect_modifiers, prognostics, sm,
-                                 outcome_args) {
+                                 outcome_args, study_id) {
   arm_col <- info$trt
   out_col <- info$outcome
   d <- ipd_s
 
+  # Use an internal, collision-proof factor name so a user covariate cannot
+  # silently be treated as the treatment factor.
+  if (".cpaic_arm" %in% names(d)) {
+    stop("cstc(): the reserved column `.cpaic_arm` collides with an IPD column ",
+         "in study '", study_id, "'; rename it.", call. = FALSE)
+  }
   # Center effect modifiers at the target population; only EM centering
   # affects the treatment coefficient (no treatment x prognostic terms).
   for (em in effect_modifiers) d[[em]] <- d[[em]] - target_mean[[em]]
-  d$.arm <- stats::relevel(factor(d[[arm_col]]), ref = ref_arm)
+  d$.cpaic_arm <- stats::relevel(factor(d[[arm_col]]), ref = ref_arm)
 
-  rhs <- ".arm"
+  # Quote every raw column name so a non-syntactic covariate name cannot break
+  # or, worse, silently alter the model formula.
+  bq <- function(x) sprintf("`%s`", x)
+  rhs <- ".cpaic_arm"
   if (length(prognostics)) {
-    rhs <- paste(rhs, "+", paste(prognostics, collapse = " + "))
+    rhs <- paste(rhs, "+", paste(bq(prognostics), collapse = " + "))
   }
   if (length(effect_modifiers)) {
     rhs <- paste(rhs, "+",
-                 paste(sprintf(".arm:%s", effect_modifiers), collapse = " + "))
+                 paste(sprintf(".cpaic_arm:%s", bq(effect_modifiers)),
+                       collapse = " + "))
   }
 
+  # Capture (do not suppress) fit warnings so separation / non-convergence can
+  # be classified by the validity gate.
+  warn <- character(0)
+  capture <- function(expr) withCallingHandlers(
+    expr,
+    warning = function(cnd) {
+      warn <<- c(warn, conditionMessage(cnd))
+      invokeRestart("muffleWarning")
+    })
+
+  n_events <- NULL
   if (family == "survival") {
     f <- stats::as.formula(paste0(
-      "survival::Surv(", outcome_args$time, ", ", outcome_args$status,
+      "survival::Surv(", bq(outcome_args$time), ", ", bq(outcome_args$status),
       ") ~ ", rhs))
-    fit <- survival::coxph(f, data = d)
-    cf <- stats::coef(fit)
-    V <- stats::vcov(fit)
+    fit <- capture(survival::coxph(f, data = d))
+    n_events <- tapply(d[[outcome_args$status]], d$.cpaic_arm,
+                       function(z) sum(z != 0))
   } else {
     fam <- switch(family,
                   binomial = stats::binomial(),
@@ -44,20 +65,27 @@
                   poisson  = stats::poisson(),
                   stop("unsupported family: ", family, call. = FALSE))
     if (family == "poisson" && !is.null(outcome_args$exposure)) {
-      f <- stats::as.formula(paste0(out_col, " ~ ", rhs, " + offset(log(",
-                                    outcome_args$exposure, "))"))
+      f <- stats::as.formula(paste0(bq(out_col), " ~ ", rhs, " + offset(log(",
+                                    bq(outcome_args$exposure), "))"))
     } else {
-      f <- stats::as.formula(paste0(out_col, " ~ ", rhs))
+      f <- stats::as.formula(paste0(bq(out_col), " ~ ", rhs))
     }
-    fit <- stats::glm(f, family = fam, data = d)
-    cf <- stats::coef(fit)
-    V <- stats::vcov(fit)
+    fit <- capture(stats::glm(f, family = fam, data = d))
   }
+  cf <- stats::coef(fit)
+  V <- stats::vcov(fit)
 
-  arm_terms <- grep("^\\.arm[^:]*$", names(cf))   # main treatment effects only
-  est <- cf[arm_terms]
-  se <- sqrt(diag(V))[arm_terms]
-  arms_non_ref <- sub("^\\.arm", "", names(est))
+  # The treatment main-effect coefficients are known exactly from the arm factor
+  # levels; deriving them by regex risks matching an interaction term or a
+  # covariate whose name happens to start with the internal prefix.
+  arm_coef <- paste0(".cpaic_arm", setdiff(levels(d$.cpaic_arm), ref_arm))
+  probs <- .cpaic_regression_problems(
+    fit, family, expected_terms = arm_coef, n_events = n_events, warn = warn)
+  if (length(probs)) .cpaic_stop_invalid_edge("cstc()", study_id, probs)
+
+  est <- cf[arm_coef]
+  se <- sqrt(diag(V)[arm_coef])
+  arms_non_ref <- sub("^\\.cpaic_arm", "", names(est))
 
   list(
     contrasts = data.frame(
@@ -93,6 +121,8 @@
 #'   (centered at `target`). Defaults to all IPD covariates.
 #' @param prognostics Covariates included as main effects only. Defaults to
 #'   the effect modifiers (so each enters as main effect + interaction).
+#' @param reference Optional anchor (comparator) arm to use in every IPD study
+#'   in which it appears, instead of inferring it from the aggregate row order.
 #' @param common,random Passed to [cnma_bridge()].
 #'
 #' @section What the two-stage bridge does and does not adjust:
@@ -119,7 +149,8 @@
 #' additivity_test(fit)
 #' @export
 cstc <- function(network, target, effect_modifiers = NULL,
-                 prognostics = NULL, common = FALSE, random = TRUE) {
+                 prognostics = NULL, common = FALSE, random = TRUE,
+                 reference = NULL) {
   stopifnot(inherits(network, "cpaic_network"))
   if (is.null(network$ipd)) {
     stop("`network` has no IPD; cstc() requires individual patient data.",
@@ -129,6 +160,10 @@ cstc <- function(network, target, effect_modifiers = NULL,
   family <- network$family
   if (is.null(effect_modifiers)) effect_modifiers <- info$covariates
   if (is.null(prognostics)) prognostics <- effect_modifiers
+  # Interaction hierarchy: an effect modifier that interacts with treatment must
+  # also enter as a main effect, or the treatment-by-modifier interaction has no
+  # corresponding main effect and the fit is not interpretable.
+  prognostics <- union(prognostics, effect_modifiers)
   target <- as.list(target)
   target_mean <- target[effect_modifiers]
   if (any(vapply(target_mean, is.null, logical(1)))) {
@@ -153,11 +188,18 @@ cstc <- function(network, target, effect_modifiers = NULL,
                          drop = FALSE]
     agd_s <- agd[as.character(agd[[cols$studlab]]) == s, , drop = FALSE]
     arms <- unique(as.character(ipd_s[[info$trt]]))
+    if (length(arms) < 2L) {
+      stop("IPD study '", s, "' has a single arm; cstc() needs a within-study ",
+           "contrast (at least two arms). A one-arm study carries no anchored ",
+           "treatment effect.", call. = FALSE)
+    }
     if (length(arms) > 2L) {
       stop("IPD study '", s, "' has ", length(arms), " arms; cstc() ",
            "supports two-arm IPD studies in this version.", call. = FALSE)
     }
-    ref_arm <- if (nrow(agd_s)) {
+    ref_arm <- if (!is.null(reference) && reference %in% arms) {
+      reference
+    } else if (nrow(agd_s)) {
       as.character(agd_s[[cols$treat2]][1])
     } else if (network$reference %in% arms) {
       network$reference
@@ -168,7 +210,7 @@ cstc <- function(network, target, effect_modifiers = NULL,
 
     res <- .cpaic_stc_one_study(ipd_s, info, family, ref_arm, target_mean,
                                 effect_modifiers, prognostics, network$sm,
-                                outcome_args)
+                                outcome_args, study_id = s)
     res$contrasts[[cols$studlab]] <- s
     adj[[i]] <- res$contrasts
   }
@@ -195,7 +237,10 @@ cstc <- function(network, target, effect_modifiers = NULL,
 
 #' @export
 print.cpaic_stc <- function(x, ...) {
-  cat("cpaic: component STC (anchored, population-adjusted)\n")
+  cat("cpaic: component STC (anchored; IPD edges adjusted to target)\n")
+  cat("  Diagnostic two-stage bridge: aggregate-only edges keep their own study\n",
+      "  population, so the pooled result is only partially target-adjusted.\n",
+      "  Prefer cmlnmr() for a coherent single-target synthesis.\n", sep = "")
   cat("  Effect modifiers (x treatment): ",
       paste(x$effect_modifiers, collapse = ", "), "\n", sep = "")
   cat("  Prognostic main effects:        ",

@@ -148,23 +148,37 @@ relative_effects.cpaic_mlnmr <- function(object, reference = NULL,
   logsm <- .is_log_sm(object$sm)
   # Estimability of a POPULATION-ADJUSTED contrast depends on the target
   # population: it needs the relevant rows of Gamma, not just of beta. Test the
-  # augmented contrast (1, x) %x% m against the joint information design.
+  # augmented contrast (1, x) %x% m against the joint information design. The
+  # basis records how strong the identification is: "exact" only for an
+  # injective-link IPD contrast, "first-order screen" when the row-space check
+  # passes but leans on aggregate arms or a survival baseline (and so can be
+  # optimistic), "not identified" otherwise.
   Njoint <- .cpaic_null_space(object$joint_design)
+  Nipd <- .cpaic_null_space(object$joint_design_ipd)
+  ipd_can_be_exact <- !identical(object$family, "survival")
+  basis_of <- function(v) {
+    if (!.cpaic_in_rowspace(matrix(v, nrow = 1L), Njoint)) return("not identified")
+    if (ipd_can_be_exact && .cpaic_in_rowspace(matrix(v, nrow = 1L), Nipd)) {
+      return("exact")
+    }
+    "first-order screen"
+  }
 
   build <- function(t1, t2) {
     v <- .cpaic_target_vec(C[t1, ] - C[t2, ], x)
-    ok <- .cpaic_in_rowspace(matrix(v, nrow = 1L), Njoint)
-    if (!ok) {
+    bas <- basis_of(v)
+    if (bas == "not identified") {
       return(data.frame(treatment = t1, comparator = t2, estimate = NA_real_,
                         se = NA_real_, lower = NA_real_, upper = NA_real_,
-                        pr_gt0 = NA_real_, stringsAsFactors = FALSE))
+                        pr_gt0 = NA_real_, basis = bas,
+                        stringsAsFactors = FALSE))
     }
     d <- Theta[, t1] - Theta[, t2]                 # link scale
     e <- if (backtransf && logsm) exp(d) else d     # reporting scale
     q <- stats::quantile(e, c(a, 1 - a), names = FALSE)
     data.frame(treatment = t1, comparator = t2, estimate = mean(e),
                se = stats::sd(d), lower = q[1], upper = q[2],
-               pr_gt0 = mean(d > 0), stringsAsFactors = FALSE)
+               pr_gt0 = mean(d > 0), basis = bas, stringsAsFactors = FALSE)
   }
   if (all_contrasts) {
     pairs <- expand.grid(t1 = trts, t2 = trts, stringsAsFactors = FALSE)
@@ -245,7 +259,10 @@ print.cpaic_effects <- function(x, digits = 3, ...) {
   cat("Relative effects (", sm, if (bt) ", back-transformed" else
       ", link scale", ")\n", sep = "")
   if (!is.null(tgt) && length(tgt)) {
-    cat("  Target population: ",
+    # This is a conditional contrast evaluated at a covariate profile, not a
+    # marginal effect standardized over a population distribution. On a
+    # non-collapsible scale the two differ, so the label names the profile.
+    cat("  Conditional effect at covariate profile: ",
         paste(names(tgt), signif(tgt, 3), sep = " = ", collapse = ", "),
         "\n", sep = "")
   }
@@ -256,6 +273,16 @@ print.cpaic_effects <- function(x, digits = 3, ...) {
   if (anyNA(df$estimate)) {
     cat("  NA = not uniquely estimable from this component design",
         " (see estimable_effects()).\n", sep = "")
+  }
+  if (bt) {
+    cat("  `se` is on the link (log) scale; the interval is back-transformed.\n")
+  }
+  if (!is.null(df$basis) &&
+      any(df$basis == "first-order screen", na.rm = TRUE)) {
+    cat("  basis \"first-order screen\" = estimable by the row-space criterion",
+        " but leaning\n  on aggregate arms or a survival baseline, so it can be",
+        " optimistic; check\n  with prior_sensitivity() / estimable_effects_at().\n",
+        sep = "")
   }
   invisible(x)
 }

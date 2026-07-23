@@ -26,13 +26,24 @@ build_C_matrix <- function(treatments, sep.comps = "+", inactive = NULL) {
   }
   split_one <- function(x) trimws(strsplit(x, sep.comps, fixed = TRUE)[[1]])
   comp_list <- lapply(treatments, split_one)
-
-  comps <- unique(unlist(comp_list))
-  # Drop the inactive component from the column set; its treatments become
-  # zero rows (no active component).
-  if (!is.null(inactive)) {
-    comps <- setdiff(comps, inactive)
+  if (any(vapply(comp_list,
+                 function(z) length(z) == 0L || any(is.na(z) | z == ""),
+                 logical(1)))) {
+    stop("A treatment label has an empty component token (e.g. \"A++B\" or a ",
+         "trailing/leading separator); fix the label.", call. = FALSE)
   }
+
+  all_tokens <- unique(unlist(comp_list))
+  # Drop the inactive component from the column set; its treatments become
+  # zero rows (no active component). A mislabeled `inactive` would otherwise be
+  # a silent no-op and leave the component coding wrong.
+  if (!is.null(inactive) && !inactive %in% all_tokens) {
+    stop("`inactive` (\"", inactive, "\") is not one of the treatment ",
+         "components {", paste(all_tokens, collapse = ", "),
+         "}; it would be dropped as a no-op, leaving the component coding ",
+         "silently wrong. Check spelling and `sep.comps`.", call. = FALSE)
+  }
+  comps <- setdiff(all_tokens, inactive)
   comps <- comps[order(comps)]
 
   C <- matrix(0L, nrow = length(treatments), ncol = length(comps),
@@ -118,6 +129,29 @@ cpaic_network <- function(agd, ipd = NULL,
   }
   if (nrow(agd) == 0L) {
     stop("`agd` has no comparisons (zero rows).", call. = FALSE)
+  }
+
+  # Construction-time integrity: labels present, no self-comparisons, and no
+  # duplicated {study, treatment-pair} rows (which the additive bridge would
+  # double-count). Finite TE / positive seTE is checked at bridge time, because
+  # an IPD-bearing edge may legitimately carry a placeholder to be filled by
+  # cmaic()/cstc().
+  t1v <- as.character(agd[[treat1]])
+  t2v <- as.character(agd[[treat2]])
+  if (anyNA(t1v) || anyNA(t2v) || any(!nzchar(t1v)) || any(!nzchar(t2v))) {
+    stop("`agd` has missing or empty treatment labels in `", treat1, "` / `",
+         treat2, "`.", call. = FALSE)
+  }
+  if (any(t1v == t2v)) {
+    stop("`agd` has self-comparison row(s) where `", treat1, "` == `", treat2,
+         "`.", call. = FALSE)
+  }
+  dup_key <- paste(as.character(agd[[studlab]]), pmin(t1v, t2v), pmax(t1v, t2v),
+                   sep = "\r")
+  if (anyDuplicated(dup_key)) {
+    stop("`agd` has duplicate {study, treatment-pair} row(s); a repeated ",
+         "comparison would be double-counted by the additive bridge. Remove ",
+         "the duplicate contrasts.", call. = FALSE)
   }
 
   treatments <- sort(unique(c(as.character(agd[[treat1]]),

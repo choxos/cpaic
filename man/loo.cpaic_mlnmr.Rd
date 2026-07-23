@@ -4,10 +4,12 @@
 \alias{loo.cpaic_mlnmr}
 \title{Pareto-smoothed importance sampling leave-one-out cross-validation}
 \usage{
-\method{loo}{cpaic_mlnmr}(x, ...)
+\method{loo}{cpaic_mlnmr}(x, unit = "observation", ...)
 }
 \arguments{
 \item{x}{A \code{\link[=cmlnmr]{cmlnmr()}} fit.}
+
+\item{unit}{Predictive unit; only \code{"observation"} is supported.}
 
 \item{...}{Passed to \code{\link[loo:loo.matrix]{loo::loo.matrix()}}.}
 }
@@ -15,5 +17,11 @@
 A \code{psis_loo} object from the \code{loo} package.
 }
 \description{
-Pareto-smoothed importance sampling leave-one-out cross-validation
+This is \strong{observation-level} LOO: it measures within-study interpolation
+(leaving out one IPD patient or one reconstructed pseudo-observation), which
+is not the scientific question in a disconnected network. It does \strong{not}
+validate cross-gap prediction (a new study, a held-out treatment contrast, or
+a held-out sub-network); a good pointwise LOO can coexist with a wrong
+cross-gap extrapolation. Grouped leave-one-study-out is not yet implemented,
+so \code{unit} accepts only \code{"observation"}.
 }
