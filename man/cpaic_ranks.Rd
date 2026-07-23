@@ -10,6 +10,7 @@ cpaic_ranks(
   what = c("treatment", "component"),
   set = NULL,
   lower_is_better = FALSE,
+  include_screen_only = FALSE,
   ...
 )
 }
@@ -27,6 +28,12 @@ set \code{S} of Wigle et al.). Defaults to all treatments (or all components).}
 
 \item{lower_is_better}{If \code{TRUE}, a smaller effect is preferred (e.g.
 mortality). Default \code{FALSE} (a larger effect is preferred).}
+
+\item{include_screen_only}{If \code{FALSE} (default), elements whose relative
+effect is identified only by aggregate arms (a first-order screen that can
+be optimistic under a nonlinear link) are excluded from the hierarchy and
+reported in the \code{dropped_screen} attribute. Set \code{TRUE} to rank them as an
+explicitly exploratory hierarchy.}
 
 \item{...}{Unused.}
 }

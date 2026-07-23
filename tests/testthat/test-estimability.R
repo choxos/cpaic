@@ -36,7 +36,7 @@ test_that("Q = 0 collapses to the Wigle et al. (2026) row-space criterion", {
 })
 
 test_that("an IPD study with a CONSTANT modifier is anchored at its own value", {
-  # Grok counterexample A. If x1 never varies within the trial (a single-sex
+  # Counterexample A. If x1 never varies within the trial (a single-sex
   # trial, say) then only m'(beta + 5 Gamma) is learned. Anchoring the level row
   # at the covariate origin would claim x1 = 0 is estimable (it is not) and deny
   # x1 = 5 (which is).
@@ -136,7 +136,7 @@ test_that("multi-arm IPD contributes its full contrast span", {
 })
 
 test_that("arm-confounded covariates do not count as variation", {
-  # Codex counterexample. The control arm has x1 in {0, 1}; the treated arm has
+  # Counterexample: the control arm has x1 in {0, 1}; the treated arm has
   # x1 == 5. The POOLED sample looks like x1 varies, but arm is perfectly
   # confounded with the covariate, so the only identified functional is
   # m'(beta + 5 Gamma). Pooling the arms would wrongly claim full transport.

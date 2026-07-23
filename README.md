@@ -120,9 +120,11 @@ component_effects(fit, newdata = data.frame(x1 = 0.3))
 
 ## Simulation evidence
 
-A factorial simulation (36,000 replicates) evaluates the **cross-gap** contrast on a
-disconnected network, i.e. the comparison no trial makes. Full results in
-`documentation/validation/`.
+A factorial simulation evaluates the **cross-gap** contrast on a disconnected
+network, i.e. the comparison no trial makes. The simulation code and outputs
+currently live in the local `documentation/` tree, which is not part of the
+public repository, so the figures below are indicative rather than independently
+reproducible; a tracked, reproducible validation pipeline is planned.
 
 **Population adjustment is effective.** Without it, the naive bridge reaches a bias of
 +0.60 log-OR and 38% coverage under severe imbalance with poor overlap. cSTC's bias stays flat at -0.01 to -0.04 *regardless* of imbalance and
@@ -168,13 +170,19 @@ The following apply to any result produced by this package.
   at the target covariate values; `cmaic()` returns a marginal weighted effect
   in the target population. On non-collapsible scales (odds ratios, hazard
   ratios) these differ even when both are correct.
-- **Survival is approximate.** The aggregate survival likelihood approximates
-  expected events by person-time times mean hazard, which is biased upward
-  because higher-hazard individuals leave the risk set earlier. The `"mspline"`
-  baseline is a step baseline whose interval heights are smoothed by an
-  M-spline; it is *not* the continuous-time integrated M-spline likelihood of
-  `multinma`. Right-censoring only.
-- **`cmlnmr()` is a common-effect model.** No between-study heterogeneity.
+- **Survival conditions on the supplied rows.** `cmlnmr()` evaluates the exact
+  analytic individual survival likelihood (events plus right, left, and interval
+  censoring, and delayed entry), integrated over each aggregate arm's covariate
+  distribution, with a study-specific piecewise-exponential or continuous cubic
+  M-spline baseline. It is exact only *conditional on* the supplied (or
+  reconstructed) pseudo-individual rows, the chosen baseline basis, and the
+  finite numerical integration; uncertainty from reconstructing pseudo-IPD out of
+  a published Kaplan-Meier curve is not propagated, and proportional hazards is
+  assumed.
+- **`cmlnmr()` treatment effects may be fixed or random.** `trt_effects =
+  "random"` adds study-arm heterogeneity with a single common `tau`, which is one
+  exchangeability assumption, not a component-, sub-network-, or era-specific
+  heterogeneity structure.
 
 ## Documentation
 

@@ -74,6 +74,8 @@ utils::globalVariables(c("dens", "density", "group", "parameter", "point",
 #' @param lower_is_better If `TRUE`, a smaller effect is preferred.
 #' @param cumulative Return cumulative rank probabilities (the quantity SUCRA
 #'   summarizes) instead of the rankogram? Default `FALSE`.
+#' @param include_screen_only If `FALSE` (default), elements identified only by
+#'   aggregate arms (a first-order screen) are excluded, as in [cpaic_ranks()].
 #' @param ... Unused.
 #'
 #' @return A data frame of class `cpaic_rank_probs` with one row per (element,
@@ -88,7 +90,8 @@ utils::globalVariables(c("dens", "density", "group", "parameter", "point",
 #' @export
 rank_probs <- function(object, newdata = NULL,
                        what = c("treatment", "component"),
-                       lower_is_better = FALSE, cumulative = FALSE, ...) {
+                       lower_is_better = FALSE, cumulative = FALSE,
+                       include_screen_only = FALSE, ...) {
   .cpaic_check_mlnmr(object, "rank_probs()")
   what <- match.arg(what)
   if (!is.logical(cumulative) || length(cumulative) != 1L ||
@@ -115,10 +118,13 @@ rank_probs <- function(object, newdata = NULL,
     rownames(Lmat) <- elems
   }
 
-  # Only rank what the target population actually identifies.
+  # Only rank what the target population actually identifies, and by default
+  # exclude elements identified only by aggregate arms (a first-order screen),
+  # matching cpaic_ranks().
   V <- do.call(rbind, lapply(seq_along(elems),
                              function(i) .cpaic_target_vec(Lmat[i, ], x)))
   ok <- .cpaic_in_rowspace(V, .cpaic_null_space(object$joint_design))
+  by_ipd <- .cpaic_in_rowspace(V, .cpaic_null_space(object$joint_design_ipd))
   dropped <- elems[!ok]
   if (length(dropped)) {
     warning("Dropped from the hierarchy as not estimable in this target ",
@@ -126,11 +132,24 @@ rank_probs <- function(object, newdata = NULL,
             ". Ranking them would rank the prior. See estimable_effects_at().",
             call. = FALSE)
   }
-  elems <- elems[ok]
+  keep <- ok
+  if (!include_screen_only) {
+    ds <- elems[ok & !by_ipd]
+    if (length(ds)) {
+      warning("Dropped from the hierarchy as identified only by aggregate arms ",
+              "(a first-order screen that can be optimistic): ",
+              paste(ds, collapse = ", "),
+              ". Set include_screen_only = TRUE to rank them.", call. = FALSE)
+    }
+    keep <- ok & by_ipd
+  }
+  elems <- elems[keep]
   if (length(elems) < 2L) {
-    stop("Fewer than two elements are estimable in this target population, so ",
-         "no hierarchy can be formed. See estimable_effects_at().",
-         call. = FALSE)
+    stop("Fewer than two elements are estimable",
+         if (!include_screen_only)
+           " (excluding elements identified only by aggregate arms)" else "",
+         " in this target population, so no hierarchy can be formed. See ",
+         "estimable_effects_at().", call. = FALSE)
   }
   Draws <- Draws[, elems, drop = FALSE]
 

@@ -162,7 +162,7 @@ test_that("cmlnmr validates inactive and cut_points before sampling", {
                     r = c(10, 12), n = c(20, 20), E = c(20, 20),
                     x1_mean = c(0, 0), x1_sd = c(1, 1))
   expect_error(cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "NOPE"),
-               "not one of the treatments")
+               "not one of the treatment")
   expect_error(
     cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "Placebo",
            family = "survival", cut_points = c(12, 6)),

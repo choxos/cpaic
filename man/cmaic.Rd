@@ -10,6 +10,7 @@ cmaic(
   effect_modifiers = NULL,
   target_sd = NULL,
   n_boot = 500,
+  min_boot_success = 0.8,
   seed = NULL,
   common = FALSE,
   random = TRUE
@@ -31,7 +32,13 @@ deviations; when supplied, second moments are matched as well.}
 \item{n_boot}{Number of bootstrap resamples for the adjusted-contrast
 standard errors. Default \code{500}.}
 
-\item{seed}{Optional RNG seed for reproducible bootstrap.}
+\item{min_boot_success}{Minimum fraction of bootstrap resamples that must
+succeed for a contrast; below this threshold the edge is rejected rather
+than given a fragile standard error from a selected subset. Default \code{0.8}.}
+
+\item{seed}{Optional RNG seed for reproducible bootstrap. The caller's global
+RNG state is restored on exit, so calling \code{cmaic()} does not perturb a
+downstream random stream.}
 
 \item{common, random}{Passed to \code{\link[=cnma_bridge]{cnma_bridge()}}.}
 }

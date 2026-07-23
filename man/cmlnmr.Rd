@@ -35,6 +35,7 @@ cmlnmr(
   prior_intercept_sd = 2.5,
   prior_aux_sd = 1,
   prior_beta_sd = 2.5,
+  prior_sigma_sd = 2.5,
   prior_reg_sd = 1,
   prior_gamma_dist = c("normal", "student_t"),
   prior_gamma_scale = 1,
@@ -152,6 +153,11 @@ of the smoothing prior in \code{multinma}, not the same prior: smaller values
 shrink every study's baseline toward equal spline weights, which is a smooth
 default shape and not a constant hazard. The default of 1 follows the Stan
 recommendation of a half-normal(0, 1) prior for a hierarchical scale.}
+
+\item{prior_sigma_sd}{Scale of the half-normal prior on the Gaussian residual
+standard deviation (gaussian family only), kept separate from
+\code{prior_beta_sd} so the treatment-effect prior and the residual-noise prior
+are independent.}
 
 \item{prior_gamma_dist, prior_gamma_scale, prior_gamma_df}{Distribution, scale,
 and degrees of freedom for interaction priors. The Student t option uses

@@ -40,6 +40,9 @@
 #' @export
 cnma_bridge <- function(network, common = FALSE, random = TRUE, ...) {
   stopifnot(inherits(network, "cpaic_network"))
+  if (!isTRUE(common) && !isTRUE(random)) {
+    stop("At least one of `common` or `random` must be TRUE.", call. = FALSE)
+  }
   cols <- network$cols
   agd <- network$agd
 
@@ -49,6 +52,18 @@ cnma_bridge <- function(network, common = FALSE, random = TRUE, ...) {
          "`seTE` before bridging; NA/Inf/non-positive values remain ",
          "(an unadjusted IPD edge, perhaps). Fill them with cmaic()/cstc() ",
          "or supply complete aggregate data.", call. = FALSE)
+  }
+
+  # A duplicated edge would be counted twice in the weighted least squares.
+  bridge_key <- paste(
+    as.character(agd[[cols$studlab]]),
+    pmin(as.character(agd[[cols$treat1]]), as.character(agd[[cols$treat2]])),
+    pmax(as.character(agd[[cols$treat1]]), as.character(agd[[cols$treat2]])),
+    sep = "\r")
+  if (anyDuplicated(bridge_key)) {
+    stop("Duplicate {study, treatment-pair} contrast(s) entering the bridge; a ",
+         "duplicated edge is double-counted in the weighted least squares.",
+         call. = FALSE)
   }
 
   conn <- cpaic_connectivity(network)
@@ -98,10 +113,30 @@ cnma_bridge <- function(network, common = FALSE, random = TRUE, ...) {
       ...
     )
   }
-  # For a singleton-treatment network discomb's component machinery is
-  # trivially degenerate and emits noise; suppress it there (the treatment
-  # effects are still correct). Real component networks keep their warnings.
-  fit <- if (has_components) run() else suppressWarnings(run())
+  # Suppress discomb's component-machinery noise only for a genuinely degenerate
+  # design (a single treatment or a single component). A real multi-treatment,
+  # multi-component network keeps ALL of its warnings, so a substantive warning
+  # is never swallowed just because no label happens to contain the separator.
+  degenerate <- length(network$treatments) <= 1L ||
+    ncol(network$C.matrix) <= 1L
+  fit <- if (degenerate) suppressWarnings(run()) else run()
+
+  # The package built C from the treatment labels; netmeta re-parses its own
+  # C.matrix from the same labels. If they disagree, the component coding the
+  # user is shown is not the one that was fitted.
+  fc <- fit$C.matrix
+  pc <- network$C.matrix
+  if (!is.null(fc) && !is.null(pc)) {
+    aligned <- setequal(rownames(fc), rownames(pc)) &&
+      setequal(colnames(fc), colnames(pc)) &&
+      isTRUE(all.equal(unname(fc[rownames(pc), colnames(pc), drop = FALSE]),
+                       unname(pc), check.attributes = FALSE))
+    if (!aligned) {
+      warning("netmeta::discomb() parsed a component matrix that differs from ",
+              "the package's component coding; check the treatment labels, ",
+              "`sep.comps`, and `inactive`.", call. = FALSE)
+    }
+  }
 
   effect <- if (random) "random" else "common"
   comp_tbl <- component_table(fit, effect = effect)
@@ -189,6 +224,9 @@ print.cpaic_bridge <- function(x, ...) {
         ", df = ", q$df.diff, ", p = ", format.pval(q$pval.diff, digits = 3),
         "\n", sep = "")
   }
+  cat("  (Q tests the additive fit WITHIN this network; it cannot test whether\n",
+      "   component effects are constant ACROSS disconnected sub-networks.)\n",
+      sep = "")
   est <- x$estimable
   if (!all(est$estimable)) {
     cat("  Not estimable (NA): ",
