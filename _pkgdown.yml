@@ -31,6 +31,7 @@ reference:
   - cstc
   - cmlnmr
   - effective_sample_size
+  - weight_diagnostics
   - edge_influence
 - title: Hierarchies
   desc: >
@@ -46,6 +47,7 @@ reference:
   - relative_effects
   - league_table
   - component_effects
+  - bridge_fragility
 - title: Plots
   desc: >
     Every plot returns a ggplot object, so it can be modified with the usual
@@ -77,6 +79,7 @@ reference:
   - waic.cpaic_mlnmr
   - prior_sensitivity
   - prior_predictive_check
+  - redact_fit
 - title: Data
   contents:
   - cpaic_bin_agd
