@@ -48,6 +48,8 @@ Anchored, population-adjusted indirect comparison across the network.
   Component-additive multilevel network meta-regression (ML-NMR)
 - [`effective_sample_size()`](https://choxos.github.io/cpaic/reference/effective_sample_size.md)
   : Effective sample sizes from a cMAIC fit
+- [`weight_diagnostics()`](https://choxos.github.io/cpaic/reference/weight_diagnostics.md)
+  : Weight-quality diagnostics for a cMAIC fit
 - [`edge_influence()`](https://choxos.github.io/cpaic/reference/edge_influence.md)
   : Does the individual patient data actually inform this contrast?
 
@@ -72,6 +74,9 @@ rankings: a component can lead in one population and trail in another.
   : League table of all pairwise relative effects
 - [`component_effects()`](https://choxos.github.io/cpaic/reference/component_effects.md)
   : Component effects from a cpaic fit
+- [`bridge_fragility()`](https://choxos.github.io/cpaic/reference/bridge_fragility.md)
+  : Bridge fragility: how much cross-sub-network drift would change a
+  conclusion
 
 ## Plots
 
@@ -128,6 +133,8 @@ the target population.
   : Refit cML-NMR under tighter and looser priors
 - [`prior_predictive_check()`](https://choxos.github.io/cpaic/reference/prior_predictive_check.md)
   : Summarize a prior-predictive cML-NMR fit
+- [`redact_fit()`](https://choxos.github.io/cpaic/reference/redact_fit.md)
+  : Strip raw individual patient data from a fitted cML-NMR object
 
 ## Data
 

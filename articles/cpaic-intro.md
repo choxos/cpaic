@@ -61,6 +61,8 @@ cpaic_connectivity(net)
 #>     [1] 3 treatments
 #>     [2] 3 treatments
 #>   Bridging components: A, B
+#>     (components that OCCUR in more than one sub-network; occurrence is
+#>      not identifiability, homogeneity, or influence for any contrast.)
 #>   Component design:  rank(X) = 4 / 4 components -> all component effects identified
 #>   Estimable effects: 5 / 5 vs Placebo
 ```
@@ -153,6 +155,7 @@ relative_effects(fit_stc)
 #>      A+B+C    Placebo    4.014 0.435 1.711  9.416 3.194 0.001
 #>      A+B+D    Placebo    4.669 0.430 2.009 10.850 3.582 0.000
 #>          B    Placebo    1.492 0.256 0.903  2.466 1.560 0.119
+#>   `se` is on the link (log) scale; the interval is back-transformed.
 additivity_test(fit_stc)
 #> Additive component model: fit statistics
 #>   Total lack of fit (Q.additive): Q = 2.669, df = 1, p = 0.102

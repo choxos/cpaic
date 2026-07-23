@@ -80,4 +80,5 @@ relative_effects(br)
 #>      A+B+C    Placebo    5.038 1.947 0.111 228.801 0.831 0.406
 #>      A+B+D    Placebo    3.404 1.947 0.075 154.510 0.629 0.529
 #>          B    Placebo    1.492 1.192 0.144  15.436 0.336 0.737
+#>   `se` is on the link (log) scale; the interval is back-transformed.
 ```

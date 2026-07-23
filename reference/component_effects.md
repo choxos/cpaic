@@ -6,6 +6,9 @@ Component effects from a cpaic fit
 
 ``` r
 component_effects(object, newdata = NULL, ...)
+
+# S3 method for class 'cpaic_mlnmr'
+component_effects(object, newdata = NULL, level = 0.95, ...)
 ```
 
 ## Arguments
@@ -27,6 +30,12 @@ component_effects(object, newdata = NULL, ...)
 - ...:
 
   Passed to methods.
+
+- level:
+
+  Credible level for the component-effect intervals (default `0.95`),
+  for [`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md)
+  fits.
 
 ## Value
 

@@ -22,9 +22,11 @@ cmaic(
   effect_modifiers = NULL,
   target_sd = NULL,
   n_boot = 500,
+  min_boot_success = 0.8,
   seed = NULL,
   common = FALSE,
-  random = TRUE
+  random = TRUE,
+  reference = NULL
 )
 ```
 
@@ -57,14 +59,27 @@ cmaic(
   Number of bootstrap resamples for the adjusted-contrast standard
   errors. Default `500`.
 
+- min_boot_success:
+
+  Minimum fraction of bootstrap resamples that must succeed for a
+  contrast; below this threshold the edge is rejected rather than given
+  a fragile standard error from a selected subset. Default `0.8`.
+
 - seed:
 
-  Optional RNG seed for reproducible bootstrap.
+  Optional RNG seed for reproducible bootstrap. The caller's global RNG
+  state is restored on exit, so calling `cmaic()` does not perturb a
+  downstream random stream.
 
 - common, random:
 
   Passed to
   [`cnma_bridge()`](https://choxos.github.io/cpaic/reference/cnma_bridge.md).
+
+- reference:
+
+  Optional anchor (comparator) arm to use in every IPD study in which it
+  appears, instead of inferring it from the aggregate row order.
 
 ## Value
 
@@ -138,6 +153,7 @@ relative_effects(fit)
 #>      A+B+C    Placebo    4.941 0.672 1.323 18.448 2.377 0.017
 #>      A+B+D    Placebo    5.324 0.666 1.443 19.647 2.510 0.012
 #>          B    Placebo    1.492 0.401 0.680  3.271 0.999 0.318
+#>   `se` is on the link (log) scale; the interval is back-transformed.
 effective_sample_size(fit)
 #>       S3       S4 
 #> 207.4202 358.1461 

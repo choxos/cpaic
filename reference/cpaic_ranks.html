@@ -36,6 +36,7 @@ component may rank first in one population and last in another."></head><body>
     <li><a class="dropdown-item" href="../articles/survival-outcomes.html">Survival outcomes: a disconnected network under proportional hazards</a></li>
     <li><a class="dropdown-item" href="../articles/cpaic-disconnected-myeloma.html">A disconnected network: NMA, ML-NMR, and cML-NMR compared</a></li>
   </ul></li>
+<li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
 <li class="nav-item"><a class="external-link nav-link" href="https://github.com/choxos/cpaic/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
@@ -68,6 +69,7 @@ component may rank first in one population and last in another.</p>
 <span>  what <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"treatment"</span>, <span class="st">"component"</span><span class="op">)</span>,</span>
 <span>  set <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  lower_is_better <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  include_screen_only <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -98,6 +100,14 @@ set <code>S</code> of Wigle et al.). Defaults to all treatments (or all componen
 <dt id="arg-lower-is-better">lower_is_better<a class="anchor" aria-label="anchor" href="#arg-lower-is-better"></a></dt>
 <dd><p>If <code>TRUE</code>, a smaller effect is preferred (e.g.
 mortality). Default <code>FALSE</code> (a larger effect is preferred).</p></dd>
+
+
+<dt id="arg-include-screen-only">include_screen_only<a class="anchor" aria-label="anchor" href="#arg-include-screen-only"></a></dt>
+<dd><p>If <code>FALSE</code> (default), elements whose relative
+effect is identified only by aggregate arms (a first-order screen that can
+be optimistic under a nonlinear link) are excluded from the hierarchy and
+reported in the <code>dropped_screen</code> attribute. Set <code>TRUE</code> to rank them as an
+explicitly exploratory hierarchy.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>

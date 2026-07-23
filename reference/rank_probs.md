@@ -18,6 +18,7 @@ rank_probs(
   what = c("treatment", "component"),
   lower_is_better = FALSE,
   cumulative = FALSE,
+  include_screen_only = FALSE,
   ...
 )
 ```
@@ -46,6 +47,12 @@ rank_probs(
 
   Return cumulative rank probabilities (the quantity SUCRA summarizes)
   instead of the rankogram? Default `FALSE`.
+
+- include_screen_only:
+
+  If `FALSE` (default), elements identified only by aggregate arms (a
+  first-order screen) are excluded, as in
+  [`cpaic_ranks()`](https://choxos.github.io/cpaic/reference/cpaic_ranks.md).
 
 - ...:
 

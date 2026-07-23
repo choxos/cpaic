@@ -16,6 +16,7 @@ rank_curve(
   at = NULL,
   what = c("treatment", "component"),
   lower_is_better = FALSE,
+  include_screen_only = FALSE,
   ...
 )
 ```
@@ -40,7 +41,7 @@ rank_curve(
   Optional named vector fixing the other effect modifiers. Defaults to 0
   for each.
 
-- what, lower_is_better:
+- what, lower_is_better, include_screen_only:
 
   See
   [`cpaic_ranks()`](https://choxos.github.io/cpaic/reference/cpaic_ranks.md).

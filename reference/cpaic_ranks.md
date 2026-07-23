@@ -15,6 +15,7 @@ cpaic_ranks(
   what = c("treatment", "component"),
   set = NULL,
   lower_is_better = FALSE,
+  include_screen_only = FALSE,
   ...
 )
 ```
@@ -45,6 +46,14 @@ cpaic_ranks(
 
   If `TRUE`, a smaller effect is preferred (e.g. mortality). Default
   `FALSE` (a larger effect is preferred).
+
+- include_screen_only:
+
+  If `FALSE` (default), elements whose relative effect is identified
+  only by aggregate arms (a first-order screen that can be optimistic
+  under a nonlinear link) are excluded from the hierarchy and reported
+  in the `dropped_screen` attribute. Set `TRUE` to rank them as an
+  explicitly exploratory hierarchy.
 
 - ...:
 

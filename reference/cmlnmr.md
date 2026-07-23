@@ -42,6 +42,7 @@ cmlnmr(
   prior_intercept_sd = 2.5,
   prior_aux_sd = 1,
   prior_beta_sd = 2.5,
+  prior_sigma_sd = 2.5,
   prior_reg_sd = 1,
   prior_gamma_dist = c("normal", "student_t"),
   prior_gamma_scale = 1,
@@ -89,8 +90,11 @@ cmlnmr(
 - margins:
 
   Optional named character vector giving the integration margin of each
-  effect modifier: `"normal"` or `"bernoulli"`. Defaults to Bernoulli
-  for 0/1 covariates and normal otherwise.
+  effect modifier: `"normal"`, `"bernoulli"`, `"gamma"`, `"lognormal"`,
+  or `"beta"`. The last three are set from the study mean and SD by
+  method of moments (`gamma`/`lognormal` need a positive mean; `beta`
+  needs a mean in `(0, 1)` and `sd^2 < mean(1 - mean)`). Defaults to
+  Bernoulli for 0/1 covariates and normal otherwise.
 
 - study, trt:
 
@@ -141,7 +145,10 @@ cmlnmr(
 
   Optional covariate correlation matrix for the Gaussian-copula
   integration. Must be a positive-definite correlation matrix (unit
-  diagonal). Defaults to the within-study IPD correlation.
+  diagonal). Defaults to the within-study IPD correlation. For gamma,
+  lognormal, or beta margins the auto-estimated correlation is only an
+  approximation to the latent copula correlation; supply `cor` on the
+  latent scale to control it exactly.
 
 - n_int:
 
@@ -206,6 +213,13 @@ cmlnmr(
   weights, which is a smooth default shape and not a constant hazard.
   The default of 1 follows the Stan recommendation of a
   half-normal(0, 1) prior for a hierarchical scale.
+
+- prior_sigma_sd:
+
+  Scale of the half-normal prior on the Gaussian residual standard
+  deviation (gaussian family only), kept separate from `prior_beta_sd`
+  so the treatment-effect prior and the residual-noise prior are
+  independent.
 
 - prior_gamma_dist, prior_gamma_scale, prior_gamma_df:
 

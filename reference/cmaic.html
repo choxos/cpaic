@@ -44,6 +44,7 @@ connected across sub-networks and adjusted to the target population."></head><bo
     <li><a class="dropdown-item" href="../articles/survival-outcomes.html">Survival outcomes: a disconnected network under proportional hazards</a></li>
     <li><a class="dropdown-item" href="../articles/cpaic-disconnected-myeloma.html">A disconnected network: NMA, ML-NMR, and cML-NMR compared</a></li>
   </ul></li>
+<li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
 <li class="nav-item"><a class="external-link nav-link" href="https://github.com/choxos/cpaic/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
@@ -80,9 +81,11 @@ connected across sub-networks and adjusted to the target population.</p>
 <span>  effect_modifiers <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  target_sd <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  n_boot <span class="op">=</span> <span class="fl">500</span>,</span>
+<span>  min_boot_success <span class="op">=</span> <span class="fl">0.8</span>,</span>
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  common <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  random <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span>  random <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  reference <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -115,12 +118,25 @@ deviations; when supplied, second moments are matched as well.</p></dd>
 standard errors. Default <code>500</code>.</p></dd>
 
 
+<dt id="arg-min-boot-success">min_boot_success<a class="anchor" aria-label="anchor" href="#arg-min-boot-success"></a></dt>
+<dd><p>Minimum fraction of bootstrap resamples that must
+succeed for a contrast; below this threshold the edge is rejected rather
+than given a fragile standard error from a selected subset. Default <code>0.8</code>.</p></dd>
+
+
 <dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
-<dd><p>Optional RNG seed for reproducible bootstrap.</p></dd>
+<dd><p>Optional RNG seed for reproducible bootstrap. The caller's global
+RNG state is restored on exit, so calling <code>cmaic()</code> does not perturb a
+downstream random stream.</p></dd>
 
 
 <dt id="arg-common-random">common, random<a class="anchor" aria-label="anchor" href="#arg-common-random"></a></dt>
 <dd><p>Passed to <code><a href="cnma_bridge.html">cnma_bridge()</a></code>.</p></dd>
+
+
+<dt id="arg-reference">reference<a class="anchor" aria-label="anchor" href="#arg-reference"></a></dt>
+<dd><p>Optional anchor (comparator) arm to use in every IPD study
+in which it appears, instead of inferring it from the aggregate row order.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -190,6 +206,7 @@ edges reported on a marginal scale, so it should be regarded as approximate. See
 <span class="r-out co"><span class="r-pr">#&gt;</span>      A+B+C    Placebo    4.941 0.672 1.323 18.448 2.377 0.017</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>      A+B+D    Placebo    5.324 0.666 1.443 19.647 2.510 0.012</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>          B    Placebo    1.492 0.401 0.680  3.271 0.999 0.318</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   `se` is on the link (log) scale; the interval is back-transformed.</span>
 <span class="r-in"><span><span class="fu"><a href="effective_sample_size.html">effective_sample_size</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>       S3       S4 </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 207.4202 358.1461 </span>
