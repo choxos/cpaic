@@ -239,6 +239,9 @@ print.cpaic_connectivity <- function(x, ...) {
         if (length(x$bridging_components))
           paste(x$bridging_components, collapse = ", ") else "(none)",
         "\n", sep = "")
+    cat("    (components that OCCUR in more than one sub-network; occurrence is\n",
+        "     not identifiability, homogeneity, or influence for any contrast.)\n",
+        sep = "")
   }
   cat("  Component design:  rank(X) = ", x$rank, " / ", x$n_components,
       " components -> ",

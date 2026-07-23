@@ -68,8 +68,11 @@ which every unit receives its own parameter (Wigle & Béliveau 2022).}
 \code{"survival"}.}
 
 \item{margins}{Optional named character vector giving the integration
-margin of each effect modifier: \code{"normal"} or \code{"bernoulli"}. Defaults to
-Bernoulli for 0/1 covariates and normal otherwise.}
+margin of each effect modifier: \code{"normal"}, \code{"bernoulli"}, \code{"gamma"},
+\code{"lognormal"}, or \code{"beta"}. The last three are set from the study mean and
+SD by method of moments (\code{gamma}/\code{lognormal} need a positive mean; \code{beta}
+needs a mean in \verb{(0, 1)} and \code{sd^2 < mean(1 - mean)}). Defaults to Bernoulli
+for 0/1 covariates and normal otherwise.}
 
 \item{study, trt}{Column names (in both \code{ipd} and \code{agd}).}
 

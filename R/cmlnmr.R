@@ -30,13 +30,25 @@
 
   out <- matrix(0, nrow = n_int, ncol = P)
   for (p in seq_len(P)) {
+    u_p <- stats::pnorm(z[, p])
+    m_p <- means[p]
+    s_p <- sds[p]
     out[, p] <- switch(
       margins[p],
-      bernoulli = stats::qbinom(stats::pnorm(z[, p]), size = 1L,
-                                prob = means[p]),
-      normal = means[p] + sds[p] * z[, p],
+      bernoulli = stats::qbinom(u_p, size = 1L, prob = m_p),
+      normal = m_p + s_p * z[, p],
+      # Method-of-moments margins: shape/scale set from the study mean and SD.
+      gamma = stats::qgamma(u_p, shape = m_p^2 / s_p^2, rate = m_p / s_p^2),
+      lognormal = stats::qlnorm(
+        u_p, meanlog = log(m_p^2 / sqrt(s_p^2 + m_p^2)),
+        sdlog = sqrt(log1p(s_p^2 / m_p^2))),
+      beta = {
+        k <- m_p * (1 - m_p) / s_p^2 - 1
+        stats::qbeta(u_p, m_p * k, (1 - m_p) * k)
+      },
       stop("Unsupported integration margin '", margins[p],
-           "'; use \"normal\" or \"bernoulli\".", call. = FALSE)
+           "'; use normal, bernoulli, gamma, lognormal, or beta.",
+           call. = FALSE)
     )
   }
   out
@@ -292,8 +304,11 @@
 #'   modifier `x`.
 #' @param effect_modifiers Character vector of effect-modifier names.
 #' @param margins Optional named character vector giving the integration
-#'   margin of each effect modifier: `"normal"` or `"bernoulli"`. Defaults to
-#'   Bernoulli for 0/1 covariates and normal otherwise.
+#'   margin of each effect modifier: `"normal"`, `"bernoulli"`, `"gamma"`,
+#'   `"lognormal"`, or `"beta"`. The last three are set from the study mean and
+#'   SD by method of moments (`gamma`/`lognormal` need a positive mean; `beta`
+#'   needs a mean in `(0, 1)` and `sd^2 < mean(1 - mean)`). Defaults to Bernoulli
+#'   for 0/1 covariates and normal otherwise.
 #' @param inactive,sep.comps Component coding (see [cpaic_network()]).
 #'   `inactive = NULL` gives the *unanchored* component parameterization, in
 #'   which every unit receives its own parameter (Wigle & Béliveau 2022).
@@ -573,10 +588,11 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
       stop("`margins` names unknown effect modifier(s): ",
            paste(unknown, collapse = ", "), call. = FALSE)
     }
-    bad <- setdiff(margins, c("normal", "bernoulli"))
+    bad <- setdiff(margins, c("normal", "bernoulli", "gamma", "lognormal",
+                              "beta"))
     if (length(bad)) {
-      stop("`margins` must be \"normal\" or \"bernoulli\"; got: ",
-           paste(unique(bad), collapse = ", "), call. = FALSE)
+      stop("`margins` must be one of normal, bernoulli, gamma, lognormal, ",
+           "beta; got: ", paste(unique(bad), collapse = ", "), call. = FALSE)
     }
     guessed[names(margins)] <- margins
     margins <- guessed
@@ -603,6 +619,21 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
                                        call. = FALSE)
         if (any(!is.finite(agd[[sdn]]) | agd[[sdn]] <= 0)) {
           stop("`", sdn, "` must be positive and finite.", call. = FALSE)
+        }
+        mv <- agd[[paste0(v, "_mean")]]
+        if (margins[[v]] %in% c("gamma", "lognormal") && any(mv <= 0)) {
+          stop("`", v, "_mean` must be positive for a ", margins[[v]],
+               " margin.", call. = FALSE)
+        }
+        if (margins[[v]] == "beta") {
+          if (any(mv <= 0 | mv >= 1)) {
+            stop("`", v, "_mean` must be in (0, 1) for a beta margin.",
+                 call. = FALSE)
+          }
+          if (any(agd[[sdn]]^2 >= mv * (1 - mv))) {
+            stop("`", sdn, "`^2 must be < mean * (1 - mean) for a beta margin.",
+                 call. = FALSE)
+          }
         }
       }
     }
@@ -880,6 +911,12 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
   )
 
   mod <- .cpaic_stan_model(stan_family)
+  stan_path <- system.file("stan", paste0("cpaic_", stan_family, ".stan"),
+                           package = "cpaic")
+  if (stan_path == "") {
+    stan_path <- file.path("inst", "stan", paste0("cpaic_", stan_family, ".stan"))
+  }
+  stan_md5 <- unname(tools::md5sum(stan_path))
   # A NULL seed must not silently become a fixed constant, or unseeded fits look
   # identical run to run. Draw one, use it, and record it so the fit reproduces.
   if (!is.null(seed) && (!is.numeric(seed) || length(seed) != 1L ||
@@ -966,6 +1003,20 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
            gaussian = "MD", poisson = "IRR", survival = "HR"),
          method = "cML-NMR", trt_effects = trt_effects,
          re_parameterization = re_parameterization, seed = seed_used,
+         provenance = list(
+           package_version = tryCatch(
+             as.character(utils::packageVersion("cpaic")),
+             error = function(e) NA_character_),
+           cmdstan_version = tryCatch(cmdstanr::cmdstan_version(),
+                                      error = function(e) NA_character_),
+           stan_source_md5 = stan_md5, seed = seed_used, n_int = n_int_eff,
+           assumptions = list(
+             component_additivity = TRUE,
+             cross_subnetwork_constant = TRUE,
+             proportional_hazards = identical(family, "survival"),
+             copula = "gaussian", margins = margins,
+             heterogeneity = if (trt_effects == "random")
+               "single common tau" else "fixed")),
          priors = list(
            intercept = list(distribution = "normal", location = 0,
                             scale = prior_intercept_sd),
@@ -1151,6 +1202,13 @@ print.cpaic_mlnmr <- function(x, ...) {
   cat("  Effect modifiers: ",
       paste(names(x$margins), " [", x$margins, "]", sep = "",
             collapse = ", "), "\n", sep = "")
+  if (!is.null(x$provenance)) {
+    p <- x$provenance
+    cat("  Provenance: cpaic ", p$package_version %||% "?", ", CmdStan ",
+        p$cmdstan_version %||% "?", ", Stan md5 ",
+        substr(p$stan_source_md5 %||% "", 1L, 8L), ", seed ", p$seed, "\n",
+        sep = "")
+  }
   cat("  Component effects below are at the covariate origin (x = 0).\n")
   cat("  For a target population use relative_effects(fit, newdata = ...).\n\n")
   comp <- x$components
