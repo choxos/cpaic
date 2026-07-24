@@ -513,8 +513,11 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
                    prior_tau_dist = c("half-normal", "half-student-t"),
                    prior_tau_scale = 1, prior_tau_df = 4,
                    prior_predictive = FALSE,
+                   backend = c("rstan", "cmdstanr"),
                    chains = 4L, iter_warmup = 500L,
-                   iter_sampling = 500L, seed = NULL, ...) {
+                   iter_sampling = 500L, seed = NULL,
+                   adapt_delta = NULL, max_treedepth = NULL, ...) {
+  backend <- match.arg(backend)
   baseline <- match.arg(baseline)
   trt_effects <- match.arg(trt_effects)
   re_parameterization <- match.arg(re_parameterization)
@@ -527,9 +530,16 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
   if (family == "survival" && baseline == "mspline") {
     stan_family <- "survival_mspline"
   }
-  if (!requireNamespace("cmdstanr", quietly = TRUE)) {
-    stop("cmlnmr() needs 'cmdstanr'. Install from ",
-         "https://stan-dev.r-universe.dev .", call. = FALSE)
+  if (!.cpaic_backend_ready(backend)) .cpaic_backend_stop(backend)
+  for (nm in c("adapt_delta", "max_treedepth")) {
+    v <- get(nm)
+    if (!is.null(v) && (!is.numeric(v) || length(v) != 1L || !is.finite(v))) {
+      stop("`", nm, "` must be a single finite number, or NULL for the ",
+           "sampler default.", call. = FALSE)
+    }
+  }
+  if (!is.null(adapt_delta) && (adapt_delta <= 0 || adapt_delta >= 1)) {
+    stop("`adapt_delta` must lie in (0, 1).", call. = FALSE)
   }
   if (!is.logical(prior_predictive) || length(prior_predictive) != 1L ||
       is.na(prior_predictive)) {
@@ -1045,7 +1055,6 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
       status_agd = surv_agd$status))
   )
 
-  mod <- .cpaic_stan_model(stan_family)
   stan_path <- system.file("stan", paste0("cpaic_", stan_family, ".stan"),
                            package = "cpaic")
   if (stan_path == "") {
@@ -1057,18 +1066,14 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
   # (Seed validity is checked at the front door, before the compile above.)
   seed_used <- if (is.null(seed)) sample.int(.Machine$integer.max, 1L) else
     as.integer(seed)
-  sample_defaults <- list(
-    data = standata, chains = chains, parallel_chains = chains,
-    iter_warmup = iter_warmup, iter_sampling = iter_sampling,
-    seed = seed_used, refresh = 0, show_messages = FALSE
-  )
-  if (length(sample_args)) {
-    sample_defaults[names(sample_args)] <- NULL
-  }
-  fit <- do.call(mod$sample, c(sample_defaults, sample_args))
+  fit <- .cpaic_sample(
+    backend = backend, family = stan_family, standata = standata,
+    chains = chains, iter_warmup = iter_warmup, iter_sampling = iter_sampling,
+    seed = seed_used, adapt_delta = adapt_delta,
+    max_treedepth = max_treedepth, sample_args = sample_args)
   diagnostics <- .cpaic_check_diagnostics(fit)
 
-  beta_draws <- fit$draws("beta", format = "draws_matrix")
+  beta_draws <- .cpaic_draws_matrix(fit, "beta")
   comp_tbl <- data.frame(
     component = comps,
     estimate = apply(beta_draws, 2, mean),

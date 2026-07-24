@@ -26,21 +26,20 @@ utils::globalVariables(c("dens", "density", "group", "parameter", "point",
 #' real problem, and reporting it as "nothing to plot" would hide it.
 #' @noRd
 .cpaic_draws <- function(object, variables) {
-  out <- tryCatch(
-    object$fit$draws(variables, format = "draws_matrix"),
+  tryCatch(
+    .cpaic_draws_matrix(object$fit, variables),
     error = function(e) {
       stop("Could not read posterior draws for '",
            paste(variables, collapse = ", "), "' from the fit: ",
            conditionMessage(e),
-           "\nA cmdstanr fit keeps its draws in temporary CSV files. If the fit ",
-           "was saved and reloaded, save it with fit$fit$save_object() (or call ",
-           "fit$fit$draws() before saving) so the draws travel with it.",
+           if (identical(.cpaic_fit_backend(object$fit), "cmdstanr"))
+             paste0("\nA cmdstanr fit keeps its draws in temporary CSV files. ",
+                    "If the fit was saved and reloaded, save it with ",
+                    "fit$fit$save_object() (or read the draws before saving) ",
+                    "so they travel with it.")
+           else "",
            call. = FALSE)
     })
-  out <- as.matrix(out)
-  res <- matrix(as.numeric(out), nrow = nrow(out), ncol = ncol(out))
-  colnames(res) <- colnames(out)
-  res
 }
 
 #' Check that we were handed a cmlnmr() fit
@@ -1043,7 +1042,7 @@ plot.cpaic_mlnmr <- function(x, y, ...,
   }
 
   if (type %in% c("rhat", "neff")) {
-    s <- x$fit$summary(pars)
+    s <- .cpaic_fit_summary(x$fit, pars)
     if (type == "rhat") {
       return(bayesplot::mcmc_rhat(stats::setNames(s$rhat, s$variable), ...) +
                .cpaic_theme())
@@ -1053,7 +1052,7 @@ plot.cpaic_mlnmr <- function(x, y, ...,
       stats::setNames(s$ess_bulk / ndraws, s$variable), ...) + .cpaic_theme())
   }
 
-  draws <- x$fit$draws(pars, format = "draws_array")
+  draws <- .cpaic_draws_array(x$fit, pars)
   fn <- switch(type,
                trace = bayesplot::mcmc_trace,
                density = bayesplot::mcmc_dens_overlay,
