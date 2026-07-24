@@ -124,12 +124,23 @@
                                                      replace = TRUE)),
                   use.names = FALSE)
     db <- centered[idx, , drop = FALSE]
-    wb <- tryCatch(
+    wfit_b <- tryCatch(
       suppressMessages(maicplus::estimate_weights(
         db, centered_colnames = em_centered_cols,
-        boot_strata = arm_col))$data$weights,
+        boot_strata = arm_col)),
       error = function(e) NULL)
-    if (is.null(wb)) next
+    if (is.null(wfit_b)) next
+    wb <- wfit_b$data$weights
+    # Hold a resampled weight solution to the SAME validity gate as the point
+    # estimate: convergence, positivity, a usable ESS, and the moment balance
+    # actually achieved. Taking `$data$weights` unchecked would admit a
+    # non-converged or unbalanced solution whenever its outcome coefficient
+    # happened to fall below the crude magnitude cutoff below, which both
+    # corrupts the standard error and inflates the success fraction that
+    # `min_boot_success` is meant to police. A failing replicate is a failed
+    # replicate.
+    if (length(.cpaic_weight_problems(wb, wfit_b$ess, db, em_centered_cols,
+                                      opt = wfit_b$opt))) next
     cb <- tryCatch(
       .cpaic_weighted_contrast(db, family, arm_col, ref_arm, out_col,
                                weights = wb, time_col = outcome_args$time,

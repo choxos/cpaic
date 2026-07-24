@@ -157,8 +157,8 @@ test_that("cmlnmr fits a piecewise-exponential (flexible) survival baseline", {
   cuts <- c(6, 12)
   # Reconstructed pseudo-individual survival rows, as multinma::set_agd_surv
   # expects from a digitized Kaplan-Meier curve. Event counts plus person-time
-  # cannot identify the exact individual likelihood; that approximation was
-  # biased upward by about 36%.
+  # cannot identify the exact individual likelihood; summarizing an aggregate
+  # arm that way is biased upward by about 36% here.
   mk <- function(study, trt, n, mux1) {
     d <- gen(study, trt, n, mux1)
     d$x1_mean <- 0
@@ -215,8 +215,8 @@ test_that("cmlnmr fits an M-spline survival baseline", {
   cuts <- c(4, 8, 12, 16)
   # Reconstructed pseudo-individual survival rows, as multinma::set_agd_surv
   # expects from a digitized Kaplan-Meier curve. Event counts plus person-time
-  # cannot identify the exact individual likelihood; that approximation was
-  # biased upward by about 36%.
+  # cannot identify the exact individual likelihood; summarizing an aggregate
+  # arm that way is biased upward by about 36% here.
   mk <- function(study, trt, n, mux1) {
     d <- gen(study, trt, n, mux1)
     d$x1_mean <- 0
@@ -284,4 +284,97 @@ test_that("a supplied correlation matrix must really be a correlation matrix", {
   expect_error(
     cpaic:::.cpaic_copula_cor(ipd, c("x1", "x2"), ".study", given = bad),
     "positive definite")
+})
+
+test_that("a poisson fit without an exposure column assumes equal follow-up", {
+  skip_on_cran()
+  skip_if_not_installed("cmdstanr")
+  skip_if_not_installed("randtoolbox")
+  skip_if(is.null(tryCatch(cmdstanr::cmdstan_path(), error = function(e) NULL)),
+          "cmdstan not installed")
+
+  # The Stan model needs one offset per patient, so an absent column must be
+  # resolved in R (to equal follow-up) rather than reaching the sampler as a
+  # zero-length vector and failing on a dimension mismatch after the compile.
+  set.seed(11)
+  ipd <- data.frame(.study = "S1", .trt = rep(c("Placebo", "A"), each = 30),
+                    .y = rpois(60, 2), x1 = rnorm(60))
+  agd <- data.frame(.study = "S2", .trt = c("Placebo", "A+B"),
+                    r = c(20, 25), E = c(30, 30),
+                    x1_mean = c(0, 0), x1_sd = c(1, 1))
+
+  expect_message(
+    fit <- cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "Placebo",
+                  family = "poisson", chains = 1, iter_warmup = 150,
+                  iter_sampling = 150, seed = 1),
+    "exposure of 1")
+  expect_s3_class(fit, "cpaic_mlnmr")
+  # Component A is carried by the IPD contrast; B appears only inside the
+  # aggregate A+B arm, so at the covariate origin the design identifies the sum,
+  # not B on its own. The stored table must say so, and must agree with
+  # component_effects(), which applies the same gate.
+  expect_true(is.finite(fit$components$estimate[fit$components$component == "A"]))
+  expect_identical(is.na(fit$components$estimate),
+                   is.na(component_effects(fit)$estimate))
+})
+
+test_that("the stored component table and component_effects() share a gate", {
+  skip_on_cran()
+  skip_if_not_installed("cmdstanr")
+  skip_if_not_installed("randtoolbox")
+  skip_if(is.null(tryCatch(cmdstanr::cmdstan_path(), error = function(e) NULL)),
+          "cmdstan not installed")
+
+  # Both report the component effects AT THE COVARIATE ORIGIN, so both must use
+  # the joint (beta, vec(Gamma)) design there. The component-main-effect design
+  # alone is a weaker gate and would report a finite number for a component the
+  # data only identify in combination with its interaction.
+  set.seed(13)
+  Cm <- build_C_matrix(c("Placebo", "A", "A+B"), inactive = "Placebo")
+  gen <- function(s, t, n, mx, m0) {
+    x1 <- rnorm(n, mx, 1)
+    tc <- Cm[t, ]
+    eta <- m0 + 0.3 * x1 + sum(tc * c(0.5, 0.4)) + sum(tc * c(0.2, 0)) * x1
+    data.frame(.study = s, .trt = t, .y = rbinom(n, 1, plogis(eta)), x1 = x1)
+  }
+  ipd <- rbind(gen("S1", "Placebo", 200, 0, -0.2), gen("S1", "A", 200, 0, -0.2))
+  agd <- data.frame(.study = "S2", .trt = c("Placebo", "A+B"),
+                    r = c(70, 110), n = c(200, 200),
+                    x1_mean = c(0.4, 0.4), x1_sd = c(1, 1))
+  fit <- cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "Placebo",
+                chains = 2, iter_warmup = 250, iter_sampling = 250, seed = 4)
+
+  expect_identical(is.na(fit$components$estimate),
+                   is.na(component_effects(fit)$estimate))
+  expect_false(is.na(fit$components$estimate[fit$components$component == "A"]))
+  expect_true(is.na(fit$components$estimate[fit$components$component == "B"]))
+  # The diagnostics must be real numbers, not the infinities that max()/min()
+  # return over an all-NA column.
+  expect_true(is.finite(fit$diagnostics$max_rhat))
+  expect_true(is.finite(fit$diagnostics$min_ess))
+})
+
+test_that("a gaussian fit declines an integration-error plot for any margin", {
+  skip_on_cran()
+  skip_if_not_installed("cmdstanr")
+  skip_if_not_installed("randtoolbox")
+  skip_if(is.null(tryCatch(cmdstanr::cmdstan_path(), error = function(e) NULL)),
+          "cmdstan not installed")
+
+  # The identity link makes the aggregate mean exact at the covariate means for
+  # EVERY margin, so cmlnmr() fits with one integration point. Guarding the plot
+  # on all-normal margins let a bernoulli modifier through, and it then traced
+  # integration points the model had never used.
+  set.seed(12)
+  ipd <- data.frame(.study = "S1", .trt = rep(c("Placebo", "A"), each = 30),
+                    .y = rnorm(60), x1 = rbinom(60, 1, 0.4))
+  agd <- data.frame(.study = "S2", .trt = c("Placebo", "A+B"),
+                    .y = c(0.1, 0.5), se = c(0.2, 0.2), x1_mean = c(0.3, 0.3))
+  fit <- cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "Placebo",
+                family = "gaussian", chains = 1, iter_warmup = 150,
+                iter_sampling = 150, seed = 1, n_int = 64)
+
+  expect_equal(unname(fit$margins), "bernoulli")
+  expect_equal(fit$provenance$n_int, 1L)
+  expect_error(plot_integration_error(fit), "integrated exactly")
 })

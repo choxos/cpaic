@@ -221,3 +221,73 @@ test_that("edge_influence flags IPD that cannot affect the requested contrast", 
   # blanket complaint about the IPD.
   expect_silent(edge_influence(br, treatment = "D"))
 })
+
+test_that("edge influence uses the random-effects weights, not the common ones", {
+  # discomb() reports `tau`, not `tau2`. Reading only `tau2` silently weighted a
+  # random-effects bridge as if tau were zero, so the reported influence did not
+  # match the documented 1 / (seTE^2 + tau^2).
+  net <- cpaic_network(cpaic_bin_agd, sm = "OR", inactive = "Placebo")
+  br_random <- cnma_bridge(net, common = FALSE, random = TRUE)
+  br_common <- cnma_bridge(net, common = TRUE, random = FALSE)
+  expect_true(is.finite(br_random$fit$tau) && br_random$fit$tau > 0)
+
+  ir <- edge_influence(br_random, treatment = "A+B+C")
+  ic <- edge_influence(br_common, treatment = "A+B+C")
+  key <- function(x) x$influence[order(x$studlab)]
+  expect_false(isTRUE(all.equal(key(ir), key(ic))))
+
+  # Reproduce the weights by hand from the documented formula.
+  X <- br_random$connectivity$X
+  w <- 1 / (net$agd$seTE^2 + br_random$fit$tau^2)
+  m <- br_random$connectivity$C["A+B+C", ] - br_random$connectivity$C["Placebo", ]
+  expected <- as.numeric(m %*% MASS_ginv(t(X) %*% (w * X)) %*% t(X) %*%
+                           diag(w, length(w)))
+  expect_equal(key(ir), expected[order(as.character(net$agd$studlab))],
+               tolerance = 1e-8)
+})
+
+test_that("cmlnmr names a non-numeric or incomplete effect modifier", {
+  set.seed(1)
+  base <- data.frame(.study = "S1", .trt = rep(c("Placebo", "A"), each = 10),
+                     .y = rbinom(20, 1, 0.5))
+  agd <- data.frame(.study = "S2", .trt = c("Placebo", "A+B"),
+                    r = c(5, 6), n = c(10, 10),
+                    x1_mean = c(0, 0), x1_sd = c(1, 1))
+  run <- function(x1) cmlnmr(cbind(base, x1 = I(x1)), agd,
+                             effect_modifiers = "x1", inactive = "Placebo")
+
+  expect_error(run(factor(rep(c("lo", "hi"), 10))), "must be numeric: x1")
+  expect_error(run(rep(c("lo", "hi"), 10)), "must be numeric: x1")
+  expect_error(run(replace(rnorm(20), 3, NA)),
+               "missing or non-finite values: x1")
+})
+
+test_that("cmlnmr rejects fractional aggregate counts instead of truncating", {
+  # Counts reach Stan through as.integer(), which truncates: r = 1.9 became 1.
+  set.seed(1)
+  ipd <- data.frame(.study = "S1", .trt = rep(c("Placebo", "A"), each = 10),
+                    .y = rbinom(20, 1, 0.5), x1 = rnorm(20))
+  agd <- data.frame(.study = "S2", .trt = c("Placebo", "A+B"),
+                    r = c(1.9, 6), n = c(10, 10), E = c(10, 10),
+                    x1_mean = c(0, 0), x1_sd = c(1, 1))
+  expect_error(cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "Placebo"),
+               "whole numbers")
+
+  agd$r <- c(2, 6); agd$n <- c(10.9, 10)
+  expect_error(cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "Placebo"),
+               "whole numbers")
+
+  agd$r <- c(0, 6); agd$n <- c(0, 10)
+  expect_error(cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "Placebo"),
+               "at least 1")
+
+  agd$r <- c(2, 6); agd$n <- c(10, 10)
+  ipd2 <- ipd; ipd2$.y <- NULL
+  expect_error(cmlnmr(ipd2, agd, effect_modifiers = "x1", inactive = "Placebo"),
+               "`ipd` is missing column")
+
+  agd$r <- c(2.5, 6); agd$E <- c(10, 10)
+  expect_error(cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "Placebo",
+                      family = "poisson"),
+               "whole numbers")
+})

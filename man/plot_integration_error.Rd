@@ -47,8 +47,9 @@ large fit.
 Not available for \code{family = "survival"}, where the aggregate contribution is
 a \code{log_sum_exp} over integration points of the likelihood rather than an
 integrated mean outcome; multinma declines this plot for survival models too.
-Nor for a Gaussian model fitted with all-normal margins, which is \emph{exact} at
-the covariate means and uses a single integration point.
+Nor for a Gaussian model, which under the identity link is \emph{exact} at the
+covariate means and is fitted with a single integration point whatever the
+margins are.
 }
 \examples{
 \dontshow{if (FALSE) withAutoprint(\{ # examplesIf}

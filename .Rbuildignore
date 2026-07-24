@@ -2,6 +2,7 @@
 ^CLAUDE\.md$
 ^\.codegraph
 ^\.omo
+^\.claude
 ^LICENSE$
 ^data-raw$
 ^.*\.Rproj$
@@ -17,6 +18,8 @@
 ^docs$
 ^pkgdown$
 ^inst/stan/[^.]+$
+^inst/stan/.*\.hpp$
+^inst/stan/.*\.tmp
 ^scratch$
 ^vignettes/precompile\.R$
 ^vignettes/.*\.Rmd\.orig$

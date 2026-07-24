@@ -1,6 +1,6 @@
 Package: cpaic
 Title: Component-Based Population-Adjusted Indirect Comparison
-Version: 0.0.0.9000
+Version: 0.1.0
 Authors@R:
     person("Ahmad", "Sofi-Mahmudi", , "ahmad.pub@gmail.com",
            role = c("aut", "cre"),
@@ -16,8 +16,10 @@ Description: Extends component network meta-analysis (cNMA) to
     indirect comparison (MAIC), and multilevel network meta-regression
     (ML-NMR; Phillippo et al. 2020 <doi:10.1111/rssa.12579>) provide the
     population adjustment using individual patient data. Supports binary,
-    continuous, count, and time-to-event outcomes. Builds on the
-    'netmeta', 'maicplus', and 'multinma' packages.
+    continuous, count, and time-to-event outcomes. The component network
+    meta-analysis engine is 'netmeta' and the matching weights come from
+    'maicplus'; the component-additive ML-NMR models are fitted with
+    'cmdstanr'.
 License: GPL-3
 URL: https://github.com/choxos/cpaic, https://choxos.github.io/cpaic/
 BugReports: https://github.com/choxos/cpaic/issues
@@ -34,8 +36,8 @@ Imports:
     loo,
     maicplus,
     Matrix,
-    multinma,
     netmeta,
+    randtoolbox,
     stats,
     survival,
     tools,
@@ -44,19 +46,12 @@ Suggests:
     bayesplot,
     R.rsp,
     cmdstanr,
-    dplyr,
     ggplot2,
     knitr,
-    mlumr,
-    posterior,
-    randtoolbox,
+    multinma,
     rmarkdown,
-    spelling,
     splines2,
-    testthat (>= 3.0.0),
-    tibble,
-    viscomp,
-    withr
+    testthat (>= 3.0.0)
 Additional_repositories:
     https://stan-dev.r-universe.dev
 Config/testthat/edition: 3

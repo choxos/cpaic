@@ -33,7 +33,16 @@ mortality). Default \code{FALSE} (a larger effect is preferred).}
 effect is identified only by aggregate arms (a first-order screen that can
 be optimistic under a nonlinear link) are excluded from the hierarchy and
 reported in the \code{dropped_screen} attribute. Set \code{TRUE} to rank them as an
-explicitly exploratory hierarchy.}
+explicitly exploratory hierarchy.
+
+The test here is whether the individual patient data identify the element,
+which is not identical to \code{basis == "exact"} in \code{\link[=estimable_effects_at]{estimable_effects_at()}}.
+That column additionally excludes \strong{survival} from \code{"exact"}, because a
+flexible baseline hazard adds support-dependent nuisance parameters the
+covariate-support argument does not see. Survival elements identified by IPD
+are therefore still ranked by default; dropping every survival element from
+every survival hierarchy would leave nothing to rank. Read a survival
+hierarchy alongside \code{\link[=estimable_effects_at]{estimable_effects_at()}} rather than on its own.}
 
 \item{...}{Unused.}
 }

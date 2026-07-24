@@ -55,6 +55,15 @@
 #'   be optimistic under a nonlinear link) are excluded from the hierarchy and
 #'   reported in the `dropped_screen` attribute. Set `TRUE` to rank them as an
 #'   explicitly exploratory hierarchy.
+#'
+#'   The test here is whether the individual patient data identify the element,
+#'   which is not identical to `basis == "exact"` in [estimable_effects_at()].
+#'   That column additionally excludes **survival** from `"exact"`, because a
+#'   flexible baseline hazard adds support-dependent nuisance parameters the
+#'   covariate-support argument does not see. Survival elements identified by IPD
+#'   are therefore still ranked by default; dropping every survival element from
+#'   every survival hierarchy would leave nothing to rank. Read a survival
+#'   hierarchy alongside [estimable_effects_at()] rather than on its own.
 #' @param ... Unused.
 #'
 #' @return A data frame, ordered from most to least preferred, with columns
