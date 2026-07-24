@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">cpaic</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -675,6 +675,8 @@ their <em>unadjusted</em> contrasts, which <code><a href="../reference/cstc.html
 <span><span class="co">#&gt;     [1] 3 treatments</span></span>
 <span><span class="co">#&gt;     [2] 3 treatments</span></span>
 <span><span class="co">#&gt;   Bridging components: LABA, LAMA</span></span>
+<span><span class="co">#&gt;     (components that OCCUR in more than one sub-network; occurrence is</span></span>
+<span><span class="co">#&gt;      not identifiability, homogeneity, or influence for any contrast.)</span></span>
 <span><span class="co">#&gt;   Component design:  rank(X) = 4 / 4 components -&gt; all component effects identified</span></span>
 <span><span class="co">#&gt;   Estimable effects: 5 / 5 vs PBO</span></span></code></pre></div>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
@@ -961,7 +963,7 @@ estimand each targets</caption>
 <td align="left">ADD-1: LABA+LAMA vs LABA+ICS</td>
 <td align="right">0.260</td>
 <td align="right">0.254</td>
-<td align="right">0.249</td>
+<td align="right">0.248</td>
 <td align="right">0.203</td>
 </tr>
 </tbody>
@@ -1006,14 +1008,15 @@ has to be made deliberately <span class="citation">(<a href="#ref-remiro2022">Re
 <span><span class="co">#&gt; cpaic: component-additive ML-NMR (Bayesian, poisson)</span></span>
 <span><span class="co">#&gt;   Treatment effects: random (noncentered)</span></span>
 <span><span class="co">#&gt;   Effect modifiers: eos [normal], freqex [bernoulli]</span></span>
+<span><span class="co">#&gt;   Provenance: cpaic 0.1.0, CmdStan 2.39.0, Stan md5 f235167d, seed 3</span></span>
 <span><span class="co">#&gt;   Component effects below are at the covariate origin (x = 0).</span></span>
 <span><span class="co">#&gt;   For a target population use relative_effects(fit, newdata = ...).</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt;  component estimate    se  lower upper</span></span>
-<span><span class="co">#&gt;        ICS   -0.126 0.178 -0.450 0.192</span></span>
+<span><span class="co">#&gt;        ICS       NA    NA     NA    NA</span></span>
 <span><span class="co">#&gt;       LABA   -0.133 0.099 -0.319 0.046</span></span>
-<span><span class="co">#&gt;       LAMA   -0.122 0.148 -0.368 0.184</span></span>
-<span><span class="co">#&gt;        ROF   -0.387 1.061 -2.848 1.181</span></span></code></pre></div>
+<span><span class="co">#&gt;       LAMA       NA    NA     NA    NA</span></span>
+<span><span class="co">#&gt;        ROF       NA    NA     NA    NA</span></span></code></pre></div>
 <p>The <code>[bernoulli]</code> and <code>[normal]</code> tags in the
 print output are the integration margins cpaic chose. It guessed them
 from the IPD (<code>freqex</code> is 0/1, <code>eos</code> is not);
@@ -1045,8 +1048,20 @@ them explicitly.</p>
 <td align="right">2.5</td>
 </tr>
 <tr class="even">
+<td align="left">aux</td>
+<td align="left">half-normal</td>
+<td align="right">0</td>
+<td align="right">1.0</td>
+</tr>
+<tr class="odd">
 <td align="left">beta</td>
 <td align="left">normal</td>
+<td align="right">0</td>
+<td align="right">2.5</td>
+</tr>
+<tr class="even">
+<td align="left">sigma</td>
+<td align="left">half-normal</td>
 <td align="right">0</td>
 <td align="right">2.5</td>
 </tr>
@@ -1121,7 +1136,7 @@ below.</p>
 <span>                                              <span class="st">"tau"</span><span class="op">)</span><span class="op">)</span><span class="op">$</span><span class="va">ess_bulk</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="co">#&gt;   divergences max_treedepth max_rhat min_ess_bulk</span></span>
-<span><span class="co">#&gt; 1           4             1   1.0085          396</span></span></code></pre></div>
+<span><span class="co">#&gt; 1           4             1   1.0145          396</span></span></code></pre></div>
 <p>No divergences, and
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>R</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat R</annotation></semantics></math>
 and the effective sample sizes are fine. A handful of iterations
@@ -1284,6 +1299,13 @@ population and <code>LAMA</code> comes back:</p>
 <span><span class="co">#&gt;   is only a design-based screen for them (aggregate identification, or a</span></span>
 <span><span class="co">#&gt;   survival baseline) and can be optimistic. Check them with prior_sensitivity().</span></span>
 <span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt;   Rows with identified_by = "aggregate" get their component x effect-modifier</span></span>
+<span><span class="co">#&gt;   information from BETWEEN-study covariate gradients, not from within-study</span></span>
+<span><span class="co">#&gt;   effect modification. The model imposes that the two are equal; covariate</span></span>
+<span><span class="co">#&gt;   means are not randomized across studies, so that is an ecological</span></span>
+<span><span class="co">#&gt;   association. See the "Within-study versus ecological effect modification"</span></span>
+<span><span class="co">#&gt;   section of ?cmlnmr.</span></span>
+<span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt;   Rows marked "not identified" carry no first-order information; a number</span></span>
 <span><span class="co">#&gt;   reported for them would be the prior. relative_effects() returns NA there.</span></span></code></pre></div>
 <p>That is the whole of what an aggregate two-arm trial can tell you:
@@ -1366,14 +1388,15 @@ network could not answer.</p>
 <div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">fit</span>, reference <span class="op">=</span> <span class="st">"LAMA"</span>, newdata <span class="op">=</span> <span class="va">target</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Relative effects (IRR, back-transformed)</span></span>
-<span><span class="co">#&gt;   Target population: eos = 1.5, freqex = 0.55</span></span>
-<span><span class="co">#&gt;      treatment comparator estimate    se lower upper pr_gt0</span></span>
-<span><span class="co">#&gt;           LABA       LAMA       NA    NA    NA    NA     NA</span></span>
-<span><span class="co">#&gt;       LABA+ICS       LAMA    0.711 0.154 0.528 0.911  0.009</span></span>
-<span><span class="co">#&gt;      LABA+LAMA       LAMA    0.868 0.106 0.713 1.041  0.054</span></span>
-<span><span class="co">#&gt;  LABA+LAMA+ROF       LAMA       NA    NA    NA    NA     NA</span></span>
-<span><span class="co">#&gt;            PBO       LAMA       NA    NA    NA    NA     NA</span></span>
-<span><span class="co">#&gt;   NA = not uniquely estimable from this component design (see estimable_effects()).</span></span></code></pre></div>
+<span><span class="co">#&gt;   Conditional effect at covariate profile: eos = 1.5, freqex = 0.55</span></span>
+<span><span class="co">#&gt;      treatment comparator estimate    se lower upper pr_gt0          basis</span></span>
+<span><span class="co">#&gt;           LABA       LAMA       NA    NA    NA    NA     NA not identified</span></span>
+<span><span class="co">#&gt;       LABA+ICS       LAMA    0.711 0.154 0.528 0.911  0.009          exact</span></span>
+<span><span class="co">#&gt;      LABA+LAMA       LAMA    0.868 0.106 0.713 1.041  0.054          exact</span></span>
+<span><span class="co">#&gt;  LABA+LAMA+ROF       LAMA       NA    NA    NA    NA     NA not identified</span></span>
+<span><span class="co">#&gt;            PBO       LAMA       NA    NA    NA    NA     NA not identified</span></span>
+<span><span class="co">#&gt;   NA = not uniquely estimable from this component design (see estimable_effects()).</span></span>
+<span><span class="co">#&gt;   `se` is on the link (log) scale; the interval is back-transformed.</span></span></code></pre></div>
 <div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/forest.html">forest</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="va">target</span>, reference <span class="op">=</span> <span class="st">"LAMA"</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/theme.html" class="external-link">theme</a></span><span class="op">(</span>plot.caption <span class="op">=</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/element.html" class="external-link">element_text</a></span><span class="op">(</span>size <span class="op">=</span> <span class="fl">6.5</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
@@ -1393,14 +1416,15 @@ identifies and the other does not.</p>
 <div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">fit</span>, reference <span class="op">=</span> <span class="st">"LAMA"</span>, newdata <span class="op">=</span> <span class="va">target_low</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Relative effects (IRR, back-transformed)</span></span>
-<span><span class="co">#&gt;   Target population: eos = -0.5, freqex = 0.2</span></span>
-<span><span class="co">#&gt;      treatment comparator estimate    se lower upper pr_gt0</span></span>
-<span><span class="co">#&gt;           LABA       LAMA       NA    NA    NA    NA     NA</span></span>
-<span><span class="co">#&gt;       LABA+ICS       LAMA    1.009 0.158 0.728 1.318  0.505</span></span>
-<span><span class="co">#&gt;      LABA+LAMA       LAMA    0.882 0.097 0.731 1.050  0.064</span></span>
-<span><span class="co">#&gt;  LABA+LAMA+ROF       LAMA       NA    NA    NA    NA     NA</span></span>
-<span><span class="co">#&gt;            PBO       LAMA       NA    NA    NA    NA     NA</span></span>
-<span><span class="co">#&gt;   NA = not uniquely estimable from this component design (see estimable_effects()).</span></span></code></pre></div>
+<span><span class="co">#&gt;   Conditional effect at covariate profile: eos = -0.5, freqex = 0.2</span></span>
+<span><span class="co">#&gt;      treatment comparator estimate    se lower upper pr_gt0          basis</span></span>
+<span><span class="co">#&gt;           LABA       LAMA       NA    NA    NA    NA     NA not identified</span></span>
+<span><span class="co">#&gt;       LABA+ICS       LAMA    1.009 0.158 0.728 1.318  0.505          exact</span></span>
+<span><span class="co">#&gt;      LABA+LAMA       LAMA    0.882 0.097 0.731 1.050  0.064          exact</span></span>
+<span><span class="co">#&gt;  LABA+LAMA+ROF       LAMA       NA    NA    NA    NA     NA not identified</span></span>
+<span><span class="co">#&gt;            PBO       LAMA       NA    NA    NA    NA     NA not identified</span></span>
+<span><span class="co">#&gt;   NA = not uniquely estimable from this component design (see estimable_effects()).</span></span>
+<span><span class="co">#&gt;   `se` is on the link (log) scale; the interval is back-transformed.</span></span></code></pre></div>
 <p>The headline rate ratio moves from roughly 0.7 in the eosinophilic
 target to roughly 0.9 in the low-eosinophil one: the steroid earns its
 place in one population and barely in the other. Now put every method
@@ -1729,8 +1753,9 @@ refuse:</p>
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="fu"><a href="../reference/rank_probs.html">rank_probs</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="va">target</span>, lower_is_better <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>  error <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">e</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/strwrap.html" class="external-link">strwrap</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">conditionMessage</a></span><span class="op">(</span><span class="va">e</span><span class="op">)</span>, <span class="fl">76</span><span class="op">)</span>, sep <span class="op">=</span> <span class="st">"\n"</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Fewer than two elements are estimable in this target population, so no</span></span>
-<span><span class="co">#&gt; hierarchy can be formed. See estimable_effects_at().</span></span></code></pre></div>
+<span><span class="co">#&gt; Fewer than two elements are estimable (excluding elements identified only</span></span>
+<span><span class="co">#&gt; by aggregate arms) in this target population, so no hierarchy can be</span></span>
+<span><span class="co">#&gt; formed. See estimable_effects_at().</span></span></code></pre></div>
 <p><code><a href="../reference/rank_probs.html">rank_probs()</a></code> ranks the treatments <em>other than</em>
 the reference, so, unlike <code><a href="../reference/cpaic_ranks.html">cpaic_ranks()</a></code>, it has no placebo
 to fall back on; after Step 3 only <code>LABA</code> remains, and one
@@ -1738,29 +1763,35 @@ element is not a hierarchy. It therefore stops rather than draw one.
 That refusal is the intended behavior and not a defect: a rankogram
 computed from a prior-driven posterior is a picture of the prior, and it
 is indistinguishable, to the eye, from a picture of evidence.</p>
-<p>Move the target to <code>MONO-2</code>’s own population, the one
+<p>Moving the target to <code>MONO-2</code>’s own population, the one
 place on the eosinophil axis where the aggregate <code>LAMA</code>
-evidence bites, and the hierarchy returns:</p>
+evidence bites, does not rescue it. What that target buys is
+<em>estimability</em>, not individual-level identification: the
+treatments it unlocks are unlocked by an aggregate covariate gradient,
+so they remain first-order screens and the default refusal stands.
+Asking for them explicitly is the only way to see the ordering, and it
+has to be read as exploratory:</p>
 <div class="sourceCode" id="cb36"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="fu"><a href="../reference/rank_probs.html">rank_probs</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="va">own</span>, lower_is_better <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="fu"><a href="../reference/rank_probs.html">rank_probs</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="va">own</span>, lower_is_better <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>                include_screen_only <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <div class="figure" style="text-align: center">
 <img src="figure/count-rankogram-own-1.png" alt="plot of chunk rankogram-own"><p class="caption">
 plot of chunk rankogram-own
 </p>
 </div>
-<p>Four treatments are now estimable and therefore ranked, each panel
-giving the posterior probability that the treatment takes each rank,
-with rank 1 the fewest exacerbations. The dual bronchodilator
+<p>Each panel gives the posterior probability that the treatment takes
+each rank, with rank 1 the fewest exacerbations. The dual bronchodilator
 <code>LABA+LAMA</code> takes first place with high probability, and
 <code>LABA</code> alone is most likely to come last, which is what one
 would expect of the weakest active regimen in a low-eosinophil
 population where the steroid has little to offer.
 <code>LABA+LAMA+ROF</code> is still absent, because nothing identifies
-roflumilast in this population either. The point is not that
+roflumilast in this population at all. The point is not that
 <code>MONO-2</code>’s population is a better one to decide in; it is
 that the hierarchy, exactly like the estimable set and the relative
 effects themselves, is a property of the target population and not of
-the network.</p>
+the network, and that a population which makes a contrast
+<em>estimable</em> has not thereby made it <em>well identified</em>.</p>
 <p>The rank curve is designed to show that dependence directly, tracing
 each element’s SUCRA as the target moves:</p>
 <div class="sourceCode" id="cb37"><pre class="downlit sourceCode r">
@@ -2210,7 +2241,7 @@ Fit.”</span> <em>Journal of the Royal Statistical Society: Series B</em>
 Vehtari, Aki, Andrew Gelman, and Jonah Gabry. 2017. <span>“Practical
 <span>Bayesian</span> Model Evaluation Using Leave-One-Out
 Cross-Validation and <span>WAIC</span>.”</span> <em>Statistics and
-Computing</em> 27 (5): 1413–32. <a href="https://doi.org/10.1007/s11222-016-9696-9" class="external-link">https://doi.org/10.1007/s11222-016-9696-9</a>.
+Computing</em> 27 (5): 1413–32. <a href="https://doi.org/10.1007/s11222-016-9696-4" class="external-link">https://doi.org/10.1007/s11222-016-9696-4</a>.
 </div>
 <div id="ref-Veroniki2026" class="csl-entry">
 <span class="nocase">Veroniki, Areti Angeliki, Georgios Seitidis, Sofia

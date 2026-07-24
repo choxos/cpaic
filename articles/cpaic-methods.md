@@ -102,9 +102,8 @@ centered at a target population. On the link scale,
 so the treatment coefficient $`\beta_t`$ is the population-adjusted
 contrast at the target (the interaction term vanishes at
 $`x = \bar x_{\text{target}}`$). This is the anchored generalization of
-regression-based standardization; it is implemented natively because
-[`mlumr::stc()`](https://choxos.github.io/mlumr/reference/stc.html)
-targets the unanchored two-trial case.
+regression-based standardization; it is implemented natively because the
+`stc()` function in mlumr targets the unanchored two-trial case.
 
 ``` r
 

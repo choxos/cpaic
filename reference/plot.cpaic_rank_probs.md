@@ -1,10 +1,9 @@
 # Rankogram and cumulative rank plot
 
-Ported from
-[`multinma::plot.nma_rank_probs()`](https://dmphillippo.github.io/multinma/reference/plot.nma_summary.html)
-(Phillippo et al. 2020). The rankogram gives the posterior probability
-of each rank; the cumulative version gives the probability of being
-ranked among the best `k`, whose normalized area is SUCRA.
+Ported from multinma's `plot.nma_rank_probs()` (Phillippo et al. 2020).
+The rankogram gives the posterior probability of each rank; the
+cumulative version gives the probability of being ranked among the best
+`k`, whose normalized area is SUCRA.
 
 ## Usage
 

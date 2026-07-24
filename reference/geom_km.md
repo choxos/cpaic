@@ -1,9 +1,8 @@
 # Kaplan-Meier curves from the survival data behind a cML-NMR fit
 
-Ported from
-[`multinma::geom_km()`](https://dmphillippo.github.io/multinma/reference/geom_km.html)
-(Phillippo et al. 2020). Returns a list of ggplot2 layers, so it can be
-added to an existing plot; adding it to
+Ported from multinma's `geom_km()` (Phillippo et al. 2020). Returns a
+list of ggplot2 layers, so it can be added to an existing plot; adding
+it to
 [`plot_survival()`](https://choxos.github.io/cpaic/reference/plot_survival.md)
 overlays the observed data on the fitted survival curves.
 

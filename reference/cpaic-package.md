@@ -12,8 +12,10 @@ treatment components, while anchored simulated treatment comparison
 network meta-regression (ML-NMR; Phillippo et al. 2020
 [doi:10.1111/rssa.12579](https://doi.org/10.1111/rssa.12579) ) provide
 the population adjustment using individual patient data. Supports
-binary, continuous, count, and time-to-event outcomes. Builds on the
-'netmeta', 'maicplus', and 'multinma' packages.
+binary, continuous, count, and time-to-event outcomes. The component
+network meta-analysis engine is 'netmeta' and the matching weights come
+from 'maicplus'; the component-additive ML-NMR models are fitted with
+'cmdstanr'.
 
 ## See also
 

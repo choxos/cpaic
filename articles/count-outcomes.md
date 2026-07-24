@@ -356,6 +356,8 @@ cpaic_connectivity(net)
 #>     [1] 3 treatments
 #>     [2] 3 treatments
 #>   Bridging components: LABA, LAMA
+#>     (components that OCCUR in more than one sub-network; occurrence is
+#>      not identifiability, homogeneity, or influence for any contrast.)
 #>   Component design:  rank(X) = 4 / 4 components -> all component effects identified
 #>   Estimable effects: 5 / 5 vs PBO
 ```
@@ -581,7 +583,7 @@ knitr::kable(data.frame(
 | Edge                         | true_conditional |   cSTC | true_marginal |  cMAIC |
 |:-----------------------------|-----------------:|-------:|--------------:|-------:|
 | MONO-1: LABA vs PBO          |           -0.131 | -0.181 |        -0.132 | -0.274 |
-| ADD-1: LABA+LAMA vs LABA+ICS |            0.260 |  0.254 |         0.249 |  0.203 |
+| ADD-1: LABA+LAMA vs LABA+ICS |            0.260 |  0.254 |         0.248 |  0.203 |
 
 Adjusted log rate ratios handed to the bridge, against the estimand each
 targets {.table}
@@ -626,14 +628,15 @@ fit
 #> cpaic: component-additive ML-NMR (Bayesian, poisson)
 #>   Treatment effects: random (noncentered)
 #>   Effect modifiers: eos [normal], freqex [bernoulli]
+#>   Provenance: cpaic 0.1.0, CmdStan 2.39.0, Stan md5 f235167d, seed 3
 #>   Component effects below are at the covariate origin (x = 0).
 #>   For a target population use relative_effects(fit, newdata = ...).
 #> 
 #>  component estimate    se  lower upper
-#>        ICS   -0.126 0.178 -0.450 0.192
+#>        ICS       NA    NA     NA    NA
 #>       LABA   -0.133 0.099 -0.319 0.046
-#>       LAMA   -0.122 0.148 -0.368 0.184
-#>        ROF   -0.387 1.061 -2.848 1.181
+#>       LAMA       NA    NA     NA    NA
+#>        ROF       NA    NA     NA    NA
 ```
 
 The `[bernoulli]` and `[normal]` tags in the print output are the
@@ -656,7 +659,9 @@ knitr::kable(do.call(rbind, lapply(names(fit$priors), function(p) {
 | parameter  | distribution | location | scale |
 |:-----------|:-------------|---------:|------:|
 | intercept  | normal       |        0 |   2.5 |
+| aux        | half-normal  |        0 |   1.0 |
 | beta       | normal       |        0 |   2.5 |
+| sigma      | half-normal  |        0 |   2.5 |
 | regression | normal       |        0 |   1.0 |
 | gamma      | normal       |        0 |   1.0 |
 | tau        | half-normal  |        0 |   1.0 |
@@ -712,7 +717,7 @@ data.frame(
                                               "tau"))$ess_bulk, na.rm = TRUE))
 )
 #>   divergences max_treedepth max_rhat min_ess_bulk
-#> 1           4             1   1.0085          396
+#> 1           4             1   1.0145          396
 ```
 
 No divergences, and $`\hat R`$ and the effective sample sizes are fine.
@@ -870,6 +875,13 @@ estimable_effects_at(fit, newdata = own, reference = "LAMA")
 #>   is only a design-based screen for them (aggregate identification, or a
 #>   survival baseline) and can be optimistic. Check them with prior_sensitivity().
 #> 
+#>   Rows with identified_by = "aggregate" get their component x effect-modifier
+#>   information from BETWEEN-study covariate gradients, not from within-study
+#>   effect modification. The model imposes that the two are equal; covariate
+#>   means are not randomized across studies, so that is an ecological
+#>   association. See the "Within-study versus ecological effect modification"
+#>   section of ?cmlnmr.
+#> 
 #>   Rows marked "not identified" carry no first-order information; a number
 #>   reported for them would be the prior. relative_effects() returns NA there.
 ```
@@ -958,14 +970,15 @@ could not answer.
 
 relative_effects(fit, reference = "LAMA", newdata = target)
 #> Relative effects (IRR, back-transformed)
-#>   Target population: eos = 1.5, freqex = 0.55
-#>      treatment comparator estimate    se lower upper pr_gt0
-#>           LABA       LAMA       NA    NA    NA    NA     NA
-#>       LABA+ICS       LAMA    0.711 0.154 0.528 0.911  0.009
-#>      LABA+LAMA       LAMA    0.868 0.106 0.713 1.041  0.054
-#>  LABA+LAMA+ROF       LAMA       NA    NA    NA    NA     NA
-#>            PBO       LAMA       NA    NA    NA    NA     NA
+#>   Conditional effect at covariate profile: eos = 1.5, freqex = 0.55
+#>      treatment comparator estimate    se lower upper pr_gt0          basis
+#>           LABA       LAMA       NA    NA    NA    NA     NA not identified
+#>       LABA+ICS       LAMA    0.711 0.154 0.528 0.911  0.009          exact
+#>      LABA+LAMA       LAMA    0.868 0.106 0.713 1.041  0.054          exact
+#>  LABA+LAMA+ROF       LAMA       NA    NA    NA    NA     NA not identified
+#>            PBO       LAMA       NA    NA    NA    NA     NA not identified
 #>   NA = not uniquely estimable from this component design (see estimable_effects()).
+#>   `se` is on the link (log) scale; the interval is back-transformed.
 ```
 
 ``` r
@@ -990,14 +1003,15 @@ answers this target identifies and the other does not.
 
 relative_effects(fit, reference = "LAMA", newdata = target_low)
 #> Relative effects (IRR, back-transformed)
-#>   Target population: eos = -0.5, freqex = 0.2
-#>      treatment comparator estimate    se lower upper pr_gt0
-#>           LABA       LAMA       NA    NA    NA    NA     NA
-#>       LABA+ICS       LAMA    1.009 0.158 0.728 1.318  0.505
-#>      LABA+LAMA       LAMA    0.882 0.097 0.731 1.050  0.064
-#>  LABA+LAMA+ROF       LAMA       NA    NA    NA    NA     NA
-#>            PBO       LAMA       NA    NA    NA    NA     NA
+#>   Conditional effect at covariate profile: eos = -0.5, freqex = 0.2
+#>      treatment comparator estimate    se lower upper pr_gt0          basis
+#>           LABA       LAMA       NA    NA    NA    NA     NA not identified
+#>       LABA+ICS       LAMA    1.009 0.158 0.728 1.318  0.505          exact
+#>      LABA+LAMA       LAMA    0.882 0.097 0.731 1.050  0.064          exact
+#>  LABA+LAMA+ROF       LAMA       NA    NA    NA    NA     NA not identified
+#>            PBO       LAMA       NA    NA    NA    NA     NA not identified
 #>   NA = not uniquely estimable from this component design (see estimable_effects()).
+#>   `se` is on the link (log) scale; the interval is back-transformed.
 ```
 
 The headline rate ratio moves from roughly 0.7 in the eosinophilic
@@ -1224,8 +1238,9 @@ The rankogram is stricter still, and it is worth seeing it refuse:
 tryCatch(
   plot(rank_probs(fit, newdata = target, lower_is_better = TRUE)),
   error = function(e) cat(strwrap(conditionMessage(e), 76), sep = "\n"))
-#> Fewer than two elements are estimable in this target population, so no
-#> hierarchy can be formed. See estimable_effects_at().
+#> Fewer than two elements are estimable (excluding elements identified only
+#> by aggregate arms) in this target population, so no hierarchy can be
+#> formed. See estimable_effects_at().
 ```
 
 [`rank_probs()`](https://choxos.github.io/cpaic/reference/rank_probs.md)
@@ -1237,31 +1252,36 @@ That refusal is the intended behavior and not a defect: a rankogram
 computed from a prior-driven posterior is a picture of the prior, and it
 is indistinguishable, to the eye, from a picture of evidence.
 
-Move the target to `MONO-2`’s own population, the one place on the
-eosinophil axis where the aggregate `LAMA` evidence bites, and the
-hierarchy returns:
+Moving the target to `MONO-2`’s own population, the one place on the
+eosinophil axis where the aggregate `LAMA` evidence bites, does not
+rescue it. What that target buys is *estimability*, not individual-level
+identification: the treatments it unlocks are unlocked by an aggregate
+covariate gradient, so they remain first-order screens and the default
+refusal stands. Asking for them explicitly is the only way to see the
+ordering, and it has to be read as exploratory:
 
 ``` r
 
-plot(rank_probs(fit, newdata = own, lower_is_better = TRUE))
+plot(rank_probs(fit, newdata = own, lower_is_better = TRUE,
+                include_screen_only = TRUE))
 ```
 
 ![plot of chunk rankogram-own](figure/count-rankogram-own-1.png)
 
 plot of chunk rankogram-own
 
-Four treatments are now estimable and therefore ranked, each panel
-giving the posterior probability that the treatment takes each rank,
-with rank 1 the fewest exacerbations. The dual bronchodilator
+Each panel gives the posterior probability that the treatment takes each
+rank, with rank 1 the fewest exacerbations. The dual bronchodilator
 `LABA+LAMA` takes first place with high probability, and `LABA` alone is
 most likely to come last, which is what one would expect of the weakest
 active regimen in a low-eosinophil population where the steroid has
 little to offer. `LABA+LAMA+ROF` is still absent, because nothing
-identifies roflumilast in this population either. The point is not that
+identifies roflumilast in this population at all. The point is not that
 `MONO-2`’s population is a better one to decide in; it is that the
 hierarchy, exactly like the estimable set and the relative effects
 themselves, is a property of the target population and not of the
-network.
+network, and that a population which makes a contrast *estimable* has
+not thereby made it *well identified*.
 
 The rank curve is designed to show that dependence directly, tracing
 each element’s SUCRA as the target moves:
@@ -1639,7 +1659,7 @@ van der Linde. 2002. “Bayesian Measures of Model Complexity and Fit.”
 Vehtari, Aki, Andrew Gelman, and Jonah Gabry. 2017. “Practical Bayesian
 Model Evaluation Using Leave-One-Out Cross-Validation and WAIC.”
 *Statistics and Computing* 27 (5): 1413–32.
-<https://doi.org/10.1007/s11222-016-9696-9>.
+<https://doi.org/10.1007/s11222-016-9696-4>.
 
 Veroniki, Areti Angeliki, Georgios Seitidis, Sofia Tsokani, et al. 2026.
 “Analysing Component Network Meta-Analysis in Disconnected Networks:

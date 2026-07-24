@@ -323,6 +323,8 @@ cpaic_connectivity(net)
 #>     [1] 3 treatments
 #>     [2] 3 treatments
 #>   Bridging components: CBT, NRT
+#>     (components that OCCUR in more than one sub-network; occurrence is
+#>      not identifiability, homogeneity, or influence for any contrast.)
 #>   Component design:  rank(X) = 4 / 4 components -> all component effects identified
 #>   Estimable effects: 5 / 5 vs UC
 ```
@@ -597,14 +599,15 @@ fit
 #> cpaic: component-additive ML-NMR (Bayesian, binomial)
 #>   Treatment effects: random (noncentered)
 #>   Effect modifiers: cpd [normal]
+#>   Provenance: cpaic 0.1.0, CmdStan 2.39.0, Stan md5 0a55fe50, seed 1
 #>   Component effects below are at the covariate origin (x = 0).
 #>   For a target population use relative_effects(fit, newdata = ...).
 #> 
-#>  component estimate    se  lower upper
-#>        BUP    0.377 0.887 -1.533 1.950
-#>        CBT    0.484 0.121  0.213 0.699
-#>        NRT    0.553 0.240  0.008 0.954
-#>        VAR    0.980 0.304  0.282 1.502
+#>  component estimate    se lower upper
+#>        BUP       NA    NA    NA    NA
+#>        CBT    0.484 0.121 0.213 0.699
+#>        NRT       NA    NA    NA    NA
+#>        VAR       NA    NA    NA    NA
 ```
 
 Note what the print method insists on: those component effects are at
@@ -628,7 +631,9 @@ knitr::kable(do.call(rbind, lapply(names(fit$priors), function(p) {
 | parameter  | distribution | location | scale |
 |:-----------|:-------------|---------:|------:|
 | intercept  | normal       |        0 |   2.5 |
+| aux        | half-normal  |        0 |   1.0 |
 | beta       | normal       |        0 |   2.5 |
+| sigma      | half-normal  |        0 |   2.5 |
 | regression | normal       |        0 |   1.0 |
 | gamma      | normal       |        0 |   1.0 |
 | tau        | half-normal  |        0 |   1.0 |
@@ -837,6 +842,13 @@ estimable_effects_at(fit, newdata = own, reference = "UC")
 #>   is only a design-based screen for them (aggregate identification, or a
 #>   survival baseline) and can be optimistic. Check them with prior_sensitivity().
 #> 
+#>   Rows with identified_by = "aggregate" get their component x effect-modifier
+#>   information from BETWEEN-study covariate gradients, not from within-study
+#>   effect modification. The model imposes that the two are equal; covariate
+#>   means are not randomized across studies, so that is an ecological
+#>   association. See the "Within-study versus ecological effect modification"
+#>   section of ?cmlnmr.
+#> 
 #>   Rows marked "not identified" carry no first-order information; a number
 #>   reported for them would be the prior. relative_effects() returns NA there.
 ```
@@ -965,14 +977,15 @@ target population, against `NRT`:
 
 relative_effects(fit, reference = "NRT", newdata = target)
 #> Relative effects (OR, back-transformed)
-#>   Target population: cpd = 0.3
-#>  treatment comparator estimate    se lower upper pr_gt0
-#>        CBT        NRT       NA    NA    NA    NA     NA
-#>    CBT+BUP        NRT       NA    NA    NA    NA     NA
-#>    CBT+NRT        NRT    1.514 0.131 1.131 1.915  0.992
-#>    CBT+VAR        NRT    2.820 0.193 1.860 3.956  1.000
-#>         UC        NRT       NA    NA    NA    NA     NA
+#>   Conditional effect at covariate profile: cpd = 0.3
+#>  treatment comparator estimate    se lower upper pr_gt0          basis
+#>        CBT        NRT       NA    NA    NA    NA     NA not identified
+#>    CBT+BUP        NRT       NA    NA    NA    NA     NA not identified
+#>    CBT+NRT        NRT    1.514 0.131 1.131 1.915  0.992          exact
+#>    CBT+VAR        NRT    2.820 0.193 1.860 3.956  1.000          exact
+#>         UC        NRT       NA    NA    NA    NA     NA not identified
 #>   NA = not uniquely estimable from this component design (see estimable_effects()).
+#>   `se` is on the link (log) scale; the interval is back-transformed.
 ```
 
 ``` r
@@ -998,14 +1011,15 @@ And the same network in a lighter-smoking population:
 
 relative_effects(fit, reference = "NRT", newdata = target_light)
 #> Relative effects (OR, back-transformed)
-#>   Target population: cpd = -0.4
-#>  treatment comparator estimate    se lower upper pr_gt0
-#>        CBT        NRT       NA    NA    NA    NA     NA
-#>    CBT+BUP        NRT       NA    NA    NA    NA     NA
-#>    CBT+NRT        NRT    1.818 0.137 1.324 2.298  0.997
-#>    CBT+VAR        NRT    2.220 0.231 1.359 3.323  0.997
-#>         UC        NRT       NA    NA    NA    NA     NA
+#>   Conditional effect at covariate profile: cpd = -0.4
+#>  treatment comparator estimate    se lower upper pr_gt0          basis
+#>        CBT        NRT       NA    NA    NA    NA     NA not identified
+#>    CBT+BUP        NRT       NA    NA    NA    NA     NA not identified
+#>    CBT+NRT        NRT    1.818 0.137 1.324 2.298  0.997          exact
+#>    CBT+VAR        NRT    2.220 0.231 1.359 3.323  0.997          exact
+#>         UC        NRT       NA    NA    NA    NA     NA not identified
 #>   NA = not uniquely estimable from this component design (see estimable_effects()).
+#>   `se` is on the link (log) scale; the interval is back-transformed.
 ```
 
 Now put every method next to the truth we planted. The truth is the
@@ -1171,7 +1185,7 @@ formed:
 tryCatch(rank_probs(fit, newdata = target),
          error = function(e) cat("rank_probs() declined:\n ", conditionMessage(e)))
 #> rank_probs() declined:
-#>   Fewer than two elements are estimable in this target population, so no hierarchy can be formed. See estimable_effects_at().
+#>   Fewer than two elements are estimable (excluding elements identified only by aggregate arms) in this target population, so no hierarchy can be formed. See estimable_effects_at().
 ```
 
 **An error is the correct output here.** A rankogram of this network at
@@ -1586,7 +1600,7 @@ van der Linde. 2002. “Bayesian Measures of Model Complexity and Fit.”
 Vehtari, Aki, Andrew Gelman, and Jonah Gabry. 2017. “Practical Bayesian
 Model Evaluation Using Leave-One-Out Cross-Validation and WAIC.”
 *Statistics and Computing* 27 (5): 1413–32.
-<https://doi.org/10.1007/s11222-016-9696-9>.
+<https://doi.org/10.1007/s11222-016-9696-4>.
 
 Veroniki, Areti Angeliki, Georgios Seitidis, Sofia Tsokani, et al. 2026.
 “Analysing Component Network Meta-Analysis in Disconnected Networks:

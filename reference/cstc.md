@@ -67,10 +67,12 @@ Unlike [`cmaic()`](https://choxos.github.io/cpaic/reference/cmaic.md)
 (reweighting) this is the regression-adjustment route. The reported
 treatment coefficient is the *conditional* effect at the target
 effect-modifier means (not a marginal standardization); for collapsible
-measures the two coincide. It is implemented natively here because
-[`mlumr::stc()`](https://choxos.github.io/mlumr/reference/stc.html)
-targets the *unanchored* two-trial case; the link and standard-error
-machinery is adapted from that package.
+measures the two coincide. It is implemented natively here because the
+`stc()` function in the mlumr package targets the *unanchored* two-trial
+case; the link and standard-error machinery is adapted from that
+package. (Written without the double-colon form on purpose: mlumr is not
+a dependency of cpaic, and the documentation site resolves a qualified
+package-and-function reference by loading that package.)
 
 ## What the two-stage bridge does and does not adjust
 

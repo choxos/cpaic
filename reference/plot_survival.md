@@ -1,11 +1,10 @@
 # Fitted survival curves from a cML-NMR fit
 
-Ported from
-[`multinma::plot.surv_nma_summary()`](https://dmphillippo.github.io/multinma/reference/plot.nma_summary.html)
-(Phillippo et al. 2020). Draws the model-implied survival function for
-each study arm, averaged over that arm's own covariate distribution (the
-IPD covariates for an IPD arm, the integration points for an aggregate
-arm), with posterior credible bands. Add
+Ported from multinma's `plot.surv_nma_summary()` (Phillippo et al.
+2020). Draws the model-implied survival function for each study arm,
+averaged over that arm's own covariate distribution (the IPD covariates
+for an IPD arm, the integration points for an aggregate arm), with
+posterior credible bands. Add
 [`geom_km()`](https://choxos.github.io/cpaic/reference/geom_km.md) to
 overlay the observed Kaplan-Meier curves; systematic departures indicate
 that the baseline hazard is too rigid.

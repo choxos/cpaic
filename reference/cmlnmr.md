@@ -108,7 +108,12 @@ cmlnmr(
 - time, exposure:
 
   Outcome-time column for survival in both IPD and AgD; IPD exposure
-  column for Poisson outcomes.
+  column for Poisson outcomes. If the Poisson exposure column is absent,
+  every patient is given an exposure of 1 (equal follow-up) and a
+  message says so, matching
+  [`cstc()`](https://choxos.github.io/cpaic/reference/cstc.md) and
+  [`cmaic()`](https://choxos.github.io/cpaic/reference/cmaic.md), which
+  drop the log offset when no exposure column is named.
 
 - start, entry:
 
@@ -326,10 +331,10 @@ should be.
   averages that exact contribution over a finite quasi-Monte-Carlo grid
   of `n_int` covariate points, so it carries an integration error that
   shrinks with `n_int` but is not zero. Increase `n_int` and confirm
-  that the estimates are stable before relying on them. The earlier
-  person-time approximation was biased by 36% in a two-group example;
-  that particular bias is removed, but a finite integration error
-  remains.
+  that the estimates are stable before relying on them. (The cruder
+  alternative of summarizing an aggregate arm by its event count and
+  person-time was biased by 36% in a two-group example, which is why it
+  is rejected outright rather than offered as a fallback.)
 
 - **Each study has its own baseline hazard shape.** Every study carries
   its own set of spline (or step) coefficients, smoothed toward a common
@@ -339,6 +344,52 @@ should be.
   shorter follow-up may not inform the coefficients of the latest basis
   functions; those are then determined by the smoothing prior rather
   than by that study's data.
+
+With `baseline = "mspline"` the sampler may print, during warmup,
+`coefficients[...] is not a valid simplex. sum(...) = nan`. The
+smoothing scale is unbounded above, so an early proposal can drive the
+random walk on the log spline coefficients past the floating-point range
+and the softmax returns `NaN`. Stan rejects that proposal and adaptation
+continues; this is the rejection mechanism doing its job, not a
+fitted-model problem. Read it as a warning only if it persists past
+warmup, which would indicate a genuinely ill-conditioned baseline.
+
+## Within-study versus ecological effect modification
+
+A single `Gamma` multiplies the individual covariates of the IPD **and**
+the covariate means of the aggregate arms. These are not the same
+parameter. Write the effect as \$\$\alpha + \gamma_W (x - \bar x_s) +
+\gamma_B \bar x_s .\$\$ An aggregate contrast depends only on
+`alpha + gamma_B xbar_s`, so it carries no information about the
+within-study interaction `gamma_W`; fitting one `Gamma` imposes
+`gamma_W = gamma_B`. Randomization identifies each study's treatment
+effect but does not randomize covariate means *across* studies, so a
+between-study gradient is confounded in a way a within-study slope is
+not (Berlin et al. 2002; Freeman et al. 2018).
+
+The practical consequence: an interaction supported only by aggregate
+arms is an **ecological** association being read as effect modification.
+[`estimable_effects_at()`](https://choxos.github.io/cpaic/reference/estimable_effects_at.md)
+separates the two in its `identified_by` column (`"IPD"` versus
+`"aggregate"`) and marks the latter `basis = "first-order screen"`;
+[`cpaic_ranks()`](https://choxos.github.io/cpaic/reference/cpaic_ranks.md)
+drops such elements from a hierarchy by default. Treat a
+target-population effect that leans on aggregate-identified interactions
+as exploratory, and check it with
+[`prior_sensitivity()`](https://choxos.github.io/cpaic/reference/prior_sensitivity.md).
+
+## Survival status coding
+
+`cmlnmr()` uses the four-level convention `0` right-censored, `1`
+observed event, `2` left-censored, `3` interval-censored. This is
+**not** the coding
+[`cstc()`](https://choxos.github.io/cpaic/reference/cstc.md) and
+[`cmaic()`](https://choxos.github.io/cpaic/reference/cmaic.md) use:
+those pass the column straight to
+[`survival::Surv()`](https://rdrr.io/pkg/survival/man/Surv.html), which
+reads `0`/`1` or `1`/`2`, so a `2` there is an event rather than a
+left-censored observation. Do not reuse one status column across the two
+layers without recoding it.
 
 ## Scope and current limitations
 
@@ -361,6 +412,31 @@ Two gaps are worth naming for anyone comparing this with `multinma`.
   separates `prognostics`), so a covariate that shifts outcomes without
   modifying any component effect still adds interaction parameters that
   the data must then constrain toward zero.
+
+- **The Gaussian model has one residual standard deviation for the whole
+  network.** A single `sigma` covers every individual-level observation
+  in every study and arm. Studies whose residual variance genuinely
+  differs are then weighted mostly by sample size rather than by
+  precision, so their relative contribution to a conflicting component
+  effect, and the width of the resulting interval, are not right. Fit
+  the families separately, or rescale, if the residual scales are far
+  apart.
+
+- **Poisson aggregate arms assume exposure is independent of the
+  covariates.** The aggregate mean is `E * mean(exp(eta))` over the
+  integration points, which equals the correct `sum_i E_i exp(eta_i)`
+  only when individual person-time is unrelated to the effect modifiers.
+  When longer-followed patients differ systematically the aggregate
+  contribution is biased; the interface has no way to accept
+  exposure-weighted covariate moments.
+
+- **The copula correlation for a non-normal margin is approximate.** For
+  a Bernoulli margin the observed-to-latent map is multinma's
+  closed-form `cor_adjust = "pearson"` adjustment, which does not use
+  the prevalences: at a prevalence of 0.1 a requested observed
+  correlation of 0.5 comes back as about 0.42. For gamma, lognormal, and
+  beta margins the observed correlation is used unadjusted and a warning
+  says so. Supply `cor` on the latent scale to set it exactly.
 
 ## Identifiability
 

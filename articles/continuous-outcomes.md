@@ -302,6 +302,8 @@ cpaic_connectivity(net)
 #>     [1] 3 treatments
 #>     [2] 3 treatments
 #>   Bridging components: Met, SU
+#>     (components that OCCUR in more than one sub-network; occurrence is
+#>      not identifiability, homogeneity, or influence for any contrast.)
 #>   Component design:  rank(X) = 4 / 4 components -> all component effects identified
 #>   Estimable effects: 5 / 5 vs Diet
 ```
@@ -506,12 +508,12 @@ fit <- cmlnmr(ipd, agd, effect_modifiers = "bhba1c_c", inactive = "Diet",
               family = "gaussian",
               chains = 4, iter_warmup = 500, iter_sampling = 500, seed = 2026)
 #> Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
-#> Chain 4 Exception: normal_lpdf: Scale parameter is 0, but must be positive! (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/RtmpRgTwMG/model-c021487aa276.stan', line 123, column 19 to column 50)
+#> Chain 4 Exception: normal_lpdf: Scale parameter is 0, but must be positive! (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmp7Wk2Yn/model-10c2966f151a6.stan', line 124, column 19 to column 50)
 #> Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
 #> Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
 #> Chain 4
 #> Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
-#> Chain 4 Exception: normal_lpdf: Scale parameter is 0, but must be positive! (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/RtmpRgTwMG/model-c021487aa276.stan', line 123, column 19 to column 50)
+#> Chain 4 Exception: normal_lpdf: Scale parameter is 0, but must be positive! (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmp7Wk2Yn/model-10c2966f151a6.stan', line 124, column 19 to column 50)
 #> Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
 #> Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
 #> Chain 4
@@ -519,11 +521,12 @@ fit
 #> cpaic: component-additive ML-NMR (Bayesian, gaussian)
 #>   Treatment effects: fixed
 #>   Effect modifiers: bhba1c_c [normal]
+#>   Provenance: cpaic 0.1.0, CmdStan 2.39.0, Stan md5 093af39c, seed 2026
 #>   Component effects below are at the covariate origin (x = 0).
 #>   For a target population use relative_effects(fit, newdata = ...).
 #> 
 #>  component estimate    se  lower  upper
-#>       DPP4   -0.877 0.666 -2.126  0.469
+#>       DPP4       NA    NA     NA     NA
 #>        Met   -1.095 0.083 -1.257 -0.928
 #>      SGLT2   -0.617 0.110 -0.825 -0.387
 #>         SU   -0.757 0.089 -0.926 -0.581
@@ -536,7 +539,7 @@ fit_re <- cmlnmr(ipd, agd, effect_modifiers = "bhba1c_c", inactive = "Diet",
                  chains = 4, iter_warmup = 500, iter_sampling = 500,
                  seed = 2026, adapt_delta = 0.95)
 #> Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
-#> Chain 4 Exception: normal_lpdf: Scale parameter is 0, but must be positive! (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/RtmpRgTwMG/model-c021487aa276.stan', line 123, column 19 to column 50)
+#> Chain 4 Exception: normal_lpdf: Scale parameter is 0, but must be positive! (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmp7Wk2Yn/model-10c2966f151a6.stan', line 124, column 19 to column 50)
 #> Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
 #> Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
 #> Chain 4
@@ -575,11 +578,13 @@ figure in this vignette:
 [`plot_integration_error()`](https://choxos.github.io/cpaic/reference/plot_integration_error.md),
 which traces the quasi-Monte-Carlo error against the number of
 integration points in the binary, count, and survival vignettes,
-declines to draw anything for a Gaussian model with normal margins and
-says why, since with a single integration point there is no integration
-error to trace. On a logit or a log link the same integral is not the
-mean, aggregation bias appears, and the quasi-Monte-Carlo grid earns its
-keep.
+declines to draw anything for a Gaussian model and says why, since with
+a single integration point there is no integration error to trace. That
+holds whatever the covariate margins are, binary ones included: the
+identity link is linear in $`x`$, so the aggregate mean depends on the
+covariate means alone. On a logit or a log link the same integral is not
+the mean, aggregation bias appears, and the quasi-Monte-Carlo grid earns
+its keep.
 
 ### Priors
 
@@ -589,13 +594,21 @@ do real regularization whenever $`\Gamma`$ is weakly identified:
 ``` r
 
 str(fit$priors)
-#> List of 5
+#> List of 7
 #>  $ intercept :List of 3
 #>   ..$ distribution: chr "normal"
 #>   ..$ location    : num 0
 #>   ..$ scale       : num 2.5
+#>  $ aux       :List of 3
+#>   ..$ distribution: chr "half-normal"
+#>   ..$ location    : num 0
+#>   ..$ scale       : num 1
 #>  $ beta      :List of 3
 #>   ..$ distribution: chr "normal"
+#>   ..$ location    : num 0
+#>   ..$ scale       : num 2.5
+#>  $ sigma     :List of 3
+#>   ..$ distribution: chr "half-normal"
 #>   ..$ location    : num 0
 #>   ..$ scale       : num 2.5
 #>  $ regression:List of 3
@@ -655,7 +668,7 @@ data.frame(
   min_ess_bulk  = round(min(fit_re$fit$summary(
     c("beta", "gamma", "mu", "tau"))$ess_bulk, na.rm = TRUE)))
 #>   divergences max_treedepth max_rhat min_ess_bulk
-#> 1           4             0   1.0144          415
+#> 1           4             0    1.015          415
 ```
 
 Those are the summaries. The chains themselves are the evidence.
@@ -726,6 +739,13 @@ estimable_effects_at(fit, newdata = data.frame(bhba1c_c = -0.5),
 #>   is only a design-based screen for them (aggregate identification, or a
 #>   survival baseline) and can be optimistic. Check them with prior_sensitivity().
 #> 
+#>   Rows with identified_by = "aggregate" get their component x effect-modifier
+#>   information from BETWEEN-study covariate gradients, not from within-study
+#>   effect modification. The model imposes that the two are equal; covariate
+#>   means are not randomized across studies, so that is an ecological
+#>   association. See the "Within-study versus ecological effect modification"
+#>   section of ?cmlnmr.
+#> 
 #>   Rows marked "not identified" carry no first-order information; a number
 #>   reported for them would be the prior. relative_effects() returns NA there.
 ```
@@ -758,14 +778,17 @@ Read the `identified_by` column; it is doing real work.
 relative_effects(fit, reference = "Met",
                  newdata = data.frame(bhba1c_c = -0.5))
 #> Relative effects (MD, link scale)
-#>   Target population: bhba1c_c = -0.5
-#>  treatment comparator estimate    se  lower  upper pr_gt0
-#>       Diet        Met    0.962 0.087  0.790  1.139  1.000
-#>   Met+DPP4        Met       NA    NA     NA     NA     NA
-#>  Met+SGLT2        Met   -0.567 0.127 -0.801 -0.310  0.000
-#>     Met+SU        Met   -0.549 0.101 -0.736 -0.337  0.000
-#>         SU        Met    0.413 0.140  0.145  0.701  0.997
+#>   Conditional effect at covariate profile: bhba1c_c = -0.5
+#>  treatment comparator estimate    se  lower  upper pr_gt0              basis
+#>       Diet        Met    0.962 0.087  0.790  1.139  1.000 first-order screen
+#>   Met+DPP4        Met       NA    NA     NA     NA     NA     not identified
+#>  Met+SGLT2        Met   -0.567 0.127 -0.801 -0.310  0.000              exact
+#>     Met+SU        Met   -0.549 0.101 -0.736 -0.337  0.000              exact
+#>         SU        Met    0.413 0.140  0.145  0.701  0.997 first-order screen
 #>   NA = not uniquely estimable from this component design (see estimable_effects()).
+#>   basis "first-order screen" = estimable by the row-space criterion but leaning
+#>   on aggregate arms or a survival baseline, so it can be optimistic; check
+#>   with prior_sensitivity() / estimable_effects_at().
 ```
 
 Estimability is not a property of the network alone. It is a property of
@@ -970,7 +993,47 @@ so `lower_is_better = TRUE`.
 ranks_early <- cpaic_ranks(fit, newdata = early, lower_is_better = TRUE)
 #> Warning: Dropped from the hierarchy as not estimable in this target population: Met+DPP4.
 #> Ranking them would rank the prior. See estimable_effects_at().
+#> Warning: Dropped from the hierarchy as identified only by aggregate arms (a first-order
+#> screen that can be optimistic): Met, Met+SGLT2, Met+SU. Set include_screen_only = TRUE to
+#> rank them as an explicitly exploratory hierarchy.
 ranks_early
+#> Population-adjusted treatment hierarchy
+#>   Target population: bhba1c_c = -0.5
+#>  element estimate p_best median_rank mean_rank sucra
+#>       SU   -0.549      1           1         1     1
+#>     Diet    0.000      0           2         2     0
+#>   Not estimable in this population, so not ranked: Met+DPP4
+#>   Identified only by aggregate arms (first-order screen), so not ranked by default: Met, Met+SGLT2, Met+SU
+#>   (set include_screen_only = TRUE to rank them as exploratory).
+#>   Ranking metrics depend on the set ranked; report them with the effects, not instead.
+plot(ranks_early)
+```
+
+![plot of chunk ranks-early](figure/continuous-ranks-early-1.png)
+
+plot of chunk ranks-early
+
+The warnings are not noise; they are the result. Together they implement
+Step 3 of the hierarchy workflow of Wigle et al.
+([2026](#ref-Wigle2026)), and they refuse on two distinct grounds.
+`Met+DPP4` is not estimable at this target at all, so it is removed
+rather than ranked; ranking it would rank the prior, and a SUCRA
+computed from a prior looks exactly like a SUCRA computed from data
+while carrying none of the evidence. `Met`, `Met+SGLT2`, and `Met+SU`
+are estimable, but only through the aggregate arms, so what identifies
+them is a between-study covariate gradient rather than within-study
+effect modification. That is an ecological association, and
+[`cpaic_ranks()`](https://choxos.github.io/cpaic/reference/cpaic_ranks.md)
+declines to build a hierarchy on it by default. What is left is the pair
+the individual patient data genuinely identify.
+
+This is deliberately austere. If you want the full ordering anyway, ask
+for it explicitly and read it as exploratory:
+
+``` r
+
+cpaic_ranks(fit, newdata = early, lower_is_better = TRUE,
+            include_screen_only = TRUE)
 #> Population-adjusted treatment hierarchy
 #>   Target population: bhba1c_c = -0.5
 #>    element estimate p_best median_rank mean_rank sucra
@@ -981,28 +1044,16 @@ ranks_early
 #>       Diet    0.000   0.00           5     5.000 0.000
 #>   Not estimable in this population, so not ranked: Met+DPP4
 #>   Ranking metrics depend on the set ranked; report them with the effects, not instead.
-plot(ranks_early)
 ```
 
-![plot of chunk ranks-early](figure/continuous-ranks-early-1.png)
-
-plot of chunk ranks-early
-
-The warning is not noise; it is the result. It implements Step 3 of the
-hierarchy workflow of Wigle et al. ([2026](#ref-Wigle2026)): `Met+DPP4`
-is not estimable at this target, so it is removed from the ranking set
-rather than ranked. Ranking it would rank the prior, and a SUCRA
-computed from a prior looks exactly like a SUCRA computed from data
-while carrying none of the evidence. The plot’s caption records what was
-dropped, so a reader who sees only the figure is not misled by its
-absence.
-
 Ranking metrics compress a whole distribution into one number, so it is
-worth looking at the distribution.
+worth looking at the distribution. The same caveat applies, so the
+rankogram is drawn on the exploratory set.
 
 ``` r
 
-plot(rank_probs(fit, newdata = early, lower_is_better = TRUE))
+plot(rank_probs(fit, newdata = early, lower_is_better = TRUE,
+                include_screen_only = TRUE))
 ```
 
 ![plot of chunk rankogram](figure/continuous-rankogram-1.png)
@@ -1011,18 +1062,20 @@ plot of chunk rankogram
 
 The rankogram gives the posterior probability that each treatment takes
 each rank. `Met+SGLT2` and `Met+SU` divide the top two ranks between
-them and take no other rank; `Met`, `SU`, and `Diet` are nearly certain
-of ranks three, four, and five. The lower part of the hierarchy is
-therefore settled and uninteresting, and all of the uncertainty that
-matters is concentrated in the contest for first place, which is
-precisely the contest the crossover governs.
+them and take no other rank; `Met` and `SU` are nearly certain of the
+ranks below them. The lower part of the hierarchy is therefore settled
+and uninteresting, and all of the uncertainty that matters is
+concentrated in the contest for first place, which is precisely the
+contest the crossover governs. Remember while reading it that the
+ordering of everything except `SU` rests on an ecological gradient.
 
 So the hierarchy cannot be quoted without its population either. Tracing
 SUCRA across target populations shows how much of it is at stake.
 
 ``` r
 
-plot_rank_curve(fit, em = "bhba1c_c", values = pop_grid, lower_is_better = TRUE)
+plot_rank_curve(fit, em = "bhba1c_c", values = pop_grid, lower_is_better = TRUE,
+                include_screen_only = TRUE)
 ```
 
 ![plot of chunk rank-curve](figure/continuous-rank-curve-1.png)
@@ -1479,7 +1532,7 @@ van der Linde. 2002. “Bayesian Measures of Model Complexity and Fit.”
 Vehtari, Aki, Andrew Gelman, and Jonah Gabry. 2017. “Practical Bayesian
 Model Evaluation Using Leave-One-Out Cross-Validation and WAIC.”
 *Statistics and Computing* 27 (5): 1413–32.
-<https://doi.org/10.1007/s11222-016-9696-9>.
+<https://doi.org/10.1007/s11222-016-9696-4>.
 
 Veroniki, Areti Angeliki, Georgios Seitidis, Sofia Tsokani, et al. 2026.
 “Analysing Component Network Meta-Analysis in Disconnected Networks:

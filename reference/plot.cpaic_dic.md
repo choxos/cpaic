@@ -1,10 +1,8 @@
 # Deviance and dev-dev plots
 
-Ported from
-[`multinma::plot.nma_dic()`](https://dmphillippo.github.io/multinma/reference/plot.nma_dic.html)
-(Phillippo et al. 2020). With a single
-[`dic()`](https://choxos.github.io/cpaic/reference/dic.md) object the
-plot shows each data point's contribution to the posterior mean
+Ported from multinma's `plot.nma_dic()` (Phillippo et al. 2020). With a
+single [`dic()`](https://choxos.github.io/cpaic/reference/dic.md) object
+the plot shows each data point's contribution to the posterior mean
 deviance; points contributing much more than the rest are fitted poorly.
 With two [`dic()`](https://choxos.github.io/cpaic/reference/dic.md)
 objects it draws the **dev-dev plot**: points below the line of equality

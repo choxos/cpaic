@@ -1,11 +1,9 @@
 # MCMC diagnostics for a cML-NMR fit
 
-Ported from
-[`multinma::plot.stan_nma()`](https://dmphillippo.github.io/multinma/reference/summary.stan_nma.html)
-(Phillippo et al. 2020), which hands the posterior draws to `bayesplot`.
-Diverging transitions, a high maximum `Rhat`, or a low effective sample
-size all mean the posterior has not been explored, and nothing
-downstream of it is trustworthy.
+Ported from multinma's `plot.stan_nma()` (Phillippo et al. 2020), which
+hands the posterior draws to `bayesplot`. Diverging transitions, a high
+maximum `Rhat`, or a low effective sample size all mean the posterior
+has not been explored, and nothing downstream of it is trustworthy.
 
 ## Usage
 

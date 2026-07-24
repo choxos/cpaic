@@ -3,11 +3,10 @@
 The full rank distribution behind
 [`cpaic_ranks()`](https://choxos.github.io/cpaic/reference/cpaic_ranks.md):
 the posterior probability that each treatment (or component) takes each
-rank, **in a named target population**. Ported from
-[`multinma::posterior_rank_probs()`](https://dmphillippo.github.io/multinma/reference/posterior_ranks.html)
-(Phillippo et al. 2020) and extended, because under population
-adjustment the hierarchy is a function of the target: the component
-effects are `beta + Gamma x`, so the ranks move with `x`.
+rank, **in a named target population**. Ported from multinma's
+`posterior_rank_probs()` (Phillippo et al. 2020) and extended, because
+under population adjustment the hierarchy is a function of the target:
+the component effects are `beta + Gamma x`, so the ranks move with `x`.
 
 ## Usage
 

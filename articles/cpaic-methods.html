@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">cpaic</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -182,8 +182,8 @@ is the population-adjusted contrast at the target (the interaction term
 vanishes at
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi><mo>=</mo><msub><mover><mi>x</mi><mo accent="true">‾</mo></mover><mtext mathvariant="normal">target</mtext></msub></mrow><annotation encoding="application/x-tex">x = \bar x_{\text{target}}</annotation></semantics></math>).
 This is the anchored generalization of regression-based standardization;
-it is implemented natively because <code><a href="https://choxos.github.io/mlumr/reference/stc.html" class="external-link">mlumr::stc()</a></code> targets the
-unanchored two-trial case.</p>
+it is implemented natively because the <code>stc()</code> function in
+mlumr targets the unanchored two-trial case.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">net_ipd</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cpaic_network.html">cpaic_network</a></span><span class="op">(</span><span class="va">cpaic_bin_agd</span>, ipd <span class="op">=</span> <span class="va">cpaic_bin_ipd</span>, sm <span class="op">=</span> <span class="st">"OR"</span>,</span>
 <span>                         family <span class="op">=</span> <span class="st">"binomial"</span>, ipd_covariates <span class="op">=</span> <span class="st">"x1"</span>,</span>

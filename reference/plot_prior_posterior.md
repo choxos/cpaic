@@ -1,11 +1,10 @@
 # Prior versus posterior
 
-Ported from
-[`multinma::plot_prior_posterior()`](https://dmphillippo.github.io/multinma/reference/plot_prior_posterior.html)
-(Phillippo et al. 2020). Posteriors are drawn as histograms, priors as
-lines. Where a posterior simply reproduces its prior, the data carry no
-information about that parameter, and any quantity that leans on it is
-prior-driven rather than estimated. This is the visual counterpart of
+Ported from multinma's `plot_prior_posterior()` (Phillippo et al. 2020).
+Posteriors are drawn as histograms, priors as lines. Where a posterior
+simply reproduces its prior, the data carry no information about that
+parameter, and any quantity that leans on it is prior-driven rather than
+estimated. This is the visual counterpart of
 [`prior_sensitivity()`](https://choxos.github.io/cpaic/reference/prior_sensitivity.md).
 
 ## Usage

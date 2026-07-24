@@ -1,11 +1,10 @@
 # Numerical integration error against the number of integration points
 
-Ported from
-[`multinma::plot_integration_error()`](https://dmphillippo.github.io/multinma/reference/plot_integration_error.html)
-(Phillippo et al. 2020). Aggregate arms are fitted by integrating the
-individual-level model over the study's covariate distribution with
-Sobol' quasi-Monte-Carlo points. The integration error at `N` points is
-the estimate using the first `N` points minus the estimate using all of
+Ported from multinma's `plot_integration_error()` (Phillippo et al.
+2020). Aggregate arms are fitted by integrating the individual-level
+model over the study's covariate distribution with Sobol'
+quasi-Monte-Carlo points. The integration error at `N` points is the
+estimate using the first `N` points minus the estimate using all of
 them; the typical convergence rate of QMC integration, `1/N`, is drawn
 for reference. If the error has not settled well inside the `1/N`
 envelope by `n_int`, refit with more integration points.
@@ -61,9 +60,9 @@ not an approximation, but it is not free: subsample the posterior with
 Not available for `family = "survival"`, where the aggregate
 contribution is a `log_sum_exp` over integration points of the
 likelihood rather than an integrated mean outcome; multinma declines
-this plot for survival models too. Nor for a Gaussian model fitted with
-all-normal margins, which is *exact* at the covariate means and uses a
-single integration point.
+this plot for survival models too. Nor for a Gaussian model, which under
+the identity link is *exact* at the covariate means and is fitted with a
+single integration point whatever the margins are.
 
 ## See also
 

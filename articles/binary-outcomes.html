@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">cpaic</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -624,6 +624,8 @@ says so, along with the components that could bridge it:</p>
 <span><span class="co">#&gt;     [1] 3 treatments</span></span>
 <span><span class="co">#&gt;     [2] 3 treatments</span></span>
 <span><span class="co">#&gt;   Bridging components: CBT, NRT</span></span>
+<span><span class="co">#&gt;     (components that OCCUR in more than one sub-network; occurrence is</span></span>
+<span><span class="co">#&gt;      not identifiability, homogeneity, or influence for any contrast.)</span></span>
 <span><span class="co">#&gt;   Component design:  rank(X) = 4 / 4 components -&gt; all component effects identified</span></span>
 <span><span class="co">#&gt;   Estimable effects: 5 / 5 vs UC</span></span></code></pre></div>
 <p><code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> draws the same verdict. Each sub-network is laid
@@ -954,14 +956,15 @@ not forced to fit every trial exactly.</p>
 <span><span class="co">#&gt; cpaic: component-additive ML-NMR (Bayesian, binomial)</span></span>
 <span><span class="co">#&gt;   Treatment effects: random (noncentered)</span></span>
 <span><span class="co">#&gt;   Effect modifiers: cpd [normal]</span></span>
+<span><span class="co">#&gt;   Provenance: cpaic 0.1.0, CmdStan 2.39.0, Stan md5 0a55fe50, seed 1</span></span>
 <span><span class="co">#&gt;   Component effects below are at the covariate origin (x = 0).</span></span>
 <span><span class="co">#&gt;   For a target population use relative_effects(fit, newdata = ...).</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt;  component estimate    se  lower upper</span></span>
-<span><span class="co">#&gt;        BUP    0.377 0.887 -1.533 1.950</span></span>
-<span><span class="co">#&gt;        CBT    0.484 0.121  0.213 0.699</span></span>
-<span><span class="co">#&gt;        NRT    0.553 0.240  0.008 0.954</span></span>
-<span><span class="co">#&gt;        VAR    0.980 0.304  0.282 1.502</span></span></code></pre></div>
+<span><span class="co">#&gt;  component estimate    se lower upper</span></span>
+<span><span class="co">#&gt;        BUP       NA    NA    NA    NA</span></span>
+<span><span class="co">#&gt;        CBT    0.484 0.121 0.213 0.699</span></span>
+<span><span class="co">#&gt;        NRT       NA    NA    NA    NA</span></span>
+<span><span class="co">#&gt;        VAR       NA    NA    NA    NA</span></span></code></pre></div>
 <p>Note what the print method insists on: those component effects are at
 the covariate <strong>origin</strong>, not in any population you care
 about.</p>
@@ -996,8 +999,20 @@ exactly how much:</p>
 <td align="right">2.5</td>
 </tr>
 <tr class="even">
+<td align="left">aux</td>
+<td align="left">half-normal</td>
+<td align="right">0</td>
+<td align="right">1.0</td>
+</tr>
+<tr class="odd">
 <td align="left">beta</td>
 <td align="left">normal</td>
+<td align="right">0</td>
+<td align="right">2.5</td>
+</tr>
+<tr class="even">
+<td align="left">sigma</td>
+<td align="left">half-normal</td>
 <td align="right">0</td>
 <td align="right">2.5</td>
 </tr>
@@ -1215,6 +1230,13 @@ the nominal <code>-0.7</code> we simulated from.</p>
 <span><span class="co">#&gt;   is only a design-based screen for them (aggregate identification, or a</span></span>
 <span><span class="co">#&gt;   survival baseline) and can be optimistic. Check them with prior_sensitivity().</span></span>
 <span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt;   Rows with identified_by = "aggregate" get their component x effect-modifier</span></span>
+<span><span class="co">#&gt;   information from BETWEEN-study covariate gradients, not from within-study</span></span>
+<span><span class="co">#&gt;   effect modification. The model imposes that the two are equal; covariate</span></span>
+<span><span class="co">#&gt;   means are not randomized across studies, so that is an ecological</span></span>
+<span><span class="co">#&gt;   association. See the "Within-study versus ecological effect modification"</span></span>
+<span><span class="co">#&gt;   section of ?cmlnmr.</span></span>
+<span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt;   Rows marked "not identified" carry no first-order information; a number</span></span>
 <span><span class="co">#&gt;   reported for them would be the prior. relative_effects() returns NA there.</span></span></code></pre></div>
 <p>That is the whole of what an aggregate two-arm trial can tell you:
@@ -1331,14 +1353,15 @@ against <code>NRT</code>:</p>
 <div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">fit</span>, reference <span class="op">=</span> <span class="st">"NRT"</span>, newdata <span class="op">=</span> <span class="va">target</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Relative effects (OR, back-transformed)</span></span>
-<span><span class="co">#&gt;   Target population: cpd = 0.3</span></span>
-<span><span class="co">#&gt;  treatment comparator estimate    se lower upper pr_gt0</span></span>
-<span><span class="co">#&gt;        CBT        NRT       NA    NA    NA    NA     NA</span></span>
-<span><span class="co">#&gt;    CBT+BUP        NRT       NA    NA    NA    NA     NA</span></span>
-<span><span class="co">#&gt;    CBT+NRT        NRT    1.514 0.131 1.131 1.915  0.992</span></span>
-<span><span class="co">#&gt;    CBT+VAR        NRT    2.820 0.193 1.860 3.956  1.000</span></span>
-<span><span class="co">#&gt;         UC        NRT       NA    NA    NA    NA     NA</span></span>
-<span><span class="co">#&gt;   NA = not uniquely estimable from this component design (see estimable_effects()).</span></span></code></pre></div>
+<span><span class="co">#&gt;   Conditional effect at covariate profile: cpd = 0.3</span></span>
+<span><span class="co">#&gt;  treatment comparator estimate    se lower upper pr_gt0          basis</span></span>
+<span><span class="co">#&gt;        CBT        NRT       NA    NA    NA    NA     NA not identified</span></span>
+<span><span class="co">#&gt;    CBT+BUP        NRT       NA    NA    NA    NA     NA not identified</span></span>
+<span><span class="co">#&gt;    CBT+NRT        NRT    1.514 0.131 1.131 1.915  0.992          exact</span></span>
+<span><span class="co">#&gt;    CBT+VAR        NRT    2.820 0.193 1.860 3.956  1.000          exact</span></span>
+<span><span class="co">#&gt;         UC        NRT       NA    NA    NA    NA     NA not identified</span></span>
+<span><span class="co">#&gt;   NA = not uniquely estimable from this component design (see estimable_effects()).</span></span>
+<span><span class="co">#&gt;   `se` is on the link (log) scale; the interval is back-transformed.</span></span></code></pre></div>
 <div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/forest.html">forest</a></span><span class="op">(</span><span class="va">fit</span>, reference <span class="op">=</span> <span class="st">"NRT"</span>, newdata <span class="op">=</span> <span class="va">target</span><span class="op">)</span></span></code></pre></div>
 <div class="figure" style="text-align: center">
@@ -1357,14 +1380,15 @@ Same network, same target, same question.</p>
 <div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">fit</span>, reference <span class="op">=</span> <span class="st">"NRT"</span>, newdata <span class="op">=</span> <span class="va">target_light</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Relative effects (OR, back-transformed)</span></span>
-<span><span class="co">#&gt;   Target population: cpd = -0.4</span></span>
-<span><span class="co">#&gt;  treatment comparator estimate    se lower upper pr_gt0</span></span>
-<span><span class="co">#&gt;        CBT        NRT       NA    NA    NA    NA     NA</span></span>
-<span><span class="co">#&gt;    CBT+BUP        NRT       NA    NA    NA    NA     NA</span></span>
-<span><span class="co">#&gt;    CBT+NRT        NRT    1.818 0.137 1.324 2.298  0.997</span></span>
-<span><span class="co">#&gt;    CBT+VAR        NRT    2.220 0.231 1.359 3.323  0.997</span></span>
-<span><span class="co">#&gt;         UC        NRT       NA    NA    NA    NA     NA</span></span>
-<span><span class="co">#&gt;   NA = not uniquely estimable from this component design (see estimable_effects()).</span></span></code></pre></div>
+<span><span class="co">#&gt;   Conditional effect at covariate profile: cpd = -0.4</span></span>
+<span><span class="co">#&gt;  treatment comparator estimate    se lower upper pr_gt0          basis</span></span>
+<span><span class="co">#&gt;        CBT        NRT       NA    NA    NA    NA     NA not identified</span></span>
+<span><span class="co">#&gt;    CBT+BUP        NRT       NA    NA    NA    NA     NA not identified</span></span>
+<span><span class="co">#&gt;    CBT+NRT        NRT    1.818 0.137 1.324 2.298  0.997          exact</span></span>
+<span><span class="co">#&gt;    CBT+VAR        NRT    2.220 0.231 1.359 3.323  0.997          exact</span></span>
+<span><span class="co">#&gt;         UC        NRT       NA    NA    NA    NA     NA not identified</span></span>
+<span><span class="co">#&gt;   NA = not uniquely estimable from this component design (see estimable_effects()).</span></span>
+<span><span class="co">#&gt;   `se` is on the link (log) scale; the interval is back-transformed.</span></span></code></pre></div>
 <p>Now put every method next to the truth we planted. The truth is the
 conditional log odds ratio
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>C</mi><mi>t</mi></msub><mo>−</mo><msub><mi>C</mi><mi>u</mi></msub><msup><mo stretchy="false" form="postfix">)</mo><mi>⊤</mi></msup><mo stretchy="false" form="prefix">(</mo><mi>β</mi><mo>+</mo><mi mathvariant="normal">Γ</mi><mi>x</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(C_t - C_u)^\top(\beta + \Gamma x)</annotation></semantics></math>,
@@ -1596,7 +1620,7 @@ left, from which no hierarchy can be formed:</p>
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch</a></span><span class="op">(</span><span class="fu"><a href="../reference/rank_probs.html">rank_probs</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="va">target</span><span class="op">)</span>,</span>
 <span>         error <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">e</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"rank_probs() declined:\n "</span>, <span class="fu"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">conditionMessage</a></span><span class="op">(</span><span class="va">e</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; rank_probs() declined:</span></span>
-<span><span class="co">#&gt;   Fewer than two elements are estimable in this target population, so no hierarchy can be formed. See estimable_effects_at().</span></span></code></pre></div>
+<span><span class="co">#&gt;   Fewer than two elements are estimable (excluding elements identified only by aggregate arms) in this target population, so no hierarchy can be formed. See estimable_effects_at().</span></span></code></pre></div>
 <p><strong>An error is the correct output here.</strong> A rankogram of
 this network at this target population would have been a picture of the
 prior, drawn with the same confident bars as a picture of the data, and
@@ -2098,7 +2122,7 @@ Fit.”</span> <em>Journal of the Royal Statistical Society: Series B</em>
 Vehtari, Aki, Andrew Gelman, and Jonah Gabry. 2017. <span>“Practical
 <span>Bayesian</span> Model Evaluation Using Leave-One-Out
 Cross-Validation and <span>WAIC</span>.”</span> <em>Statistics and
-Computing</em> 27 (5): 1413–32. <a href="https://doi.org/10.1007/s11222-016-9696-9" class="external-link">https://doi.org/10.1007/s11222-016-9696-9</a>.
+Computing</em> 27 (5): 1413–32. <a href="https://doi.org/10.1007/s11222-016-9696-4" class="external-link">https://doi.org/10.1007/s11222-016-9696-4</a>.
 </div>
 <div id="ref-Veroniki2026" class="csl-entry">
 <span class="nocase">Veroniki, Areti Angeliki, Georgios Seitidis, Sofia

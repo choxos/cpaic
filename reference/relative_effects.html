@@ -13,7 +13,7 @@ backtransf = FALSE."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">cpaic</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -126,6 +126,15 @@ contrast vector lies outside the row space of <code>X = B C</code>) are returned
 interactions, so relative effects are <strong>population-specific</strong>:
 <code>theta_t(x) = C_t' (beta + gamma x)</code>. You must name the target population
 through <code>newdata</code>; there is no population-free relative effect.</p>
+<p>Two things this returns are narrower than they may look, both documented in
+full under <code><a href="cmlnmr.html">cmlnmr()</a></code>. The value is the <strong>conditional</strong> contrast at the
+covariate profile <code>x</code>, not the marginal effect standardized over a population
+with a distribution of covariates; on a non-collapsible scale (odds ratio,
+hazard ratio) those differ, so <code>newdata = &lt;a study's covariate means&gt;</code> does not
+give that study's population-average effect. And where the interactions are
+informed only by aggregate arms, <code>x</code> is being applied to an ecological
+gradient rather than to within-study effect modification; see
+<code><a href="estimable_effects_at.html">estimable_effects_at()</a></code>, whose <code>identified_by</code> column separates the two.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

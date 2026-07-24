@@ -15,7 +15,7 @@ component may rank first in one population and last in another."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">cpaic</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -107,7 +107,15 @@ mortality). Default <code>FALSE</code> (a larger effect is preferred).</p></dd>
 effect is identified only by aggregate arms (a first-order screen that can
 be optimistic under a nonlinear link) are excluded from the hierarchy and
 reported in the <code>dropped_screen</code> attribute. Set <code>TRUE</code> to rank them as an
-explicitly exploratory hierarchy.</p></dd>
+explicitly exploratory hierarchy.</p>
+<p>The test here is whether the individual patient data identify the element,
+which is not identical to <code>basis == "exact"</code> in <code><a href="estimable_effects_at.html">estimable_effects_at()</a></code>.
+That column additionally excludes <strong>survival</strong> from <code>"exact"</code>, because a
+flexible baseline hazard adds support-dependent nuisance parameters the
+covariate-support argument does not see. Survival elements identified by IPD
+are therefore still ranked by default; dropping every survival element from
+every survival hierarchy would leave nothing to rank. Read a survival
+hierarchy alongside <code><a href="estimable_effects_at.html">estimable_effects_at()</a></code> rather than on its own.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>

@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">cpaic</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -246,7 +246,7 @@ at zero), and interval-censored rows take their lower endpoint from
 <p>An aggregate survival arm must be supplied to <code><a href="../reference/cmlnmr.html">cmlnmr()</a></code>
 as <strong>reconstructed pseudo-individual rows</strong>: one row per
 (pseudo-)patient with a <code>.time</code> and a <code>.y</code> status,
-exactly the object <code><a href="https://dmphillippo.github.io/multinma/reference/set_agd_surv.html" class="external-link">multinma::set_agd_surv()</a></code> expects, and
+exactly the object multinma’s <code>set_agd_surv()</code> expects, and
 exactly what the Guyot algorithm produces from a digitized Kaplan-Meier
 curve <span class="citation">(<a href="#ref-guyot2012">Guyot et al.
 2012</a>)</span>. Event counts plus person-time will not do, and cpaic
@@ -619,6 +619,8 @@ explanations. Nothing below leans on them.)</p>
 <span><span class="co">#&gt;     [1] 3 treatments</span></span>
 <span><span class="co">#&gt;     [2] 3 treatments</span></span>
 <span><span class="co">#&gt;   Bridging components: B, M</span></span>
+<span><span class="co">#&gt;     (components that OCCUR in more than one sub-network; occurrence is</span></span>
+<span><span class="co">#&gt;      not identifiability, homogeneity, or influence for any contrast.)</span></span>
 <span><span class="co">#&gt;   Component design:  rank(X) = 4 / 4 components -&gt; all component effects identified</span></span>
 <span><span class="co">#&gt;   Estimable effects: 5 / 5 vs Std</span></span></code></pre></div>
 <p>The network plot puts both halves of the problem in one picture.</p>
@@ -692,6 +694,7 @@ al. 2010</a>; <a href="#ref-phillippo2018">Phillippo et al.
 <span><span class="co">#&gt;      B+M+S      Std+B    0.621 0.219 0.404 0.953 -2.180 0.029</span></span>
 <span><span class="co">#&gt;        Std      Std+B    1.195 0.269 0.705 2.023  0.662 0.508</span></span>
 <span><span class="co">#&gt;      Std+M      Std+B    0.977 0.318 0.524 1.821 -0.072 0.943</span></span>
+<span><span class="co">#&gt;   `se` is on the link (log) scale; the interval is back-transformed.</span></span>
 <span><span class="fu"><a href="../reference/relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">maic_ckd</span>, reference <span class="op">=</span> <span class="st">"Std+B"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Relative effects (HR, back-transformed)</span></span>
 <span><span class="co">#&gt;  treatment comparator estimate    se lower upper      z     p</span></span>
@@ -700,6 +703,7 @@ al. 2010</a>; <a href="#ref-phillippo2018">Phillippo et al.
 <span><span class="co">#&gt;      B+M+S      Std+B    0.703 0.183 0.490 1.007 -1.924 0.054</span></span>
 <span><span class="co">#&gt;        Std      Std+B    1.195 0.249 0.733 1.946  0.714 0.475</span></span>
 <span><span class="co">#&gt;      Std+M      Std+B    1.044 0.285 0.597 1.823  0.150 0.881</span></span>
+<span><span class="co">#&gt;   `se` is on the link (log) scale; the interval is back-transformed.</span></span>
 <span><span class="fu"><a href="../reference/effective_sample_size.html">effective_sample_size</a></span><span class="op">(</span><span class="va">maic_ckd</span><span class="op">)</span></span>
 <span><span class="co">#&gt;     HF-2     HF-3     HF-4 </span></span>
 <span><span class="co">#&gt; 156.3300 231.1447 294.8349</span></span></code></pre></div>
@@ -758,12 +762,13 @@ rows plus arm-level covariate summaries. Nothing else.</p>
 <span><span class="co">#&gt; cpaic: component-additive ML-NMR (Bayesian, survival)</span></span>
 <span><span class="co">#&gt;   Treatment effects: fixed</span></span>
 <span><span class="co">#&gt;   Effect modifiers: egfr_c [normal]</span></span>
+<span><span class="co">#&gt;   Provenance: cpaic 0.1.0, CmdStan 2.39.0, Stan md5 b49f6b72, seed 2026</span></span>
 <span><span class="co">#&gt;   Component effects below are at the covariate origin (x = 0).</span></span>
 <span><span class="co">#&gt;   For a target population use relative_effects(fit, newdata = ...).</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt;  component estimate    se  lower  upper</span></span>
-<span><span class="co">#&gt;          A   -0.170 0.394 -1.053  0.538</span></span>
-<span><span class="co">#&gt;          B   -0.299 0.262 -0.816  0.206</span></span>
+<span><span class="co">#&gt;          A       NA    NA     NA     NA</span></span>
+<span><span class="co">#&gt;          B       NA    NA     NA     NA</span></span>
 <span><span class="co">#&gt;          M   -0.218 0.131 -0.478  0.032</span></span>
 <span><span class="co">#&gt;          S   -0.347 0.129 -0.596 -0.092</span></span></code></pre></div>
 <div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
@@ -773,52 +778,52 @@ rows plus arm-level covariate summaries. Nothing else.</p>
 <span>                 chains <span class="op">=</span> <span class="fl">4</span>, iter_warmup <span class="op">=</span> <span class="fl">400</span>, iter_sampling <span class="op">=</span> <span class="fl">400</span>,</span>
 <span>                 seed <span class="op">=</span> <span class="fl">2026</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:</span></span>
-<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_b5f2792f65_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/RtmpIoTyq5/model-20663f38bdd4.stan', line 143, column 2 to column 48)</span></span>
+<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)</span></span>
 <span><span class="co">#&gt; Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,</span></span>
 <span><span class="co">#&gt; Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.</span></span>
 <span><span class="co">#&gt; Chain 4</span></span>
 <span><span class="co">#&gt; Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:</span></span>
-<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_b5f2792f65_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/RtmpIoTyq5/model-20663f38bdd4.stan', line 143, column 2 to column 48)</span></span>
+<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)</span></span>
 <span><span class="co">#&gt; Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,</span></span>
 <span><span class="co">#&gt; Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.</span></span>
 <span><span class="co">#&gt; Chain 4</span></span>
 <span><span class="co">#&gt; Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:</span></span>
-<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_b5f2792f65_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/RtmpIoTyq5/model-20663f38bdd4.stan', line 143, column 2 to column 48)</span></span>
+<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)</span></span>
 <span><span class="co">#&gt; Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,</span></span>
 <span><span class="co">#&gt; Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.</span></span>
 <span><span class="co">#&gt; Chain 4</span></span>
 <span><span class="co">#&gt; Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:</span></span>
-<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_b5f2792f65_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/RtmpIoTyq5/model-20663f38bdd4.stan', line 143, column 2 to column 48)</span></span>
+<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)</span></span>
 <span><span class="co">#&gt; Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,</span></span>
 <span><span class="co">#&gt; Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.</span></span>
 <span><span class="co">#&gt; Chain 4</span></span>
 <span><span class="co">#&gt; Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:</span></span>
-<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_b5f2792f65_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/RtmpIoTyq5/model-20663f38bdd4.stan', line 143, column 2 to column 48)</span></span>
+<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)</span></span>
 <span><span class="co">#&gt; Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,</span></span>
 <span><span class="co">#&gt; Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.</span></span>
 <span><span class="co">#&gt; Chain 4</span></span>
 <span><span class="co">#&gt; Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:</span></span>
-<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_b5f2792f65_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/RtmpIoTyq5/model-20663f38bdd4.stan', line 143, column 2 to column 48)</span></span>
+<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)</span></span>
 <span><span class="co">#&gt; Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,</span></span>
 <span><span class="co">#&gt; Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.</span></span>
 <span><span class="co">#&gt; Chain 4</span></span>
 <span><span class="co">#&gt; Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:</span></span>
-<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_b5f2792f65_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/RtmpIoTyq5/model-20663f38bdd4.stan', line 143, column 2 to column 48)</span></span>
+<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)</span></span>
 <span><span class="co">#&gt; Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,</span></span>
 <span><span class="co">#&gt; Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.</span></span>
 <span><span class="co">#&gt; Chain 4</span></span>
 <span><span class="co">#&gt; Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:</span></span>
-<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_b5f2792f65_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/RtmpIoTyq5/model-20663f38bdd4.stan', line 143, column 2 to column 48)</span></span>
+<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)</span></span>
 <span><span class="co">#&gt; Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,</span></span>
 <span><span class="co">#&gt; Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.</span></span>
 <span><span class="co">#&gt; Chain 4</span></span>
 <span><span class="co">#&gt; Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:</span></span>
-<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_b5f2792f65_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/RtmpIoTyq5/model-20663f38bdd4.stan', line 143, column 2 to column 48)</span></span>
+<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)</span></span>
 <span><span class="co">#&gt; Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,</span></span>
 <span><span class="co">#&gt; Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.</span></span>
 <span><span class="co">#&gt; Chain 4</span></span>
 <span><span class="co">#&gt; Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:</span></span>
-<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_b5f2792f65_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/RtmpIoTyq5/model-20663f38bdd4.stan', line 143, column 2 to column 48)</span></span>
+<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)</span></span>
 <span><span class="co">#&gt; Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,</span></span>
 <span><span class="co">#&gt; Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.</span></span>
 <span><span class="co">#&gt; Chain 4</span></span></code></pre></div>
@@ -844,47 +849,47 @@ no single integrated quantity whose error could be plotted.</p>
 <span>                 chains <span class="op">=</span> <span class="fl">4</span>, iter_warmup <span class="op">=</span> <span class="fl">400</span>, iter_sampling <span class="op">=</span> <span class="fl">400</span>,</span>
 <span>                 seed <span class="op">=</span> <span class="fl">2026</span>, adapt_delta <span class="op">=</span> <span class="fl">0.95</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:</span></span>
-<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_b5f2792f65_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/RtmpIoTyq5/model-20663f38bdd4.stan', line 143, column 2 to column 48)</span></span>
+<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)</span></span>
 <span><span class="co">#&gt; Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,</span></span>
 <span><span class="co">#&gt; Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.</span></span>
 <span><span class="co">#&gt; Chain 4</span></span>
 <span><span class="co">#&gt; Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:</span></span>
-<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_b5f2792f65_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/RtmpIoTyq5/model-20663f38bdd4.stan', line 143, column 2 to column 48)</span></span>
+<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)</span></span>
 <span><span class="co">#&gt; Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,</span></span>
 <span><span class="co">#&gt; Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.</span></span>
 <span><span class="co">#&gt; Chain 4</span></span>
 <span><span class="co">#&gt; Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:</span></span>
-<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_b5f2792f65_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/RtmpIoTyq5/model-20663f38bdd4.stan', line 143, column 2 to column 48)</span></span>
+<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)</span></span>
 <span><span class="co">#&gt; Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,</span></span>
 <span><span class="co">#&gt; Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.</span></span>
 <span><span class="co">#&gt; Chain 4</span></span>
 <span><span class="co">#&gt; Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:</span></span>
-<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_b5f2792f65_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/RtmpIoTyq5/model-20663f38bdd4.stan', line 143, column 2 to column 48)</span></span>
+<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)</span></span>
 <span><span class="co">#&gt; Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,</span></span>
 <span><span class="co">#&gt; Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.</span></span>
 <span><span class="co">#&gt; Chain 4</span></span>
 <span><span class="co">#&gt; Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:</span></span>
-<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_b5f2792f65_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/RtmpIoTyq5/model-20663f38bdd4.stan', line 143, column 2 to column 48)</span></span>
+<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)</span></span>
 <span><span class="co">#&gt; Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,</span></span>
 <span><span class="co">#&gt; Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.</span></span>
 <span><span class="co">#&gt; Chain 4</span></span>
 <span><span class="co">#&gt; Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:</span></span>
-<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_b5f2792f65_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/RtmpIoTyq5/model-20663f38bdd4.stan', line 143, column 2 to column 48)</span></span>
+<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)</span></span>
 <span><span class="co">#&gt; Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,</span></span>
 <span><span class="co">#&gt; Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.</span></span>
 <span><span class="co">#&gt; Chain 4</span></span>
 <span><span class="co">#&gt; Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:</span></span>
-<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_b5f2792f65_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/RtmpIoTyq5/model-20663f38bdd4.stan', line 143, column 2 to column 48)</span></span>
+<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)</span></span>
 <span><span class="co">#&gt; Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,</span></span>
 <span><span class="co">#&gt; Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.</span></span>
 <span><span class="co">#&gt; Chain 4</span></span>
 <span><span class="co">#&gt; Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:</span></span>
-<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_b5f2792f65_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/RtmpIoTyq5/model-20663f38bdd4.stan', line 143, column 2 to column 48)</span></span>
+<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)</span></span>
 <span><span class="co">#&gt; Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,</span></span>
 <span><span class="co">#&gt; Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.</span></span>
 <span><span class="co">#&gt; Chain 4</span></span>
 <span><span class="co">#&gt; Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:</span></span>
-<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_b5f2792f65_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/RtmpIoTyq5/model-20663f38bdd4.stan', line 143, column 2 to column 48)</span></span>
+<span><span class="co">#&gt; Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)</span></span>
 <span><span class="co">#&gt; Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,</span></span>
 <span><span class="co">#&gt; Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.</span></span>
 <span><span class="co">#&gt; Chain 4</span></span>
@@ -907,13 +912,21 @@ estimate. We report the M-spline fixed-effect model as primary.</p>
 </h3>
 <div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="va">fit_ms</span><span class="op">$</span><span class="va">priors</span><span class="op">)</span></span>
-<span><span class="co">#&gt; List of 5</span></span>
+<span><span class="co">#&gt; List of 7</span></span>
 <span><span class="co">#&gt;  $ intercept :List of 3</span></span>
 <span><span class="co">#&gt;   ..$ distribution: chr "normal"</span></span>
 <span><span class="co">#&gt;   ..$ location    : num 0</span></span>
 <span><span class="co">#&gt;   ..$ scale       : num 2.5</span></span>
+<span><span class="co">#&gt;  $ aux       :List of 3</span></span>
+<span><span class="co">#&gt;   ..$ distribution: chr "half-normal"</span></span>
+<span><span class="co">#&gt;   ..$ location    : num 0</span></span>
+<span><span class="co">#&gt;   ..$ scale       : num 1</span></span>
 <span><span class="co">#&gt;  $ beta      :List of 3</span></span>
 <span><span class="co">#&gt;   ..$ distribution: chr "normal"</span></span>
+<span><span class="co">#&gt;   ..$ location    : num 0</span></span>
+<span><span class="co">#&gt;   ..$ scale       : num 2.5</span></span>
+<span><span class="co">#&gt;  $ sigma     :List of 3</span></span>
+<span><span class="co">#&gt;   ..$ distribution: chr "half-normal"</span></span>
 <span><span class="co">#&gt;   ..$ location    : num 0</span></span>
 <span><span class="co">#&gt;   ..$ scale       : num 2.5</span></span>
 <span><span class="co">#&gt;  $ regression:List of 3</span></span>
@@ -971,10 +984,14 @@ are about exactly that gap.</p>
 <span>  piecewise <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/unlist.html" class="external-link">unlist</a></span><span class="op">(</span><span class="va">fit_pw</span><span class="op">$</span><span class="va">diagnostics</span><span class="op">)</span>,</span>
 <span>  mspline   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/unlist.html" class="external-link">unlist</a></span><span class="op">(</span><span class="va">fit_ms</span><span class="op">$</span><span class="va">diagnostics</span><span class="op">)</span>,</span>
 <span>  random    <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/unlist.html" class="external-link">unlist</a></span><span class="op">(</span><span class="va">fit_re</span><span class="op">$</span><span class="va">diagnostics</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt;           divergences max_treedepth max_rhat</span></span>
-<span><span class="co">#&gt; piecewise           0             0 1.005617</span></span>
-<span><span class="co">#&gt; mspline             0             0 1.014945</span></span>
-<span><span class="co">#&gt; random              2             0 1.010460</span></span></code></pre></div>
+<span><span class="co">#&gt;           divergences max_treedepth max_rhat  min_ess    ebfmi1    ebfmi2    ebfmi3</span></span>
+<span><span class="co">#&gt; piecewise           0             0 1.005617 593.0960 0.8770191 0.8330011 0.8036431</span></span>
+<span><span class="co">#&gt; mspline             0             0 1.014945 456.7966 0.8740325 0.8097030 0.9213980</span></span>
+<span><span class="co">#&gt; random              2             0 1.010460 272.8671 0.9258028 0.7849794 0.8436011</span></span>
+<span><span class="co">#&gt;              ebfmi4</span></span>
+<span><span class="co">#&gt; piecewise 0.9332426</span></span>
+<span><span class="co">#&gt; mspline   0.9845668</span></span>
+<span><span class="co">#&gt; random    0.8030072</span></span></code></pre></div>
 <p>The summary is not a substitute for looking at the chains.</p>
 <div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">fit_ms</span>, type <span class="op">=</span> <span class="st">"trace"</span><span class="op">)</span></span></code></pre></div>
@@ -1086,14 +1103,18 @@ adjustment needs the interactions too.</p>
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">fit_ms</span>, reference <span class="op">=</span> <span class="st">"Std+B"</span>,</span>
 <span>                 newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>egfr_c <span class="op">=</span> <span class="op">-</span><span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Relative effects (HR, back-transformed)</span></span>
-<span><span class="co">#&gt;   Target population: egfr_c = -1</span></span>
-<span><span class="co">#&gt;  treatment comparator estimate    se lower upper pr_gt0</span></span>
-<span><span class="co">#&gt;        B+M      Std+B    0.737 0.169  0.53 1.020  0.031</span></span>
-<span><span class="co">#&gt;      B+M+A      Std+B       NA    NA    NA    NA     NA</span></span>
-<span><span class="co">#&gt;      B+M+S      Std+B    0.555 0.209  0.36 0.826  0.003</span></span>
-<span><span class="co">#&gt;        Std      Std+B       NA    NA    NA    NA     NA</span></span>
-<span><span class="co">#&gt;      Std+M      Std+B       NA    NA    NA    NA     NA</span></span>
-<span><span class="co">#&gt;   NA = not uniquely estimable from this component design (see estimable_effects()).</span></span></code></pre></div>
+<span><span class="co">#&gt;   Conditional effect at covariate profile: egfr_c = -1</span></span>
+<span><span class="co">#&gt;  treatment comparator estimate    se lower upper pr_gt0              basis</span></span>
+<span><span class="co">#&gt;        B+M      Std+B    0.737 0.169  0.53 1.020  0.031 first-order screen</span></span>
+<span><span class="co">#&gt;      B+M+A      Std+B       NA    NA    NA    NA     NA     not identified</span></span>
+<span><span class="co">#&gt;      B+M+S      Std+B    0.555 0.209  0.36 0.826  0.003 first-order screen</span></span>
+<span><span class="co">#&gt;        Std      Std+B       NA    NA    NA    NA     NA     not identified</span></span>
+<span><span class="co">#&gt;      Std+M      Std+B       NA    NA    NA    NA     NA     not identified</span></span>
+<span><span class="co">#&gt;   NA = not uniquely estimable from this component design (see estimable_effects()).</span></span>
+<span><span class="co">#&gt;   `se` is on the link (log) scale; the interval is back-transformed.</span></span>
+<span><span class="co">#&gt;   basis "first-order screen" = estimable by the row-space criterion but leaning</span></span>
+<span><span class="co">#&gt;   on aggregate arms or a survival baseline, so it can be optimistic; check</span></span>
+<span><span class="co">#&gt;   with prior_sensitivity() / estimable_effects_at().</span></span></code></pre></div>
 <p>Estimability is a function of the target population, not a property
 of the network, so it is worth mapping rather than checking at a single
 point.</p>
@@ -1385,7 +1406,7 @@ thin answer, and it is the honest one.</p>
 <span>  error <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">e</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/message.html" class="external-link">message</a></span><span class="op">(</span><span class="st">"rank_probs() refused: "</span>, <span class="fu"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">conditionMessage</a></span><span class="op">(</span><span class="va">e</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Warning: Dropped from the hierarchy as not estimable in this target population: B+M,</span></span>
 <span><span class="co">#&gt; B+M+A, B+M+S, Std+B. Ranking them would rank the prior. See estimable_effects_at().</span></span>
-<span><span class="co">#&gt; rank_probs() refused: Fewer than two elements are estimable in this target population, so no hierarchy can be formed. See estimable_effects_at().</span></span></code></pre></div>
+<span><span class="co">#&gt; rank_probs() refused: Fewer than two elements are estimable (excluding elements identified only by aggregate arms) in this target population, so no hierarchy can be formed. See estimable_effects_at().</span></span></code></pre></div>
 <p><code><a href="../reference/rank_probs.html">rank_probs()</a></code> ranks the non-reference treatments, so
 where <code><a href="../reference/cpaic_ranks.html">cpaic_ranks()</a></code> had two elements it has one, and it
 stops. This is not a defect to be worked around with an argument. It is
@@ -1796,7 +1817,7 @@ Fit.”</span> <em>Journal of the Royal Statistical Society: Series B</em>
 Vehtari, Aki, Andrew Gelman, and Jonah Gabry. 2017. <span>“Practical
 <span>Bayesian</span> Model Evaluation Using Leave-One-Out
 Cross-Validation and <span>WAIC</span>.”</span> <em>Statistics and
-Computing</em> 27 (5): 1413–32. <a href="https://doi.org/10.1007/s11222-016-9696-9" class="external-link">https://doi.org/10.1007/s11222-016-9696-9</a>.
+Computing</em> 27 (5): 1413–32. <a href="https://doi.org/10.1007/s11222-016-9696-4" class="external-link">https://doi.org/10.1007/s11222-016-9696-4</a>.
 </div>
 <div id="ref-Veroniki2026" class="csl-entry">
 <span class="nocase">Veroniki, Areti Angeliki, Georgios Seitidis, Sofia

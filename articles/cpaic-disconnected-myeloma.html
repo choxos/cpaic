@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">cpaic</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -232,6 +232,8 @@ trial, together with the individual patient data.</p>
 <span><span class="co">#&gt;     [1] 3 treatments</span></span>
 <span><span class="co">#&gt;     [2] 3 treatments</span></span>
 <span><span class="co">#&gt;   Bridging components: R, V</span></span>
+<span><span class="co">#&gt;     (components that OCCUR in more than one sub-network; occurrence is</span></span>
+<span><span class="co">#&gt;      not identifiability, homogeneity, or influence for any contrast.)</span></span>
 <span><span class="co">#&gt;   Component design:  rank(X) = 4 / 4 components -&gt; all component effects identified</span></span>
 <span><span class="co">#&gt;   Estimable effects: 5 / 5 vs Obs</span></span></code></pre></div>
 <p>Two sub-networks, which the treatment graph had already established.
@@ -293,6 +295,8 @@ it is already enough to produce a cross-gap number.</p>
 <span><span class="va">br</span></span>
 <span><span class="co">#&gt; cpaic component-NMA bridge (random effects, sm = OR)</span></span>
 <span><span class="co">#&gt;   Additive-model fit (Cochran Q): Q = 0, df = 0, p = NA</span></span>
+<span><span class="co">#&gt;   (Q tests the additive fit WITHIN this network; it cannot test whether</span></span>
+<span><span class="co">#&gt;    component effects are constant ACROSS disconnected sub-networks.)</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Component effects (OR scale, link/log):</span></span>
 <span><span class="co">#&gt;  component estimate    se lower upper         pval</span></span>
@@ -553,24 +557,26 @@ number for the one that is, which is exactly the behavior you want.</p>
 <div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">fit</span>, reference <span class="op">=</span> <span class="st">"R"</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>hr <span class="op">=</span> <span class="fl">0.15</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Relative effects (OR, back-transformed)</span></span>
-<span><span class="co">#&gt;   Target population: hr = 0.15</span></span>
-<span><span class="co">#&gt;  treatment comparator estimate    se lower upper pr_gt0</span></span>
-<span><span class="co">#&gt;        Obs          R       NA    NA    NA    NA     NA</span></span>
-<span><span class="co">#&gt;        R+D          R    1.557 0.135 1.186 2.001      1</span></span>
-<span><span class="co">#&gt;        R+I          R       NA    NA    NA    NA     NA</span></span>
-<span><span class="co">#&gt;        R+V          R    1.741 0.084 1.474 2.047      1</span></span>
-<span><span class="co">#&gt;          V          R       NA    NA    NA    NA     NA</span></span>
+<span><span class="co">#&gt;   Conditional effect at covariate profile: hr = 0.15</span></span>
+<span><span class="co">#&gt;  treatment comparator estimate    se lower upper pr_gt0          basis</span></span>
+<span><span class="co">#&gt;        Obs          R       NA    NA    NA    NA     NA not identified</span></span>
+<span><span class="co">#&gt;        R+D          R    1.557 0.135 1.186 2.001      1          exact</span></span>
+<span><span class="co">#&gt;        R+I          R       NA    NA    NA    NA     NA not identified</span></span>
+<span><span class="co">#&gt;        R+V          R    1.741 0.084 1.474 2.047      1          exact</span></span>
+<span><span class="co">#&gt;          V          R       NA    NA    NA    NA     NA not identified</span></span>
 <span><span class="co">#&gt;   NA = not uniquely estimable from this component design (see estimable_effects()).</span></span>
+<span><span class="co">#&gt;   `se` is on the link (log) scale; the interval is back-transformed.</span></span>
 <span><span class="fu"><a href="../reference/relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">fit</span>, reference <span class="op">=</span> <span class="st">"R"</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>hr <span class="op">=</span> <span class="fl">0.60</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Relative effects (OR, back-transformed)</span></span>
-<span><span class="co">#&gt;   Target population: hr = 0.6</span></span>
-<span><span class="co">#&gt;  treatment comparator estimate    se lower upper pr_gt0</span></span>
-<span><span class="co">#&gt;        Obs          R       NA    NA    NA    NA     NA</span></span>
-<span><span class="co">#&gt;        R+D          R    2.134 0.141 1.617 2.798  1.000</span></span>
-<span><span class="co">#&gt;        R+I          R       NA    NA    NA    NA     NA</span></span>
-<span><span class="co">#&gt;        R+V          R    1.356 0.097 1.112 1.648  0.999</span></span>
-<span><span class="co">#&gt;          V          R       NA    NA    NA    NA     NA</span></span>
-<span><span class="co">#&gt;   NA = not uniquely estimable from this component design (see estimable_effects()).</span></span></code></pre></div>
+<span><span class="co">#&gt;   Conditional effect at covariate profile: hr = 0.6</span></span>
+<span><span class="co">#&gt;  treatment comparator estimate    se lower upper pr_gt0          basis</span></span>
+<span><span class="co">#&gt;        Obs          R       NA    NA    NA    NA     NA not identified</span></span>
+<span><span class="co">#&gt;        R+D          R    2.134 0.141 1.617 2.798  1.000          exact</span></span>
+<span><span class="co">#&gt;        R+I          R       NA    NA    NA    NA     NA not identified</span></span>
+<span><span class="co">#&gt;        R+V          R    1.356 0.097 1.112 1.648  0.999          exact</span></span>
+<span><span class="co">#&gt;          V          R       NA    NA    NA    NA     NA not identified</span></span>
+<span><span class="co">#&gt;   NA = not uniquely estimable from this component design (see estimable_effects()).</span></span>
+<span><span class="co">#&gt;   `se` is on the link (log) scale; the interval is back-transformed.</span></span></code></pre></div>
 <p>The same two tables as forest plots, one target population each.</p>
 <div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/forest.html">forest</a></span><span class="op">(</span><span class="va">fit</span>, reference <span class="op">=</span> <span class="st">"R"</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>hr <span class="op">=</span> <span class="fl">0.15</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
@@ -770,7 +776,7 @@ places completely.</p>
 <span><span class="co">#&gt; Warning: Dropped from the hierarchy as not estimable in this target population: R, R+D,</span></span>
 <span><span class="co">#&gt; R+I, R+V. Ranking them would rank the prior. See estimable_effects_at().</span></span>
 <span><span class="co">#&gt; rank_probs() refused:</span></span>
-<span><span class="co">#&gt;   Fewer than two elements are estimable in this target population, so no hierarchy can be formed. See estimable_effects_at().</span></span></code></pre></div>
+<span><span class="co">#&gt;   Fewer than two elements are estimable (excluding elements identified only by aggregate arms) in this target population, so no hierarchy can be formed. See estimable_effects_at().</span></span></code></pre></div>
 <p>The refusal is the correct answer, and it is deliberate. Of the five
 treatments to be ranked against <code>Obs</code>, only <code>V</code> is
 estimable in a general target population, and a hierarchy of one element

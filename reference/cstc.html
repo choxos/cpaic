@@ -21,7 +21,7 @@ cnma_bridge() combines them through the additive component model."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">cpaic</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -125,8 +125,11 @@ in which it appears, instead of inferring it from the aggregate row order.</p></
 The reported treatment coefficient is the <em>conditional</em> effect at the
 target effect-modifier means (not a marginal standardization); for
 collapsible measures the two coincide. It is implemented natively here
-because <code><a href="https://choxos.github.io/mlumr/reference/stc.html" class="external-link">mlumr::stc()</a></code> targets the <em>unanchored</em> two-trial case; the link
-and standard-error machinery is adapted from that package.</p>
+because the <code>stc()</code> function in the mlumr package targets the <em>unanchored</em>
+two-trial case; the link and standard-error machinery is adapted from that
+package. (Written without the double-colon form on purpose: mlumr is not a
+dependency of cpaic, and the documentation site resolves a qualified
+package-and-function reference by loading that package.)</p>
     </div>
     <div class="section level2">
     <h2 id="what-the-two-stage-bridge-does-and-does-not-adjust">What the two-stage bridge does and does not adjust<a class="anchor" aria-label="anchor" href="#what-the-two-stage-bridge-does-and-does-not-adjust"></a></h2>

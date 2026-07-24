@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">cpaic</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -45,34 +45,76 @@
     </div>
 
     <div class="section level2">
-<h2 class="pkg-version" data-toc-text="0.0.0.9000" id="cpaic-0009000">cpaic 0.0.0.9000<a class="anchor" aria-label="anchor" href="#cpaic-0009000"></a></h2>
-<p>Development software; results may change between versions.</p>
+<h2 class="pkg-version" data-toc-text="0.1.0" id="cpaic-010">cpaic 0.1.0<a class="anchor" aria-label="anchor" href="#cpaic-010"></a></h2>
+<p>First release. Research software: read the limitations before using a result for a decision.</p>
 <div class="section level3">
-<h3 id="data-integrity-and-correctness-0-0-0-9000">Data integrity and correctness<a class="anchor" aria-label="anchor" href="#data-integrity-and-correctness-0-0-0-9000"></a></h3>
-<ul><li>The two-stage methods now fail closed. <code><a href="../reference/cstc.html">cstc()</a></code> and <code><a href="../reference/cmaic.html">cmaic()</a></code> reject a study whose regression or weight fit did not converge, is separated, is rank deficient, has a degenerate treatment-coefficient covariance, or (for <code><a href="../reference/cmaic.html">cmaic()</a></code>) did not achieve moment balance or whose bootstrap fell below a success threshold (<code>min_boot_success</code>, default 0.8). An invalid edge is no longer passed silently into the additive bridge.</li>
-<li>
-<code><a href="../reference/cmlnmr.html">cmlnmr()</a></code> rejects a study present in both <code>ipd</code> and <code>agd</code> (which would stack two outcome likelihoods for one trial), rejects protected sampler arguments such as <code>data</code> passed through <code>...</code> (which would fit a different dataset than the returned object describes), and validates that a supplied covariate correlation matrix carrying names is reordered to the effect-modifier order before use.</li>
-<li>
-<code>.cpaic_replace_contrasts()</code> enforces a unique {study, treatment-pair} key and builds an appended contrast from a typed prototype rather than cloning an unrelated aggregate row, so adjusted edges cannot be double-counted or inherit stale metadata.</li>
-<li>Front-door validation is completed: missing or non-finite individual outcomes and non-finite aggregate covariate means are rejected before reaching Stan; <code>n_int</code> and <code>n_boot</code> must be whole numbers; a supplied <code>seed</code> must be a non-negative integer within range, and an unset seed is drawn and recorded rather than fixed to a constant.</li>
-<li>Construction (<code><a href="../reference/cpaic_network.html">cpaic_network()</a></code>) rejects self-comparisons, duplicate {study, treatment-pair} rows, and missing treatment labels; <code><a href="../reference/build_C_matrix.html">build_C_matrix()</a></code> rejects empty component tokens and an <code>inactive</code> label that matches no component. <code><a href="../reference/cnma_bridge.html">cnma_bridge()</a></code> rejects the empty <code>common = random = FALSE</code> model, asserts a unique key before fitting, and no longer suppresses substantive warnings on non-degenerate networks.</li>
-<li>The Gaussian residual standard deviation has its own prior scale (<code>prior_sigma_sd</code>), separate from the component-effect prior.</li>
-<li>
-<code><a href="../reference/cmaic.html">cmaic()</a></code> restores the caller’s random-number state on exit.</li>
-</ul></div>
-<div class="section level3">
-<h3 id="reporting-and-diagnostics-0-0-0-9000">Reporting and diagnostics<a class="anchor" aria-label="anchor" href="#reporting-and-diagnostics-0-0-0-9000"></a></h3>
+<h3 id="what-the-package-does-0-1-0">What the package does<a class="anchor" aria-label="anchor" href="#what-the-package-does-0-1-0"></a></h3>
+<p>cpaic extends component network meta-analysis (cNMA) to population-adjusted indirect comparison (PAIC), so a <strong>disconnected</strong> treatment network can be reconnected through shared treatment components and, at the same time, adjusted for between-study imbalance in effect modifiers.</p>
 <ul><li>
-<code><a href="../reference/relative_effects.html">relative_effects()</a></code> for <code><a href="../reference/cmlnmr.html">cmlnmr()</a></code> fits reports a <code>basis</code> per contrast (<code>"exact"</code>, <code>"first-order screen"</code>, or <code>"not identified"</code>), and <code><a href="../reference/cpaic_ranks.html">cpaic_ranks()</a></code> excludes elements identified only by aggregate arms unless <code>include_screen_only = TRUE</code>.</li>
-<li>The automatic MCMC check covers every sampled parameter block and now also flags low effective sample size and low E-BFMI, not only divergences, tree-depth, and the beta/mu R-hat.</li>
+<code><a href="../reference/cpaic_network.html">cpaic_network()</a></code> builds a (possibly disconnected) contrast-level network and codes multi-component treatment labels into a treatment-by-component matrix with <code><a href="../reference/build_C_matrix.html">build_C_matrix()</a></code>.</li>
 <li>
-<code>prior_sensitivity(prior = "all")</code> includes the residual and baseline-smoothing scales; <code><a href="../reference/component_effects.html">component_effects()</a></code> accepts a <code>level</code>; <code>loo()</code> is documented as an observation-level diagnostic that does not validate cross-gap prediction.</li>
-<li>Print methods are more precise: a single-covariate contrast is labeled a conditional effect at a covariate profile (not a target population), the two-stage bridges state that only IPD edges are adjusted, and the bridge output notes that the additivity Q statistic cannot test cross-sub-network constancy.</li>
+<code><a href="../reference/cnma_bridge.html">cnma_bridge()</a></code> reconnects the network through the additive component model of Rücker et al. (2020), on top of <code><a href="https://rdrr.io/pkg/netmeta/man/discomb.html" class="external-link">netmeta::discomb()</a></code>.</li>
+<li>
+<code><a href="../reference/cstc.html">cstc()</a></code> and <code><a href="../reference/cmaic.html">cmaic()</a></code> are the two-stage frequentist routes: anchored simulated treatment comparison and anchored matching-adjusted indirect comparison replace each IPD-bearing edge with a population-adjusted contrast, which the component bridge then combines.</li>
+<li>
+<code><a href="../reference/cmlnmr.html">cmlnmr()</a></code> is the Bayesian flagship: component-additive multilevel network meta-regression, fitted with <code>cmdstanr</code>. The treatment effect is <code>C %*% beta</code> and the model carries component by effect-modifier interactions through the whole network, so disconnected sub-networks are connected by construction and every edge is adjusted to one target population coherently.</li>
+</ul><p>Binary, continuous, count, and time-to-event outcomes are supported throughout.</p>
+</div>
+<div class="section level3">
+<h3 id="estimability-is-checked-not-assumed-0-1-0">Estimability is checked, not assumed<a class="anchor" aria-label="anchor" href="#estimability-is-checked-not-assumed-0-1-0"></a></h3>
+<p>Reconnecting a network does not make the effects you want estimable. A relative effect is uniquely estimable exactly when its contrast lies in the row space of the component design <code>X = B C</code> (Wigle et al. 2026). Both engines would otherwise return a confident-looking number for a contrast carrying no information: the frequentist fit through the Moore-Penrose pseudoinverse, the Bayesian fit through the prior.</p>
+<ul><li>
+<code><a href="../reference/cpaic_connectivity.html">cpaic_connectivity()</a></code> and <code><a href="../reference/estimable_effects.html">estimable_effects()</a></code> report the rank, the null space, the bridging components, and which relative effects are identified.</li>
+<li>
+<code><a href="../reference/estimable_effects_at.html">estimable_effects_at()</a></code> extends the criterion to the population-adjusted estimand, which depends on the target population, and grades each contrast <code>"exact"</code>, <code>"first-order screen"</code>, or <code>"not identified"</code>.</li>
+<li>
+<code><a href="../reference/relative_effects.html">relative_effects()</a></code>, <code><a href="../reference/component_effects.html">component_effects()</a></code>, and <code><a href="../reference/league_table.html">league_table()</a></code> return <code>NA</code> for a contrast that is not identified; <code><a href="../reference/cpaic_ranks.html">cpaic_ranks()</a></code> drops it from the hierarchy rather than ranking a prior.</li>
 </ul></div>
 <div class="section level3">
-<h3 id="documentation-0-0-0-9000">Documentation<a class="anchor" aria-label="anchor" href="#documentation-0-0-0-9000"></a></h3>
-<ul><li>The README no longer describes an obsolete engine: the survival likelihood is analytic with several censoring types and delayed entry, <code><a href="../reference/cmlnmr.html">cmlnmr()</a></code> supports fixed or random treatment effects, and the simulation figures carry an explicit reproducibility caveat.</li>
+<h3 id="failing-closed-0-1-0">Failing closed<a class="anchor" aria-label="anchor" href="#failing-closed-0-1-0"></a></h3>
+<ul><li>
+<code><a href="../reference/cstc.html">cstc()</a></code> and <code><a href="../reference/cmaic.html">cmaic()</a></code> reject a study whose regression or weight fit did not converge, is separated, is rank deficient, has a degenerate treatment-coefficient covariance, or (for <code><a href="../reference/cmaic.html">cmaic()</a></code>) did not achieve moment balance. Each <code><a href="../reference/cmaic.html">cmaic()</a></code> bootstrap replicate is held to the same weight-validity gate as the point estimate, and an edge whose successful replicates fall below <code>min_boot_success</code> is refused rather than given a fragile standard error. An invalid edge is never passed silently into the additive bridge.</li>
+<li>
+<code><a href="../reference/cmlnmr.html">cmlnmr()</a></code> validates its inputs before compiling the Stan model: a study present in both <code>ipd</code> and <code>agd</code>, a single-arm study, a non-numeric or incomplete effect modifier, fractional aggregate counts, a malformed seed, and protected sampler arguments such as <code>data</code> in <code>...</code> are all rejected by name.</li>
+<li>
+<code><a href="../reference/cpaic_network.html">cpaic_network()</a></code> rejects self-comparisons, duplicate {study, treatment-pair} rows, and missing treatment labels; <code><a href="../reference/build_C_matrix.html">build_C_matrix()</a></code> rejects empty component tokens and an <code>inactive</code> label matching no component.</li>
+<li>An unset seed is drawn and recorded, so an unseeded fit reproduces.</li>
 </ul></div>
+<div class="section level3">
+<h3 id="diagnostics-0-1-0">Diagnostics<a class="anchor" aria-label="anchor" href="#diagnostics-0-1-0"></a></h3>
+<ul><li>
+<code><a href="../reference/additivity_test.html">additivity_test()</a></code> reports the Cochran Q statistics, and says explicitly that a saturated model (zero residual degrees of freedom) gives <code>Q = 0</code> by arithmetic rather than as evidence of fit, and that neither statistic can test whether component effects are constant <em>across</em> sub-networks.</li>
+<li>
+<code><a href="../reference/edge_influence.html">edge_influence()</a></code> reports the weight each edge carries on a requested contrast, using <code>1 / (seTE^2 + tau^2)</code>, and warns when individual patient data sit on an edge that cannot affect the answer. The effective sample size from <code><a href="../reference/effective_sample_size.html">effective_sample_size()</a></code> cannot detect that; <code><a href="../reference/weight_diagnostics.html">weight_diagnostics()</a></code> exposes weight concentration that the effective sample size also hides.</li>
+<li>
+<code><a href="../reference/bridge_fragility.html">bridge_fragility()</a></code> quantifies how much un-testable cross-sub-network drift would overturn a conclusion.</li>
+<li>
+<code><a href="../reference/cmlnmr.html">cmlnmr()</a></code> checks divergences, tree depth, E-BFMI, R-hat, and effective sample size across every sampled parameter block, and reports <code>NA</code> rather than an ideal infinity when a diagnostic is unavailable.</li>
+<li>
+<code><a href="../reference/prior_sensitivity.html">prior_sensitivity()</a></code>, <code><a href="../reference/prior_predictive_check.html">prior_predictive_check()</a></code>, <code><a href="../reference/dic.html">dic()</a></code>, <code>loo()</code>, <code>waic()</code>, and <code><a href="../reference/redact_fit.html">redact_fit()</a></code> cover prior movement, prior implications, model comparison, and sharing a fit without row-level data.</li>
+<li>Plots: network, forest, rankogram, deviance, leverage, prior-versus-posterior, integration error, MCMC, and survival curves, plus three specific to cpaic (the population-dependent rank curve, the estimability map, and edge influence).</li>
+</ul></div>
+<div class="section level3">
+<h3 id="documented-limitations-0-1-0">Documented limitations<a class="anchor" aria-label="anchor" href="#documented-limitations-0-1-0"></a></h3>
+<p>These are stated in the manual pages, not only here.</p>
+<ul><li>
+<strong>The bridging assumption is untestable.</strong> There is by construction no cross-gap evidence against which to test that component effects are constant across sub-networks.</li>
+<li>
+<strong>Only IPD edges are adjusted by the two-stage routes.</strong> <code><a href="../reference/cstc.html">cstc()</a></code> and <code><a href="../reference/cmaic.html">cmaic()</a></code> leave every aggregate-only edge in its own study population. <code><a href="../reference/cmlnmr.html">cmlnmr()</a></code> is the coherent single-target synthesis.</li>
+<li>
+<strong>Marginal effects do not add.</strong> <code><a href="../reference/cmaic.html">cmaic()</a></code> targets a marginal effect, and on a non-collapsible scale the additive component model is false; the resulting bias survives perfect matching and infinite data.</li>
+<li>
+<strong><code><a href="../reference/cmlnmr.html">cmlnmr()</a></code> reports a conditional contrast at a covariate profile</strong>, not a population-standardized marginal effect.</li>
+<li>
+<strong>One <code>Gamma</code> serves both roles.</strong> It multiplies individual covariates and aggregate study means alike, so an interaction supported only by aggregate arms is an ecological association read as effect modification.</li>
+<li>
+<strong><code><a href="../reference/cmlnmr.html">cmlnmr()</a></code> survival status coding</strong> (0 right, 1 event, 2 left, 3 interval) is not the coding <code><a href="../reference/cstc.html">cstc()</a></code> and <code><a href="../reference/cmaic.html">cmaic()</a></code> pass to <code><a href="https://rdrr.io/pkg/survival/man/Surv.html" class="external-link">survival::Surv()</a></code>.</li>
+<li>Further approximations recorded in <code><a href="../reference/cmlnmr.html">?cmlnmr</a></code>: the Gaussian model has one residual standard deviation for the whole network; Poisson aggregate arms assume person-time is independent of the effect modifiers; the observed-to-latent copula correlation is approximate for a non-normal margin; and the aggregate likelihood carries a finite quasi-Monte-Carlo integration error.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="dependencies-0-1-0">Dependencies<a class="anchor" aria-label="anchor" href="#dependencies-0-1-0"></a></h3>
+<p>Imports are kept to what is load-bearing: <code>netmeta</code> for the component-NMA engine, <code>maicplus</code> for the MAIC weights, <code>randtoolbox</code> for the Sobol’ integration points, <code>igraph</code> for network connectivity, <code>loo</code> for the <code>loo</code>/<code>waic</code> generics, and otherwise packages that ship with R. The component-additive ML-NMR models and their quasi-Monte-Carlo integration are implemented in cpaic itself; <code>multinma</code> is a <code>Suggests</code> used only by the test that keeps the random-effects correlation in step with multinma’s <code>RE_cor()</code>. <code><a href="../reference/cmlnmr.html">cmlnmr()</a></code> needs <code>cmdstanr</code>, installed from <a href="https://stan-dev.r-universe.dev" class="external-link uri">https://stan-dev.r-universe.dev</a>.</p>
+</div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

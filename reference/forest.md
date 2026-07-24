@@ -1,8 +1,8 @@
 # Forest plot of relative or component effects
 
 A ggplot2 forest plot of the estimates in a cpaic fit. Ported from
-[`multinma::plot.nma_summary()`](https://dmphillippo.github.io/multinma/reference/plot.nma_summary.html)
-(Phillippo et al. 2020) and re-implemented on ggplot2 alone.
+multinma's `plot.nma_summary()` (Phillippo et al. 2020) and
+re-implemented on ggplot2 alone.
 
 ## Usage
 

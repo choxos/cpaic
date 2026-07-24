@@ -19,7 +19,7 @@ network is connected by construction."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">cpaic</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -166,7 +166,10 @@ count (poisson), or the event indicator for survival.</p></dd>
 
 <dt id="arg-time-exposure">time, exposure<a class="anchor" aria-label="anchor" href="#arg-time-exposure"></a></dt>
 <dd><p>Outcome-time column for survival in both IPD and AgD;
-IPD exposure column for Poisson outcomes.</p></dd>
+IPD exposure column for Poisson outcomes. If the Poisson exposure column is
+absent, every patient is given an exposure of 1 (equal follow-up) and a
+message says so, matching <code><a href="cstc.html">cstc()</a></code> and <code><a href="cmaic.html">cmaic()</a></code>, which drop the log offset
+when no exposure column is named.</p></dd>
 
 
 <dt id="arg-start-entry">start, entry<a class="anchor" aria-label="anchor" href="#arg-start-entry"></a></dt>
@@ -382,9 +385,9 @@ machine precision. The <em>aggregate</em> likelihood, however, averages that exa
 contribution over a finite quasi-Monte-Carlo grid of <code>n_int</code> covariate
 points, so it carries an integration error that shrinks with <code>n_int</code> but is
 not zero. Increase <code>n_int</code> and confirm that the estimates are stable before
-relying on them. The earlier person-time approximation was biased by 36% in
-a two-group example; that particular bias is removed, but a finite
-integration error remains.</p></li>
+relying on them. (The cruder alternative of summarizing an aggregate arm by
+its event count and person-time was biased by 36% in a two-group example,
+which is why it is rejected outright rather than offered as a fallback.)</p></li>
 <li><p><strong>Each study has its own baseline hazard shape.</strong> Every study carries its
 own set of spline (or step) coefficients, smoothed toward a common shape by
 a shared random-walk scale (<code>prior_aux_sd</code>), so the treatment effects do not
@@ -392,7 +395,47 @@ have to absorb baseline misfit. A single global spline basis is built from
 the pooled follow-up range, so a study with much shorter follow-up may not
 inform the coefficients of the latest basis functions; those are then
 determined by the smoothing prior rather than by that study's data.</p></li>
-</ul></div>
+</ul><p>With <code>baseline = "mspline"</code> the sampler may print, during warmup,
+<code>coefficients[...] is not a valid simplex. sum(...) = nan</code>. The smoothing
+scale is unbounded above, so an early proposal can drive the random walk on
+the log spline coefficients past the floating-point range and the softmax
+returns <code>NaN</code>. Stan rejects that proposal and adaptation continues; this is
+the rejection mechanism doing its job, not a fitted-model problem. Read it as
+a warning only if it persists past warmup, which would indicate a genuinely
+ill-conditioned baseline.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="within-study-versus-ecological-effect-modification">Within-study versus ecological effect modification<a class="anchor" aria-label="anchor" href="#within-study-versus-ecological-effect-modification"></a></h2>
+
+
+<p>A single <code>Gamma</code> multiplies the individual covariates of the IPD <strong>and</strong> the
+covariate means of the aggregate arms. These are not the same parameter. Write
+the effect as
+$$\alpha + \gamma_W (x - \bar x_s) + \gamma_B \bar x_s .$$
+An aggregate contrast depends only on <code>alpha + gamma_B xbar_s</code>, so it carries
+no information about the within-study interaction <code>gamma_W</code>; fitting one
+<code>Gamma</code> imposes <code>gamma_W = gamma_B</code>. Randomization identifies each study's
+treatment effect but does not randomize covariate means <em>across</em> studies, so a
+between-study gradient is confounded in a way a within-study slope is not
+(Berlin et al. 2002; Freeman et al. 2018).</p>
+<p>The practical consequence: an interaction supported only by aggregate arms is
+an <strong>ecological</strong> association being read as effect modification.
+<code><a href="estimable_effects_at.html">estimable_effects_at()</a></code> separates the two in its <code>identified_by</code> column
+(<code>"IPD"</code> versus <code>"aggregate"</code>) and marks the latter <code>basis = "first-order screen"</code>; <code><a href="cpaic_ranks.html">cpaic_ranks()</a></code> drops such elements from a hierarchy by default.
+Treat a target-population effect that leans on aggregate-identified
+interactions as exploratory, and check it with <code><a href="prior_sensitivity.html">prior_sensitivity()</a></code>.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="survival-status-coding">Survival status coding<a class="anchor" aria-label="anchor" href="#survival-status-coding"></a></h2>
+
+
+<p><code>cmlnmr()</code> uses the four-level convention <code>0</code> right-censored, <code>1</code> observed
+event, <code>2</code> left-censored, <code>3</code> interval-censored. This is <strong>not</strong> the coding
+<code><a href="cstc.html">cstc()</a></code> and <code><a href="cmaic.html">cmaic()</a></code> use: those pass the column straight to
+<code><a href="https://rdrr.io/pkg/survival/man/Surv.html" class="external-link">survival::Surv()</a></code>, which reads <code>0</code>/<code>1</code> or <code>1</code>/<code>2</code>, so a <code>2</code> there is an event
+rather than a left-censored observation. Do not reuse one status column across
+the two layers without recoding it.</p>
+    </div>
     <div class="section level2">
     <h2 id="scope-and-current-limitations">Scope and current limitations<a class="anchor" aria-label="anchor" href="#scope-and-current-limitations"></a></h2>
 
@@ -409,6 +452,26 @@ component interactions.</strong> There is no prognostic-only covariate role (unl
 <code><a href="cstc.html">cstc()</a></code>, which separates <code>prognostics</code>), so a covariate that shifts outcomes
 without modifying any component effect still adds interaction parameters that
 the data must then constrain toward zero.</p></li>
+<li><p><strong>The Gaussian model has one residual standard deviation for the whole
+network.</strong> A single <code>sigma</code> covers every individual-level observation in
+every study and arm. Studies whose residual variance genuinely differs are
+then weighted mostly by sample size rather than by precision, so their
+relative contribution to a conflicting component effect, and the width of the
+resulting interval, are not right. Fit the families separately, or rescale,
+if the residual scales are far apart.</p></li>
+<li><p><strong>Poisson aggregate arms assume exposure is independent of the covariates.</strong>
+The aggregate mean is <code>E * mean(exp(eta))</code> over the integration points, which
+equals the correct <code>sum_i E_i exp(eta_i)</code> only when individual person-time is
+unrelated to the effect modifiers. When longer-followed patients differ
+systematically the aggregate contribution is biased; the interface has no way
+to accept exposure-weighted covariate moments.</p></li>
+<li><p><strong>The copula correlation for a non-normal margin is approximate.</strong> For a
+Bernoulli margin the observed-to-latent map is multinma's closed-form
+<code>cor_adjust = "pearson"</code> adjustment, which does not use the prevalences: at a
+prevalence of 0.1 a requested observed correlation of 0.5 comes back as about
+0.42. For gamma, lognormal, and beta margins the observed correlation is used
+unadjusted and a warning says so. Supply <code>cor</code> on the latent scale to set it
+exactly.</p></li>
 </ul></div>
     <div class="section level2">
     <h2 id="identifiability">Identifiability<a class="anchor" aria-label="anchor" href="#identifiability"></a></h2>

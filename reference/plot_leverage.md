@@ -1,12 +1,11 @@
 # Leverage plot
 
-Ported from
-[`multinma::plot.nma_dic()`](https://dmphillippo.github.io/multinma/reference/plot.nma_dic.html)
-with `type = "leverage"` (Phillippo et al. 2020). Each data point's
-leverage (its contribution to the effective number of parameters) is
-plotted against its signed square root residual deviance, with contours
-of constant DIC contribution. Points outside the `DIC = 3` contour are
-usually the ones spoiling the fit.
+Ported from multinma's `plot.nma_dic()` with `type = "leverage"`
+(Phillippo et al. 2020). Each data point's leverage (its contribution to
+the effective number of parameters) is plotted against its signed square
+root residual deviance, with contours of constant DIC contribution.
+Points outside the `DIC = 3` contour are usually the ones spoiling the
+fit.
 
 ## Usage
 

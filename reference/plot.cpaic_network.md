@@ -49,10 +49,9 @@ A `ggplot` object, so it can be modified with the usual ggplot2 verbs.
 ## Details
 
 Each sub-network is laid out on its own circle, so a disconnected
-network looks disconnected. Ported in spirit from
-[`multinma::plot.nma_data()`](https://dmphillippo.github.io/multinma/reference/plot.nma_data.html)
-(Phillippo et al. 2020), re-implemented on ggplot2 without a `ggraph`
-dependency.
+network looks disconnected. Ported in spirit from multinma's
+`plot.nma_data()` (Phillippo et al. 2020), re-implemented on ggplot2
+without a `ggraph` dependency.
 
 ## See also
 
