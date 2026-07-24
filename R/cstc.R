@@ -111,8 +111,11 @@
 #' The reported treatment coefficient is the *conditional* effect at the
 #' target effect-modifier means (not a marginal standardization); for
 #' collapsible measures the two coincide. It is implemented natively here
-#' because `mlumr::stc()` targets the *unanchored* two-trial case; the link
-#' and standard-error machinery is adapted from that package.
+#' because the `stc()` function in the mlumr package targets the *unanchored*
+#' two-trial case; the link and standard-error machinery is adapted from that
+#' package. (Written without the `::` form on purpose: mlumr is not a dependency
+#' of cpaic, and the documentation site resolves a `pkg::fun()` reference by
+#' loading that package.)
 #'
 #' @param network A [cpaic_network()] object that includes IPD.
 #' @param target Named numeric vector (or list / one-row data frame) of

@@ -49,8 +49,11 @@ Unlike \code{\link[=cmaic]{cmaic()}} (reweighting) this is the regression-adjust
 The reported treatment coefficient is the \emph{conditional} effect at the
 target effect-modifier means (not a marginal standardization); for
 collapsible measures the two coincide. It is implemented natively here
-because \code{mlumr::stc()} targets the \emph{unanchored} two-trial case; the link
-and standard-error machinery is adapted from that package.
+because the \code{stc()} function in the mlumr package targets the \emph{unanchored}
+two-trial case; the link and standard-error machinery is adapted from that
+package. (Written without the \code{::} form on purpose: mlumr is not a dependency
+of cpaic, and the documentation site resolves a \code{pkg::fun()} reference by
+loading that package.)
 }
 \section{What the two-stage bridge does and does not adjust}{
 
