@@ -8,7 +8,10 @@ link-citations: yes
 ```{r, include = FALSE}
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7,
                       fig.height = 4.2, fig.align = "center",
-                      dpi = 120, out.width = "100%",
+                      # Pre-rendered, self-contained HTML that ships in the
+                      # tarball: pixels are bytes, and html_vignette defaults
+                      # to fig.retina = 2, which quadruples them.
+                      dpi = 96, fig.retina = 1, out.width = "100%",
                       fig.path = "figure/continuous-")
 options(width = 90)
 ```
@@ -415,9 +418,11 @@ collapsibility of the mean difference showing up in the machinery, and it is why
 the continuous family is the easy one. There is consequently no integration-error
 figure in this vignette: `plot_integration_error()`, which traces the
 quasi-Monte-Carlo error against the number of integration points in the binary,
-count, and survival vignettes, declines to draw anything for a Gaussian model with
-normal margins and says why, since with a single integration point there is no
-integration error to trace. On a logit or a log link the same integral is not the
+count, and survival vignettes, declines to draw anything for a Gaussian model and
+says why, since with a single integration point there is no integration error to
+trace. That holds whatever the covariate margins are, binary ones included: the
+identity link is linear in $x$, so the aggregate mean depends on the covariate
+means alone. On a logit or a log link the same integral is not the
 mean, aggregation bias appears, and the quasi-Monte-Carlo grid earns its keep.
 
 ### Priors
@@ -675,32 +680,48 @@ ranks_early
 plot(ranks_early)
 ```
 
-The warning is not noise; it is the result. It implements Step 3 of the hierarchy
-workflow of @Wigle2026: `Met+DPP4` is not estimable at this target, so it is
-removed from the ranking set rather than ranked. Ranking it would rank the prior,
-and a SUCRA computed from a prior looks exactly like a SUCRA computed from data
-while carrying none of the evidence. The plot's caption records what was dropped,
-so a reader who sees only the figure is not misled by its absence.
+The warnings are not noise; they are the result. Together they implement Step 3 of
+the hierarchy workflow of @Wigle2026, and they refuse on two distinct grounds.
+`Met+DPP4` is not estimable at this target at all, so it is removed rather than
+ranked; ranking it would rank the prior, and a SUCRA computed from a prior looks
+exactly like a SUCRA computed from data while carrying none of the evidence.
+`Met`, `Met+SGLT2`, and `Met+SU` are estimable, but only through the aggregate
+arms, so what identifies them is a between-study covariate gradient rather than
+within-study effect modification. That is an ecological association, and
+`cpaic_ranks()` declines to build a hierarchy on it by default. What is left is
+the pair the individual patient data genuinely identify.
+
+This is deliberately austere. If you want the full ordering anyway, ask for it
+explicitly and read it as exploratory:
+
+```{r ranks-early-screen, fig.height = 2.8, warning = FALSE}
+cpaic_ranks(fit, newdata = early, lower_is_better = TRUE,
+            include_screen_only = TRUE)
+```
 
 Ranking metrics compress a whole distribution into one number, so it is worth
-looking at the distribution.
+looking at the distribution. The same caveat applies, so the rankogram is drawn
+on the exploratory set.
 
 ```{r rankogram, fig.height = 3.4, warning = FALSE}
-plot(rank_probs(fit, newdata = early, lower_is_better = TRUE))
+plot(rank_probs(fit, newdata = early, lower_is_better = TRUE,
+                include_screen_only = TRUE))
 ```
 
 The rankogram gives the posterior probability that each treatment takes each rank.
 `Met+SGLT2` and `Met+SU` divide the top two ranks between them and take no other
-rank; `Met`, `SU`, and `Diet` are nearly certain of ranks three, four, and five.
-The lower part of the hierarchy is therefore settled and uninteresting, and all
-of the uncertainty that matters is concentrated in the contest for first place,
-which is precisely the contest the crossover governs.
+rank; `Met` and `SU` are nearly certain of the ranks below them. The lower part of
+the hierarchy is therefore settled and uninteresting, and all of the uncertainty
+that matters is concentrated in the contest for first place, which is precisely
+the contest the crossover governs. Remember while reading it that the ordering of
+everything except `SU` rests on an ecological gradient.
 
 So the hierarchy cannot be quoted without its population either. Tracing SUCRA
 across target populations shows how much of it is at stake.
 
 ```{r rank-curve, fig.height = 3.8, warning = FALSE}
-plot_rank_curve(fit, em = "bhba1c_c", values = pop_grid, lower_is_better = TRUE)
+plot_rank_curve(fit, em = "bhba1c_c", values = pop_grid, lower_is_better = TRUE,
+                include_screen_only = TRUE)
 ```
 
 The `Met+SGLT2` and `Met+SU` curves cross. In lower-baseline target populations the

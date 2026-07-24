@@ -57,4 +57,14 @@ For \code{\link[=cmlnmr]{cmlnmr()}} fits the model contains component x effect-m
 interactions, so relative effects are \strong{population-specific}:
 \verb{theta_t(x) = C_t' (beta + gamma x)}. You must name the target population
 through \code{newdata}; there is no population-free relative effect.
+
+Two things this returns are narrower than they may look, both documented in
+full under \code{\link[=cmlnmr]{cmlnmr()}}. The value is the \strong{conditional} contrast at the
+covariate profile \code{x}, not the marginal effect standardized over a population
+with a distribution of covariates; on a non-collapsible scale (odds ratio,
+hazard ratio) those differ, so \verb{newdata = <a study's covariate means>} does not
+give that study's population-average effect. And where the interactions are
+informed only by aggregate arms, \code{x} is being applied to an ecological
+gradient rather than to within-study effect modification; see
+\code{\link[=estimable_effects_at]{estimable_effects_at()}}, whose \code{identified_by} column separates the two.
 }

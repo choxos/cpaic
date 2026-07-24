@@ -159,9 +159,17 @@ edge_influence <- function(object, treatment, comparator = NULL, tol = 1e-8,
 
   X <- conn$X                                  # edges x components
   seTE <- net$agd[[cols$seTE]]
+  # A discomb() fit reports the heterogeneity standard deviation as `tau` and
+  # carries no `tau2` element, so reading `tau2` alone would silently give a
+  # random-effects bridge the common-effect weights. Take whichever the engine
+  # supplies, and square `tau` when that is what is there.
+  finite1 <- function(v) !is.null(v) && length(v) && is.finite(v[1])
   tau2 <- if (identical(object$effect, "random")) {
     t2 <- object$fit$tau2
-    if (is.null(t2) || !is.finite(t2)) 0 else t2
+    if (finite1(t2)) t2[1] else {
+      tv <- object$fit$tau
+      if (finite1(tv)) tv[1]^2 else 0
+    }
   } else 0
   w <- 1 / (seTE^2 + tau2)                     # inverse-variance weights
   XtWX <- t(X) %*% (w * X)
@@ -178,11 +186,11 @@ edge_influence <- function(object, treatment, comparator = NULL, tol = 1e-8,
     influence = infl,
     row.names = NULL, stringsAsFactors = FALSE
   )
-  # `tol` is relative to the largest influence, as documented. Flooring the
-  # scale at 1 (as an earlier version did) makes the cutoff absolute whenever
-  # every influence is below 1, which fires a false "no influence" warning: three
-  # equal edges of 1/3 have a documented cutoff of tol/3, not tol. When no edge
-  # has any influence the relative comparison is undefined, so nothing is flagged.
+  # `tol` is relative to the largest influence, as documented. It must not be
+  # floored at 1: that would make the cutoff absolute whenever every influence is
+  # below 1 and fire a false "no influence" warning, since three equal edges of
+  # 1/3 have a cutoff of tol/3, not tol. When no edge has any influence the
+  # relative comparison is undefined, so nothing is flagged.
   scale <- max(abs(out$influence))
   dead <- out$has_ipd & scale > 0 & abs(out$influence) < tol * scale
   if (any(dead)) {

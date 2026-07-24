@@ -420,6 +420,15 @@ print.cpaic_estimable <- function(x, ...) {
         " identification, or a\n  survival baseline) and can be optimistic.",
         " Check them with prior_sensitivity().\n", sep = "")
   }
+  if (any(x$identified_by == "aggregate")) {
+    cat("\n  Rows with identified_by = \"aggregate\" get their component x",
+        " effect-modifier\n  information from BETWEEN-study covariate gradients,",
+        " not from within-study\n  effect modification. The model imposes that",
+        " the two are equal; covariate\n  means are not randomized across",
+        " studies, so that is an ecological\n  association. See the",
+        " \"Within-study versus ecological effect modification\"\n  section of",
+        " ?cmlnmr.\n", sep = "")
+  }
   if (any(x$basis == "not identified")) {
     cat("\n  Rows marked \"not identified\" carry no first-order information;",
         " a number\n  reported for them would be the prior. relative_effects()",

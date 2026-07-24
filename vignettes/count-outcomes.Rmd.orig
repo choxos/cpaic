@@ -8,7 +8,10 @@ link-citations: yes
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE, comment = "#>", message = FALSE, warning = FALSE,
-  fig.width = 7, fig.height = 4, fig.align = "center", dpi = 110,
+  fig.width = 7, fig.height = 4, fig.align = "center",
+  # Pre-rendered, self-contained HTML that ships in the tarball: pixels are
+  # bytes. html_vignette defaults to fig.retina = 2, which quadruples them.
+  dpi = 96, fig.retina = 1,
   # Per-vignette prefix: chunk labels are not unique across vignettes, so
   # without this every vignette with a "pop-curve" chunk writes the same PNG.
   fig.path = "figure/count-"
@@ -876,23 +879,30 @@ draw one. That refusal is the intended behavior and not a defect: a rankogram
 computed from a prior-driven posterior is a picture of the prior, and it is
 indistinguishable, to the eye, from a picture of evidence.
 
-Move the target to `MONO-2`'s own population, the one place on the eosinophil
-axis where the aggregate `LAMA` evidence bites, and the hierarchy returns:
+Moving the target to `MONO-2`'s own population, the one place on the eosinophil
+axis where the aggregate `LAMA` evidence bites, does not rescue it. What that
+target buys is *estimability*, not individual-level identification: the
+treatments it unlocks are unlocked by an aggregate covariate gradient, so they
+remain first-order screens and the default refusal stands. Asking for them
+explicitly is the only way to see the ordering, and it has to be read as
+exploratory:
 
-```{r rankogram-own, fig.height = 4.5}
-plot(rank_probs(fit, newdata = own, lower_is_better = TRUE))
+```{r rankogram-own, fig.height = 4.5, warning = FALSE}
+plot(rank_probs(fit, newdata = own, lower_is_better = TRUE,
+                include_screen_only = TRUE))
 ```
 
-Four treatments are now estimable and therefore ranked, each panel giving the
-posterior probability that the treatment takes each rank, with rank 1 the fewest
-exacerbations. The dual bronchodilator `LABA+LAMA` takes first place with high
-probability, and `LABA` alone is most likely to come last, which is what one would
-expect of the weakest active regimen in a low-eosinophil population where the
-steroid has little to offer. `LABA+LAMA+ROF` is still absent, because nothing
-identifies roflumilast in this population either. The point is not that `MONO-2`'s
-population is a better one to decide in; it is that the hierarchy, exactly like
-the estimable set and the relative effects themselves, is a property of the
-target population and not of the network.
+Each panel gives the posterior probability that the treatment takes each rank,
+with rank 1 the fewest exacerbations. The dual bronchodilator `LABA+LAMA` takes
+first place with high probability, and `LABA` alone is most likely to come last,
+which is what one would expect of the weakest active regimen in a low-eosinophil
+population where the steroid has little to offer. `LABA+LAMA+ROF` is still
+absent, because nothing identifies roflumilast in this population at all. The
+point is not that `MONO-2`'s population is a better one to decide in; it is that
+the hierarchy, exactly like the estimable set and the relative effects
+themselves, is a property of the target population and not of the network, and
+that a population which makes a contrast *estimable* has not thereby made it
+*well identified*.
 
 The rank curve is designed to show that dependence directly, tracing each
 element's SUCRA as the target moves:

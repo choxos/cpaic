@@ -80,7 +80,10 @@ for 0/1 covariates and normal otherwise.}
 count (poisson), or the event indicator for survival.}
 
 \item{time, exposure}{Outcome-time column for survival in both IPD and AgD;
-IPD exposure column for Poisson outcomes.}
+IPD exposure column for Poisson outcomes. If the Poisson exposure column is
+absent, every patient is given an exposure of 1 (equal follow-up) and a
+message says so, matching \code{\link[=cstc]{cstc()}} and \code{\link[=cmaic]{cmaic()}}, which drop the log offset
+when no exposure column is named.}
 
 \item{start, entry}{Survival columns giving the lower endpoint for
 interval-censored outcomes and the delayed-entry time. Missing columns
@@ -266,9 +269,9 @@ machine precision. The \emph{aggregate} likelihood, however, averages that exact
 contribution over a finite quasi-Monte-Carlo grid of \code{n_int} covariate
 points, so it carries an integration error that shrinks with \code{n_int} but is
 not zero. Increase \code{n_int} and confirm that the estimates are stable before
-relying on them. The earlier person-time approximation was biased by 36\% in
-a two-group example; that particular bias is removed, but a finite
-integration error remains.
+relying on them. (The cruder alternative of summarizing an aggregate arm by
+its event count and person-time was biased by 36\% in a two-group example,
+which is why it is rejected outright rather than offered as a fallback.)
 \item \strong{Each study has its own baseline hazard shape.} Every study carries its
 own set of spline (or step) coefficients, smoothed toward a common shape by
 a shared random-walk scale (\code{prior_aux_sd}), so the treatment effects do not
@@ -277,6 +280,46 @@ the pooled follow-up range, so a study with much shorter follow-up may not
 inform the coefficients of the latest basis functions; those are then
 determined by the smoothing prior rather than by that study's data.
 }
+
+With \code{baseline = "mspline"} the sampler may print, during warmup,
+\verb{coefficients[...] is not a valid simplex. sum(...) = nan}. The smoothing
+scale is unbounded above, so an early proposal can drive the random walk on
+the log spline coefficients past the floating-point range and the softmax
+returns \code{NaN}. Stan rejects that proposal and adaptation continues; this is
+the rejection mechanism doing its job, not a fitted-model problem. Read it as
+a warning only if it persists past warmup, which would indicate a genuinely
+ill-conditioned baseline.
+}
+
+\section{Within-study versus ecological effect modification}{
+
+A single \code{Gamma} multiplies the individual covariates of the IPD \strong{and} the
+covariate means of the aggregate arms. These are not the same parameter. Write
+the effect as
+\deqn{\alpha + \gamma_W (x - \bar x_s) + \gamma_B \bar x_s .}
+An aggregate contrast depends only on \verb{alpha + gamma_B xbar_s}, so it carries
+no information about the within-study interaction \code{gamma_W}; fitting one
+\code{Gamma} imposes \code{gamma_W = gamma_B}. Randomization identifies each study's
+treatment effect but does not randomize covariate means \emph{across} studies, so a
+between-study gradient is confounded in a way a within-study slope is not
+(Berlin et al. 2002; Freeman et al. 2018).
+
+The practical consequence: an interaction supported only by aggregate arms is
+an \strong{ecological} association being read as effect modification.
+\code{\link[=estimable_effects_at]{estimable_effects_at()}} separates the two in its \code{identified_by} column
+(\code{"IPD"} versus \code{"aggregate"}) and marks the latter \code{basis = "first-order screen"}; \code{\link[=cpaic_ranks]{cpaic_ranks()}} drops such elements from a hierarchy by default.
+Treat a target-population effect that leans on aggregate-identified
+interactions as exploratory, and check it with \code{\link[=prior_sensitivity]{prior_sensitivity()}}.
+}
+
+\section{Survival status coding}{
+
+\code{cmlnmr()} uses the four-level convention \code{0} right-censored, \code{1} observed
+event, \code{2} left-censored, \code{3} interval-censored. This is \strong{not} the coding
+\code{\link[=cstc]{cstc()}} and \code{\link[=cmaic]{cmaic()}} use: those pass the column straight to
+\code{\link[survival:Surv]{survival::Surv()}}, which reads \code{0}/\code{1} or \code{1}/\code{2}, so a \code{2} there is an event
+rather than a left-censored observation. Do not reuse one status column across
+the two layers without recoding it.
 }
 
 \section{Scope and current limitations}{
@@ -295,6 +338,26 @@ component interactions.} There is no prognostic-only covariate role (unlike
 \code{\link[=cstc]{cstc()}}, which separates \code{prognostics}), so a covariate that shifts outcomes
 without modifying any component effect still adds interaction parameters that
 the data must then constrain toward zero.
+\item \strong{The Gaussian model has one residual standard deviation for the whole
+network.} A single \code{sigma} covers every individual-level observation in
+every study and arm. Studies whose residual variance genuinely differs are
+then weighted mostly by sample size rather than by precision, so their
+relative contribution to a conflicting component effect, and the width of the
+resulting interval, are not right. Fit the families separately, or rescale,
+if the residual scales are far apart.
+\item \strong{Poisson aggregate arms assume exposure is independent of the covariates.}
+The aggregate mean is \code{E * mean(exp(eta))} over the integration points, which
+equals the correct \verb{sum_i E_i exp(eta_i)} only when individual person-time is
+unrelated to the effect modifiers. When longer-followed patients differ
+systematically the aggregate contribution is biased; the interface has no way
+to accept exposure-weighted covariate moments.
+\item \strong{The copula correlation for a non-normal margin is approximate.} For a
+Bernoulli margin the observed-to-latent map is multinma's closed-form
+\code{cor_adjust = "pearson"} adjustment, which does not use the prevalences: at a
+prevalence of 0.1 a requested observed correlation of 0.5 comes back as about
+0.42. For gamma, lognormal, and beta margins the observed correlation is used
+unadjusted and a warning says so. Supply \code{cor} on the latent scale to set it
+exactly.
 }
 }
 

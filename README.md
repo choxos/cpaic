@@ -75,9 +75,11 @@ cpaic_connectivity(net)    # rank, null space, bridging components
 remotes::install_github("choxos/cpaic")
 ```
 
-`cpaic` builds on `netmeta` (cNMA), `maicplus` (MAIC weights), and `multinma`
-(ML-NMR and numerical integration), all on CRAN. `cmlnmr()` additionally needs
-`cmdstanr`.
+`cpaic` builds on `netmeta` for the component-NMA engine and `maicplus` for the
+MAIC weights, both on CRAN. The component-additive ML-NMR models and their
+quasi-Monte-Carlo integration are implemented in the package itself, following
+Phillippo et al. (2020); `cmlnmr()` fits them with `cmdstanr`, which is installed
+from <https://stan-dev.r-universe.dev>.
 
 ## Quick start
 

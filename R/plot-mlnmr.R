@@ -842,8 +842,9 @@ plot_prior_posterior <- function(x, ..., prior = NULL, bins = 40) {
 #' Not available for `family = "survival"`, where the aggregate contribution is
 #' a `log_sum_exp` over integration points of the likelihood rather than an
 #' integrated mean outcome; multinma declines this plot for survival models too.
-#' Nor for a Gaussian model fitted with all-normal margins, which is *exact* at
-#' the covariate means and uses a single integration point.
+#' Nor for a Gaussian model, which under the identity link is *exact* at the
+#' covariate means and is fitted with a single integration point whatever the
+#' margins are.
 #'
 #' @param x A [cmlnmr()] fit.
 #' @param ... Unused.
@@ -867,16 +868,29 @@ plot_integration_error <- function(x, ..., int_thin = NULL, ndraws = 200L,
          "aggregate contribution is a log_sum_exp of the likelihood over the ",
          "integration points, not an integrated mean outcome.", call. = FALSE)
   }
+  # The Gaussian path is exact at the covariate means for EVERY margin type, not
+  # only normal ones: under the identity link the aggregate mean is a linear
+  # functional of the covariates, so cmlnmr() fits it with one integration point
+  # regardless. Qualifying this on all-normal margins would let a Gaussian fit
+  # with a Bernoulli modifier through, and the function would then rebuild and
+  # trace integration points the model never used.
+  if (identical(x$family, "gaussian")) {
+    stop("A Gaussian model is integrated exactly at the covariate means (one ",
+         "integration point), so there is no integration error to plot.",
+         call. = FALSE)
+  }
   args <- x$refit_args
   agd <- args$agd
+  if (isTRUE(attr(x, "redacted")) || is.null(agd)) {
+    stop("`x` has been redacted (raw data removed by redact_fit()); the ",
+         "integration points cannot be rebuilt without the aggregate ",
+         "covariate summaries.", call. = FALSE)
+  }
   ems <- x$effect_modifiers
   margins <- x$margins
-  n_int <- as.integer(args$n_int)
-  if (identical(x$family, "gaussian") && all(margins == "normal")) {
-    stop("A Gaussian model with normal margins is integrated exactly at the ",
-         "covariate means (one integration point), so there is no integration ",
-         "error to plot.", call. = FALSE)
-  }
+  # The EFFECTIVE point count, which is what was integrated over, not the
+  # requested one stored in the refit arguments.
+  n_int <- as.integer(x$provenance$n_int %||% args$n_int)
   if (n_int < 2L) {
     stop("The model was fitted with a single integration point; there is no ",
          "integration error to trace.", call. = FALSE)

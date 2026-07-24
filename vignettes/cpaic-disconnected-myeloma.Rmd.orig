@@ -10,7 +10,11 @@ vignette: >
 
 ```{r, include = FALSE}
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6,
-                      fig.height = 4, fig.path = "figure/myeloma-")
+                      # Pre-rendered, self-contained HTML that ships in the
+                      # tarball: pixels are bytes, and html_vignette defaults
+                      # to fig.retina = 2, which quadruples them.
+                      fig.height = 4, dpi = 96, fig.retina = 1,
+                      fig.path = "figure/myeloma-")
 has_stan <- requireNamespace("cmdstanr", quietly = TRUE) &&
   !inherits(try(cmdstanr::cmdstan_path(), silent = TRUE), "try-error")
 # Figures need ggplot2; the MCMC diagnostics also need bayesplot; the figures

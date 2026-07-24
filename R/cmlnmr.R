@@ -272,9 +272,9 @@
 #'   contribution over a finite quasi-Monte-Carlo grid of `n_int` covariate
 #'   points, so it carries an integration error that shrinks with `n_int` but is
 #'   not zero. Increase `n_int` and confirm that the estimates are stable before
-#'   relying on them. The earlier person-time approximation was biased by 36% in
-#'   a two-group example; that particular bias is removed, but a finite
-#'   integration error remains.
+#'   relying on them. (The cruder alternative of summarizing an aggregate arm by
+#'   its event count and person-time was biased by 36% in a two-group example,
+#'   which is why it is rejected outright rather than offered as a fallback.)
 #' * **Each study has its own baseline hazard shape.** Every study carries its
 #'   own set of spline (or step) coefficients, smoothed toward a common shape by
 #'   a shared random-walk scale (`prior_aux_sd`), so the treatment effects do not
@@ -282,6 +282,43 @@
 #'   the pooled follow-up range, so a study with much shorter follow-up may not
 #'   inform the coefficients of the latest basis functions; those are then
 #'   determined by the smoothing prior rather than by that study's data.
+#'
+#' With `baseline = "mspline"` the sampler may print, during warmup,
+#' `coefficients[...] is not a valid simplex. sum(...) = nan`. The smoothing
+#' scale is unbounded above, so an early proposal can drive the random walk on
+#' the log spline coefficients past the floating-point range and the softmax
+#' returns `NaN`. Stan rejects that proposal and adaptation continues; this is
+#' the rejection mechanism doing its job, not a fitted-model problem. Read it as
+#' a warning only if it persists past warmup, which would indicate a genuinely
+#' ill-conditioned baseline.
+#'
+#' @section Within-study versus ecological effect modification:
+#' A single `Gamma` multiplies the individual covariates of the IPD **and** the
+#' covariate means of the aggregate arms. These are not the same parameter. Write
+#' the effect as
+#' \deqn{\alpha + \gamma_W (x - \bar x_s) + \gamma_B \bar x_s .}
+#' An aggregate contrast depends only on `alpha + gamma_B xbar_s`, so it carries
+#' no information about the within-study interaction `gamma_W`; fitting one
+#' `Gamma` imposes `gamma_W = gamma_B`. Randomization identifies each study's
+#' treatment effect but does not randomize covariate means *across* studies, so a
+#' between-study gradient is confounded in a way a within-study slope is not
+#' (Berlin et al. 2002; Freeman et al. 2018).
+#'
+#' The practical consequence: an interaction supported only by aggregate arms is
+#' an **ecological** association being read as effect modification.
+#' [estimable_effects_at()] separates the two in its `identified_by` column
+#' (`"IPD"` versus `"aggregate"`) and marks the latter `basis = "first-order
+#' screen"`; [cpaic_ranks()] drops such elements from a hierarchy by default.
+#' Treat a target-population effect that leans on aggregate-identified
+#' interactions as exploratory, and check it with [prior_sensitivity()].
+#'
+#' @section Survival status coding:
+#' `cmlnmr()` uses the four-level convention `0` right-censored, `1` observed
+#' event, `2` left-censored, `3` interval-censored. This is **not** the coding
+#' [cstc()] and [cmaic()] use: those pass the column straight to
+#' [survival::Surv()], which reads `0`/`1` or `1`/`2`, so a `2` there is an event
+#' rather than a left-censored observation. Do not reuse one status column across
+#' the two layers without recoding it.
 #'
 #' @section Scope and current limitations:
 #' Two gaps are worth naming for anyone comparing this with `multinma`.
@@ -298,6 +335,26 @@
 #'   [cstc()], which separates `prognostics`), so a covariate that shifts outcomes
 #'   without modifying any component effect still adds interaction parameters that
 #'   the data must then constrain toward zero.
+#' * **The Gaussian model has one residual standard deviation for the whole
+#'   network.** A single `sigma` covers every individual-level observation in
+#'   every study and arm. Studies whose residual variance genuinely differs are
+#'   then weighted mostly by sample size rather than by precision, so their
+#'   relative contribution to a conflicting component effect, and the width of the
+#'   resulting interval, are not right. Fit the families separately, or rescale,
+#'   if the residual scales are far apart.
+#' * **Poisson aggregate arms assume exposure is independent of the covariates.**
+#'   The aggregate mean is `E * mean(exp(eta))` over the integration points, which
+#'   equals the correct `sum_i E_i exp(eta_i)` only when individual person-time is
+#'   unrelated to the effect modifiers. When longer-followed patients differ
+#'   systematically the aggregate contribution is biased; the interface has no way
+#'   to accept exposure-weighted covariate moments.
+#' * **The copula correlation for a non-normal margin is approximate.** For a
+#'   Bernoulli margin the observed-to-latent map is multinma's closed-form
+#'   `cor_adjust = "pearson"` adjustment, which does not use the prevalences: at a
+#'   prevalence of 0.1 a requested observed correlation of 0.5 comes back as about
+#'   0.42. For gamma, lognormal, and beta margins the observed correlation is used
+#'   unadjusted and a warning says so. Supply `cor` on the latent scale to set it
+#'   exactly.
 #'
 #' @section Identifiability:
 #' A relative effect is uniquely estimable only if its component contrast lies
@@ -328,7 +385,10 @@
 #' @param outcome IPD outcome column: 0/1 (binomial), numeric (gaussian),
 #'   count (poisson), or the event indicator for survival.
 #' @param time,exposure Outcome-time column for survival in both IPD and AgD;
-#'   IPD exposure column for Poisson outcomes.
+#'   IPD exposure column for Poisson outcomes. If the Poisson exposure column is
+#'   absent, every patient is given an exposure of 1 (equal follow-up) and a
+#'   message says so, matching [cstc()] and [cmaic()], which drop the log offset
+#'   when no exposure column is named.
 #' @param start,entry Survival columns giving the lower endpoint for
 #'   interval-censored outcomes and the delayed-entry time. Missing columns
 #'   imply zero.
@@ -597,6 +657,28 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
     stop("`ipd` is missing effect-modifier column(s): ",
          paste(miss_em, collapse = ", "), call. = FALSE)
   }
+  # Effect modifiers enter the design matrix arithmetically, so a factor, a
+  # character column, or a single NA has to be rejected here by name. Left to
+  # the design build, all three surface far downstream as "infinite or missing
+  # values in 'x'" out of the singular-value decomposition, which names neither
+  # the column nor the cause.
+  bad_type <- effect_modifiers[!vapply(effect_modifiers, function(v)
+    is.numeric(ipd[[v]]) && !is.factor(ipd[[v]]), logical(1))]
+  if (length(bad_type)) {
+    stop("`ipd` effect modifier(s) must be numeric: ",
+         paste(bad_type, collapse = ", "),
+         ". A factor or character covariate has to be dummy-coded into numeric ",
+         "columns before it can enter the component x effect-modifier design.",
+         call. = FALSE)
+  }
+  bad_value <- effect_modifiers[vapply(effect_modifiers, function(v)
+    any(!is.finite(ipd[[v]])), logical(1))]
+  if (length(bad_value)) {
+    stop("`ipd` effect modifier(s) contain missing or non-finite values: ",
+         paste(bad_value, collapse = ", "),
+         ". Complete or drop those rows; cmlnmr() does not impute.",
+         call. = FALSE)
+  }
 
   # Integration margins: Bernoulli for 0/1 covariates unless overridden.
   guessed <- .cpaic_guess_margins(ipd, effect_modifiers)
@@ -663,13 +745,24 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
   # Family-specific value checks (guard against invalid Stan inputs).
   surv_ipd <- NULL
   surv_agd <- NULL
+  ipd_offset <- NULL
   need <- function(cols, where) {
     m <- setdiff(cols, names(if (where == "agd") agd else ipd))
     if (length(m)) stop("`", where, "` is missing column(s): ",
                         paste(m, collapse = ", "), call. = FALSE)
   }
   pos <- function(x) is.finite(x) & x > 0
+  # Aggregate counts reach Stan through as.integer(), which TRUNCATES: an `r` of
+  # 1.9 would silently become 1. Require whole numbers rather than round them
+  # for the user.
+  whole <- function(x, what) {
+    if (any(!is.finite(x)) || any(x != round(x))) {
+      stop("`", what, "` must be whole numbers; a fractional count would be ",
+           "silently truncated.", call. = FALSE)
+    }
+  }
   if (family == "binomial") {
+    need(c(outcome), "ipd")
     need(c(r, n), "agd")
     yv <- ipd[[outcome]]
     # na.omit would let a missing IPD outcome pass here and reach Stan as NA.
@@ -677,12 +770,18 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
       stop("binomial IPD outcome must be 0 or 1 with no missing values.",
            call. = FALSE)
     }
+    whole(agd[[r]], r)
+    whole(agd[[n]], n)
     if (any(!is.finite(agd[[r]]) | !is.finite(agd[[n]])) ||
         any(agd[[r]] < 0 | agd[[r]] > agd[[n]])) {
       stop("aggregate binomial counts must be finite and satisfy 0 <= r <= n.",
            call. = FALSE)
     }
+    if (any(agd[[n]] < 1)) {
+      stop("aggregate binomial `", n, "` must be at least 1.", call. = FALSE)
+    }
   } else if (family == "gaussian") {
+    need(c(outcome), "ipd")
     need(c(outcome, se), "agd")
     if (any(!is.finite(ipd[[outcome]]))) {
       stop("gaussian IPD outcome must be finite (no missing values).",
@@ -695,19 +794,34 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
       stop("aggregate gaussian `se` must be positive.", call. = FALSE)
     }
   } else if (family == "poisson") {
+    need(c(outcome), "ipd")
     need(c(r, E), "agd")
     yv <- ipd[[outcome]]
     if (any(!is.finite(yv)) || any(yv < 0) || any(yv != round(yv))) {
       stop("poisson IPD outcome must be a non-negative integer count with no ",
            "missing values.", call. = FALSE)
     }
+    whole(agd[[r]], r)
     if (any(!is.finite(agd[[r]])) || any(agd[[r]] < 0) || any(!pos(agd[[E]]))) {
       stop("aggregate poisson needs finite `r` >= 0 and positive exposure `E`.",
            call. = FALSE)
     }
-    if (!is.null(exposure) && exposure %in% names(ipd) &&
-        any(!pos(ipd[[exposure]]))) {
-      stop("poisson IPD exposure must be positive.", call. = FALSE)
+    # Resolve the individual exposure offset HERE, before the Stan compile. The
+    # Stan model requires one value per patient, so an absent column used to
+    # reach the sampler as a zero-length vector and fail with a dimension
+    # mismatch after the model had already been built. An absent column means
+    # equal follow-up, matching cstc() and cmaic(), which drop the offset when
+    # `ipd_exposure` is NULL; say so rather than assume it silently.
+    if (!is.null(exposure) && exposure %in% names(ipd)) {
+      if (any(!pos(ipd[[exposure]]))) {
+        stop("poisson IPD exposure must be positive.", call. = FALSE)
+      }
+      ipd_offset <- as.numeric(ipd[[exposure]])
+    } else {
+      message("`ipd` has no `", exposure, "` column, so every patient is given ",
+              "an exposure of 1 (equal follow-up). Supply the column, or set ",
+              "`exposure`, to model person-time.")
+      ipd_offset <- rep(1, nrow(ipd))
     }
   } else if (family == "survival") {
     surv_ipd <- .cpaic_survival_outcomes(
@@ -909,7 +1023,7 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
       prior_sigma_sd = prior_sigma_sd)),
     poisson = c(base, list(
       y_ipd = as.integer(ipd[[outcome]]),
-      offset_ipd = as.numeric(ipd[[exposure]]),
+      offset_ipd = ipd_offset,
       r_agd = as.integer(agd[[r]]), E_agd = as.numeric(agd[[E]]))),
     survival = c(base, list(
       N_base = survival_spec$n_basis,
@@ -962,7 +1076,16 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
     lower = apply(beta_draws, 2, stats::quantile, 0.025),
     upper = apply(beta_draws, 2, stats::quantile, 0.975),
     row.names = NULL, stringsAsFactors = FALSE)
-  bad_comp <- !.cpaic_in_rowspace(diag(ncol(C)), null_space)
+  # This table reports the component effects AT THE COVARIATE ORIGIN, so its
+  # estimability gate is the joint (beta, vec(Gamma)) design evaluated at x = 0,
+  # the same one component_effects() uses. The component-main-effect design alone
+  # is a weaker gate: with a modifier held constant at x = 5 the data identify
+  # beta + 5 gamma, not beta at the origin, and this table would report a finite
+  # number for a quantity component_effects() correctly calls NA.
+  Id0 <- diag(ncol(C))
+  V0 <- do.call(rbind, lapply(seq_len(nrow(Id0)), function(i)
+    .cpaic_target_vec(Id0[i, ], rep(0, Q))))
+  bad_comp <- !.cpaic_in_rowspace(V0, .cpaic_null_space(joint_design))
   if (any(bad_comp)) {
     comp_tbl[bad_comp, c("estimate", "se", "lower", "upper")] <- NA_real_
   }
@@ -1092,10 +1215,16 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
                       error = function(e) c("beta", "mu"))
   if (!length(present)) present <- c("beta", "mu")
   smry <- tryCatch(fit$summary(present), error = function(e) NULL)
-  rh <- if (!is.null(smry)) max(smry$rhat, na.rm = TRUE) else NA_real_
+  # An all-NA column (a single chain gives no Rhat) makes max()/min() return
+  # -Inf and +Inf, which then pass the finite checks below as if the fit were
+  # perfect and suppress the warnings entirely. Report NA instead.
+  reduce <- function(f, x) {
+    x <- x[is.finite(x)]
+    if (!length(x)) NA_real_ else f(x)
+  }
+  rh <- if (!is.null(smry)) reduce(max, smry$rhat) else NA_real_
   min_ess <- if (!is.null(smry))
-    suppressWarnings(min(c(smry$ess_bulk, smry$ess_tail), na.rm = TRUE)) else
-    NA_real_
+    reduce(min, c(smry$ess_bulk, smry$ess_tail)) else NA_real_
   if (is.finite(rh) && rh > 1.05) {
     warning("Maximum Rhat = ", round(rh, 3), " (> 1.05) across ",
             paste(present, collapse = "/"), "; the chains may not have ",

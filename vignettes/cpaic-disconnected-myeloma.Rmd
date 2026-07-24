@@ -170,6 +170,8 @@ cpaic_connectivity(net)
 #>     [1] 3 treatments
 #>     [2] 3 treatments
 #>   Bridging components: R, V
+#>     (components that OCCUR in more than one sub-network; occurrence is
+#>      not identifiability, homogeneity, or influence for any contrast.)
 #>   Component design:  rank(X) = 4 / 4 components -> all component effects identified
 #>   Estimable effects: 5 / 5 vs Obs
 ```
@@ -230,6 +232,8 @@ br <- cnma_bridge(net)
 br
 #> cpaic component-NMA bridge (random effects, sm = OR)
 #>   Additive-model fit (Cochran Q): Q = 0, df = 0, p = NA
+#>   (Q tests the additive fit WITHIN this network; it cannot test whether
+#>    component effects are constant ACROSS disconnected sub-networks.)
 #> 
 #> Component effects (OR scale, link/log):
 #>  component estimate    se lower upper         pval
@@ -431,24 +435,26 @@ behavior you want.
 ``` r
 relative_effects(fit, reference = "R", newdata = data.frame(hr = 0.15))
 #> Relative effects (OR, back-transformed)
-#>   Target population: hr = 0.15
-#>  treatment comparator estimate    se lower upper pr_gt0
-#>        Obs          R       NA    NA    NA    NA     NA
-#>        R+D          R    1.557 0.135 1.186 2.001      1
-#>        R+I          R       NA    NA    NA    NA     NA
-#>        R+V          R    1.741 0.084 1.474 2.047      1
-#>          V          R       NA    NA    NA    NA     NA
+#>   Conditional effect at covariate profile: hr = 0.15
+#>  treatment comparator estimate    se lower upper pr_gt0          basis
+#>        Obs          R       NA    NA    NA    NA     NA not identified
+#>        R+D          R    1.557 0.135 1.186 2.001      1          exact
+#>        R+I          R       NA    NA    NA    NA     NA not identified
+#>        R+V          R    1.741 0.084 1.474 2.047      1          exact
+#>          V          R       NA    NA    NA    NA     NA not identified
 #>   NA = not uniquely estimable from this component design (see estimable_effects()).
+#>   `se` is on the link (log) scale; the interval is back-transformed.
 relative_effects(fit, reference = "R", newdata = data.frame(hr = 0.60))
 #> Relative effects (OR, back-transformed)
-#>   Target population: hr = 0.6
-#>  treatment comparator estimate    se lower upper pr_gt0
-#>        Obs          R       NA    NA    NA    NA     NA
-#>        R+D          R    2.134 0.141 1.617 2.798  1.000
-#>        R+I          R       NA    NA    NA    NA     NA
-#>        R+V          R    1.356 0.097 1.112 1.648  0.999
-#>          V          R       NA    NA    NA    NA     NA
+#>   Conditional effect at covariate profile: hr = 0.6
+#>  treatment comparator estimate    se lower upper pr_gt0          basis
+#>        Obs          R       NA    NA    NA    NA     NA not identified
+#>        R+D          R    2.134 0.141 1.617 2.798  1.000          exact
+#>        R+I          R       NA    NA    NA    NA     NA not identified
+#>        R+V          R    1.356 0.097 1.112 1.648  0.999          exact
+#>          V          R       NA    NA    NA    NA     NA not identified
 #>   NA = not uniquely estimable from this component design (see estimable_effects()).
+#>   `se` is on the link (log) scale; the interval is back-transformed.
 ```
 
 The same two tables as forest plots, one target population each.
@@ -601,7 +607,7 @@ tryCatch(
 #> Warning: Dropped from the hierarchy as not estimable in this target population: R, R+D,
 #> R+I, R+V. Ranking them would rank the prior. See estimable_effects_at().
 #> rank_probs() refused:
-#>   Fewer than two elements are estimable in this target population, so no hierarchy can be formed. See estimable_effects_at().
+#>   Fewer than two elements are estimable (excluding elements identified only by aggregate arms) in this target population, so no hierarchy can be formed. See estimable_effects_at().
 ```
 
 The refusal is the correct answer, and it is deliberate. Of the five treatments to

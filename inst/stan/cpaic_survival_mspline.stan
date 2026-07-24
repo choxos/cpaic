@@ -162,6 +162,14 @@ transformed parameters {
     vector[N_base] lsc;
     lsc[1] = 0;
     lsc[2:N_base] = cumulative_sum(bshape_raw[s]) * bsmooth;
+    // `bsmooth` is unbounded above, so an early warmup proposal can drive this
+    // random walk to +/-Inf and softmax then returns NaN. Stan rejects the
+    // proposal, prints an informational message, and adaptation moves on, which
+    // is the mechanism working as intended. Do not try to silence it by shifting
+    // lsc before the softmax: softmax is shift-invariant, so that cannot change
+    // the model, and subtracting an overflowing mean or max turns
+    // large-but-finite proposals that softmax already handles into NaN ones.
+    // Bounding `bsmooth` would silence it but would truncate the user's prior.
     coefficients[s] = softmax(lsc);
   }
 

@@ -8,7 +8,12 @@ link-citations: yes
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE, comment = "#>", message = FALSE, warning = FALSE,
-  fig.width = 7, fig.height = 4, fig.align = "center", dpi = 110,
+  fig.width = 7, fig.height = 4, fig.align = "center",
+  # These vignettes are pre-rendered and their figures are base64-embedded in a
+  # self-contained HTML file that ships in the source tarball, so pixels are
+  # bytes on CRAN. html_vignette defaults to fig.retina = 2, which quadruples
+  # the pixel count for no benefit at this figure size.
+  dpi = 96, fig.retina = 1,
   # Per-vignette prefix: chunk labels are not unique across vignettes, so
   # without this every vignette with a "pop-curve" chunk writes the same PNG.
   fig.path = "figure/binary-"
