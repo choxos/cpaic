@@ -67,7 +67,9 @@
     return(do.call(rstan::sampling, args))
   }
 
-  mod <- .cpaic_stan_model(.cpaic_stan_family_file(family))
+  # .cpaic_stan_model() prepends "cpaic_" itself, so it takes the bare family
+  # stem. Handing it the already-prefixed name looks for cpaic_cpaic_*.stan.
+  mod <- .cpaic_stan_model(family)
   defaults <- list(
     data = standata, chains = chains, parallel_chains = chains,
     iter_warmup = iter_warmup, iter_sampling = iter_sampling,
