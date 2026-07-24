@@ -44,10 +44,13 @@ cmlnmr(
   prior_tau_scale = 1,
   prior_tau_df = 4,
   prior_predictive = FALSE,
+  backend = c("rstan", "cmdstanr"),
   chains = 4L,
   iter_warmup = 500L,
   iter_sampling = 500L,
   seed = NULL,
+  adapt_delta = NULL,
+  max_treedepth = NULL,
   ...
 )
 }
@@ -179,12 +182,24 @@ degrees of freedom for the positive heterogeneity prior.}
 observed likelihood. Replicated outcomes remain available for
 \code{\link[=prior_predictive_check]{prior_predictive_check()}}.}
 
-\item{chains, iter_warmup, iter_sampling, seed}{Passed to \code{cmdstanr}.}
+\item{backend}{Sampler engine: \code{"rstan"} (default) or \code{"cmdstanr"}. The two
+fit the same Stan models and are interchangeable; see the section below.}
 
-\item{...}{Passed to the \code{cmdstanr} sampler (e.g. \code{adapt_delta}).}
+\item{chains, iter_warmup, iter_sampling, seed}{Sampler settings. \code{iter_warmup}
+and \code{iter_sampling} are counted separately whichever backend is used; the
+translation to rstan's combined \code{iter} is handled internally.}
+
+\item{adapt_delta, max_treedepth}{Sampler tuning, or \code{NULL} for the engine
+default. These are named arguments rather than left to \code{...} because the two
+backends take them in different places.}
+
+\item{...}{Further arguments for the sampler. These are passed through
+untouched and are therefore \strong{backend-specific}: they reach
+\code{rstan::sampling()} or the \code{cmdstanr} \verb{$sample()} method as given. Prefer
+the named arguments above for anything that has one.}
 }
 \value{
-An object of class \code{cpaic_mlnmr} with the \code{cmdstanr} fit, the
+An object of class \code{cpaic_mlnmr} with the fitted Stan object, the
 component design, and a tidy table of component effects.
 }
 \description{
@@ -370,6 +385,21 @@ number. Note this checks identification of \code{beta}; a component x
 effect-modifier interaction is additionally identified only by covariate
 variation on the contrasts that involve it, and interactions informed only
 by aggregate arms are weakly identified (\code{prior_gamma_scale} regularizes).
+}
+
+\section{Backends}{
+
+\code{backend = "rstan"} is the default. Its models are compiled when cpaic is
+installed, so nothing else is needed and the examples and tests run anywhere.
+\code{backend = "cmdstanr"} fits the identical models with CmdStan, which tracks
+Stan releases more closely and is often faster, but it needs the \code{cmdstanr}
+package and a separate CmdStan installation.
+
+The two are interchangeable, not identical: they do not share a random number
+stream, so the same \code{seed} gives different draws on each. Convergence
+diagnostics are computed the same way for both (through \code{posterior}), so
+\code{rhat}, \code{ess_bulk}, and \code{ess_tail} mean the same thing whichever produced the
+fit, and everything downstream of the fit works on either.
 }
 
 \examples{

@@ -466,10 +466,33 @@
 #' @param prior_predictive If `TRUE`, sample from the prior and omit the
 #'   observed likelihood. Replicated outcomes remain available for
 #'   [prior_predictive_check()].
-#' @param chains,iter_warmup,iter_sampling,seed Passed to `cmdstanr`.
-#' @param ... Passed to the `cmdstanr` sampler (e.g. `adapt_delta`).
+#' @param backend Sampler engine: `"rstan"` (default) or `"cmdstanr"`. The two
+#'   fit the same Stan models and are interchangeable; see the section below.
+#' @param chains,iter_warmup,iter_sampling,seed Sampler settings. `iter_warmup`
+#'   and `iter_sampling` are counted separately whichever backend is used; the
+#'   translation to rstan's combined `iter` is handled internally.
+#' @param adapt_delta,max_treedepth Sampler tuning, or `NULL` for the engine
+#'   default. These are named arguments rather than left to `...` because the two
+#'   backends take them in different places.
+#' @param ... Further arguments for the sampler. These are passed through
+#'   untouched and are therefore **backend-specific**: they reach
+#'   `rstan::sampling()` or the `cmdstanr` `$sample()` method as given. Prefer
+#'   the named arguments above for anything that has one.
 #'
-#' @return An object of class `cpaic_mlnmr` with the `cmdstanr` fit, the
+#' @section Backends:
+#' `backend = "rstan"` is the default. Its models are compiled when cpaic is
+#' installed, so nothing else is needed and the examples and tests run anywhere.
+#' `backend = "cmdstanr"` fits the identical models with CmdStan, which tracks
+#' Stan releases more closely and is often faster, but it needs the `cmdstanr`
+#' package and a separate CmdStan installation.
+#'
+#' The two are interchangeable, not identical: they do not share a random number
+#' stream, so the same `seed` gives different draws on each. Convergence
+#' diagnostics are computed the same way for both (through `posterior`), so
+#' `rhat`, `ess_bulk`, and `ess_tail` mean the same thing whichever produced the
+#' fit, and everything downstream of the fit works on either.
+#'
+#' @return An object of class `cpaic_mlnmr` with the fitted Stan object, the
 #'   component design, and a tidy table of component effects.
 #' @references
 #' Phillippo DM, Dias S, Ades AE, et al. (2020). Multilevel network
@@ -1131,6 +1154,10 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
     prior_gamma_scale = prior_gamma_scale, prior_gamma_df = prior_gamma_df,
     prior_tau_dist = prior_tau_dist, prior_tau_scale = prior_tau_scale,
     prior_tau_df = prior_tau_df, prior_predictive = prior_predictive,
+    # The backend is part of the call: prior_sensitivity() refits, and refitting
+    # on a different engine would compare prior movement across two samplers.
+    backend = backend, adapt_delta = adapt_delta,
+    max_treedepth = max_treedepth,
     chains = chains, iter_warmup = iter_warmup,
     iter_sampling = iter_sampling, seed = seed_used
   )
@@ -1147,12 +1174,19 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
            gaussian = "MD", poisson = "IRR", survival = "HR"),
          method = "cML-NMR", trt_effects = trt_effects,
          re_parameterization = re_parameterization, seed = seed_used,
+         backend = backend,
          provenance = list(
            package_version = tryCatch(
              as.character(utils::packageVersion("cpaic")),
              error = function(e) NA_character_),
-           cmdstan_version = tryCatch(
-             as.character(cmdstanr::cmdstan_version()),
+           # The engine and its version, so a fit records what produced it. The
+           # two backends do not share a random number stream, so this is part
+           # of what makes a result reproducible.
+           backend = backend,
+           engine_version = tryCatch(
+             if (identical(backend, "rstan"))
+               as.character(utils::packageVersion("rstan"))
+             else as.character(cmdstanr::cmdstan_version()),
              error = function(e) NA_character_),
            stan_source_md5 = stan_md5, seed = seed_used, n_int = n_int_eff,
            assumptions = list(
@@ -1186,8 +1220,7 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
 #' Warn on poor MCMC diagnostics from a cmdstanr fit
 #' @noRd
 .cpaic_check_diagnostics <- function(fit) {
-  diag <- tryCatch(fit$diagnostic_summary(quiet = TRUE),
-                   error = function(e) NULL)
+  diag <- .cpaic_sampler_diagnostics(fit)
   nd <- 0L
   ntd <- 0L
   ebfmi <- NA_real_
@@ -1216,10 +1249,9 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
   # the fit still looks usable.
   cand <- c("mu", "beta", "gamma", "breg", "tau", "sigma", "bsmooth",
             "bshape_raw", "delta_aux")
-  present <- tryCatch(intersect(cand, fit$metadata()$stan_variables),
-                      error = function(e) c("beta", "mu"))
+  present <- intersect(cand, .cpaic_stan_variables(fit))
   if (!length(present)) present <- c("beta", "mu")
-  smry <- tryCatch(fit$summary(present), error = function(e) NULL)
+  smry <- .cpaic_fit_summary(fit, present)
   # An all-NA column (a single chain gives no Rhat) makes max()/min() return
   # -Inf and +Inf, which then pass the finite checks below as if the fit were
   # perfect and suppress the warnings entirely. Report NA instead.
@@ -1355,8 +1387,8 @@ print.cpaic_mlnmr <- function(x, ...) {
             collapse = ", "), "\n", sep = "")
   if (!is.null(x$provenance)) {
     p <- x$provenance
-    cat("  Provenance: cpaic ", p$package_version %||% "?", ", CmdStan ",
-        p$cmdstan_version %||% "?", ", Stan md5 ",
+    cat("  Provenance: cpaic ", p$package_version %||% "?", ", ",
+        p$backend %||% "?", " ", p$engine_version %||% "?", ", Stan md5 ",
         substr(p$stan_source_md5 %||% "", 1L, 8L), ", seed ", p$seed, "\n",
         sep = "")
   }
