@@ -20,7 +20,7 @@ for between-study imbalance in effect modifiers.
   each IPD-bearing edge with a population-adjusted contrast, which the component
   bridge then combines.
 * `cmlnmr()` is the Bayesian flagship: component-additive multilevel network
-  meta-regression, fitted with `cmdstanr`. The treatment effect is `C %*% beta`
+  meta-regression, fitted with rstan or CmdStan. The treatment effect is `C %*% beta`
   and the model carries component by effect-modifier interactions through the
   whole network, so disconnected sub-networks are connected by construction and
   every edge is adjusted to one target population coherently.
@@ -113,6 +113,30 @@ These are stated in the manual pages, not only here.
   and the aggregate likelihood carries a finite quasi-Monte-Carlo integration
   error.
 
+## Sampler backends
+
+`cmlnmr()` fits through either engine, selected with `backend`.
+
+* `"rstan"` is the default. The Stan models are compiled when cpaic is
+  installed, so the Bayesian engine works with no further setup, and the
+  examples and tests run anywhere.
+* `"cmdstanr"` fits the identical models with CmdStan, which tracks Stan
+  releases more closely and is often faster. It needs the `cmdstanr` package and
+  a separate CmdStan installation.
+
+The two agree up to Monte Carlo error but do not share a random number stream,
+so the same `seed` gives different draws on each. Convergence diagnostics are
+computed the same way for both, so `rhat`, `ess_bulk`, and `ess_tail` mean the
+same thing whichever produced a fit, and every summary, plot, and diagnostic in
+the package works on either. The engine and its version are recorded in the
+fit's provenance, and in the arguments `prior_sensitivity()` refits with, so a
+sensitivity analysis cannot silently switch engines.
+
+`adapt_delta` and `max_treedepth` are arguments of `cmlnmr()` rather than being
+passed through `...`, because the two engines take them in different places.
+Anything still passed through `...` reaches the chosen sampler unchanged and is
+therefore backend-specific.
+
 ## Dependencies
 
 Imports are kept to what is load-bearing: `netmeta` for the component-NMA engine,
@@ -121,5 +145,6 @@ Imports are kept to what is load-bearing: `netmeta` for the component-NMA engine
 otherwise packages that ship with R. The component-additive ML-NMR models and
 their quasi-Monte-Carlo integration are implemented in cpaic itself; `multinma`
 is a `Suggests` used only by the test that keeps the random-effects correlation
-in step with multinma's `RE_cor()`. `cmlnmr()` needs `cmdstanr`, installed from
+in step with multinma's `RE_cor()`. `cmlnmr()` fits through `rstan` by default;
+`backend = "cmdstanr"` additionally needs `cmdstanr`, from
 <https://stan-dev.r-universe.dev>.

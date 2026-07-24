@@ -1,9 +1,7 @@
 test_that("cmlnmr recovers component effects when identified", {
   skip_on_cran()
-  skip_if_not_installed("cmdstanr")
+  skip_if_not_installed("rstan")
   skip_if_not_installed("randtoolbox")
-  skip_if(is.null(tryCatch(cmdstanr::cmdstan_path(), error = function(e) NULL)),
-          "cmdstan not installed")
 
   set.seed(7)
   beta <- c(A = 0.5, B = 0.4, C = 0.3)
@@ -71,10 +69,8 @@ test_that("cmlnmr recovers component effects when identified", {
 
 test_that("cmlnmr runs for gaussian, poisson, and survival families", {
   skip_on_cran()
-  skip_if_not_installed("cmdstanr")
+  skip_if_not_installed("rstan")
   skip_if_not_installed("randtoolbox")
-  skip_if(is.null(tryCatch(cmdstanr::cmdstan_path(), error = function(e) NULL)),
-          "cmdstan not installed")
 
   Cmat <- build_C_matrix(c("Placebo", "A", "A+B"), inactive = "Placebo")
   set.seed(3)
@@ -136,10 +132,8 @@ test_that("cmlnmr runs for gaussian, poisson, and survival families", {
 
 test_that("cmlnmr fits a piecewise-exponential (flexible) survival baseline", {
   skip_on_cran()
-  skip_if_not_installed("cmdstanr")
+  skip_if_not_installed("rstan")
   skip_if_not_installed("randtoolbox")
-  skip_if(is.null(tryCatch(cmdstanr::cmdstan_path(), error = function(e) NULL)),
-          "cmdstan not installed")
 
   set.seed(5)
   Cmat <- build_C_matrix(c("Placebo", "A", "A+B"), inactive = "Placebo")
@@ -193,11 +187,9 @@ test_that("Gaussian copula correlates the integration points", {
 
 test_that("cmlnmr fits an M-spline survival baseline", {
   skip_on_cran()
-  skip_if_not_installed("cmdstanr")
+  skip_if_not_installed("rstan")
   skip_if_not_installed("randtoolbox")
   skip_if_not_installed("splines2")
-  skip_if(is.null(tryCatch(cmdstanr::cmdstan_path(), error = function(e) NULL)),
-          "cmdstan not installed")
 
   set.seed(5)
   Cmat <- build_C_matrix(c("Placebo", "A", "A+B"), inactive = "Placebo")
@@ -288,10 +280,8 @@ test_that("a supplied correlation matrix must really be a correlation matrix", {
 
 test_that("a poisson fit without an exposure column assumes equal follow-up", {
   skip_on_cran()
-  skip_if_not_installed("cmdstanr")
+  skip_if_not_installed("rstan")
   skip_if_not_installed("randtoolbox")
-  skip_if(is.null(tryCatch(cmdstanr::cmdstan_path(), error = function(e) NULL)),
-          "cmdstan not installed")
 
   # The Stan model needs one offset per patient, so an absent column must be
   # resolved in R (to equal follow-up) rather than reaching the sampler as a
@@ -320,10 +310,8 @@ test_that("a poisson fit without an exposure column assumes equal follow-up", {
 
 test_that("the stored component table and component_effects() share a gate", {
   skip_on_cran()
-  skip_if_not_installed("cmdstanr")
+  skip_if_not_installed("rstan")
   skip_if_not_installed("randtoolbox")
-  skip_if(is.null(tryCatch(cmdstanr::cmdstan_path(), error = function(e) NULL)),
-          "cmdstan not installed")
 
   # Both report the component effects AT THE COVARIATE ORIGIN, so both must use
   # the joint (beta, vec(Gamma)) design there. The component-main-effect design
@@ -356,10 +344,8 @@ test_that("the stored component table and component_effects() share a gate", {
 
 test_that("a gaussian fit declines an integration-error plot for any margin", {
   skip_on_cran()
-  skip_if_not_installed("cmdstanr")
+  skip_if_not_installed("rstan")
   skip_if_not_installed("randtoolbox")
-  skip_if(is.null(tryCatch(cmdstanr::cmdstan_path(), error = function(e) NULL)),
-          "cmdstan not installed")
 
   # The identity link makes the aggregate mean exact at the covariate means for
   # EVERY margin, so cmlnmr() fits with one integration point. Guarding the plot

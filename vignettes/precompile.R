@@ -14,16 +14,16 @@
 # sources, the knitted *.Rmd intermediates and figure/ are all build-ignored (see
 # .Rbuildignore); only *.html and *.html.asis ship.
 #
-# Requires (Suggests): cmdstanr (fits the models), ggplot2 (figures), knitr,
-# rmarkdown, R.rsp.
+# Requires: rstan (the default backend, whose models are compiled into the
+# installed package), ggplot2 (figures), bayesplot, knitr, rmarkdown, R.rsp.
+# The vignettes fit through cmlnmr()'s default backend, so they exercise what a
+# reader gets from install.packages() rather than a toolchain most readers do
+# not have.
 
-for (pkg in c("knitr", "rmarkdown", "cmdstanr", "ggplot2", "bayesplot")) {
+for (pkg in c("knitr", "rmarkdown", "rstan", "ggplot2", "bayesplot")) {
   if (!requireNamespace(pkg, quietly = TRUE)) {
     stop("precompile.R needs the '", pkg, "' package installed.", call. = FALSE)
   }
-}
-if (inherits(try(cmdstanr::cmdstan_path(), silent = TRUE), "try-error")) {
-  stop("precompile.R needs a working CmdStan installation.", call. = FALSE)
 }
 
 # The vignettes call library(cpaic), so they run against the INSTALLED package,

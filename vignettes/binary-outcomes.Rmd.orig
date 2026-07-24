@@ -467,7 +467,7 @@ fit <- cmlnmr(ipd, agd,
               inactive = "UC", family = "binomial",
               trt_effects = "random",
               chains = 4, iter_warmup = 500, iter_sampling = 500,
-              n_int = 64, seed = 1, show_exceptions = FALSE)
+              n_int = 64, seed = 1)
 fit
 ```
 
@@ -957,7 +957,7 @@ cross-validation [@vehtari2017] and DIC [@spiegelhalter2002dic]:
 fit_fixed <- cmlnmr(ipd, agd, effect_modifiers = "cpd", inactive = "UC",
                     family = "binomial", trt_effects = "fixed",
                     chains = 4, iter_warmup = 500, iter_sampling = 500,
-                    n_int = 64, seed = 1, show_exceptions = FALSE)
+                    n_int = 64, seed = 1)
 
 loo::loo_compare(list(random = loo::loo(fit), fixed = loo::loo(fit_fixed)))
 

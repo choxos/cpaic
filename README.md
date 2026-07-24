@@ -43,7 +43,8 @@ by a common comparator. It is identification through additivity.
 - **Frequentist core.** `cnma_bridge()` (reconnect via components), `cmaic()`
   (component MAIC), `cstc()` (component anchored STC). Binary, continuous,
   count, and survival outcomes.
-- **Bayesian `cmlnmr()`** (component-additive ML-NMR), fitted with `cmdstanr`.
+- **Bayesian `cmlnmr()`** (component-additive ML-NMR), fitted with rstan by
+  default or with cmdstanr on request.
   Binary, continuous, count, and survival outcomes.
 
 This is research software under active development. Read the Limitations
@@ -78,8 +79,15 @@ remotes::install_github("choxos/cpaic")
 `cpaic` builds on `netmeta` for the component-NMA engine and `maicplus` for the
 MAIC weights, both on CRAN. The component-additive ML-NMR models and their
 quasi-Monte-Carlo integration are implemented in the package itself, following
-Phillippo et al. (2020); `cmlnmr()` fits them with `cmdstanr`, which is installed
-from <https://stan-dev.r-universe.dev>.
+Phillippo et al. (2020).
+
+Those models are compiled when cpaic is installed, so `cmlnmr()` works with no
+further setup. It fits through **rstan** by default; pass
+`backend = "cmdstanr"` to use CmdStan instead, which tracks Stan releases more
+closely and is often faster, and which needs the `cmdstanr` package from
+<https://stan-dev.r-universe.dev> plus a CmdStan installation. The two fit the
+same models and agree up to Monte Carlo error; they do not share a random number
+stream, so the same `seed` gives different draws on each.
 
 ## Quick start
 

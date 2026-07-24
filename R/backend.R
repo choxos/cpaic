@@ -53,6 +53,25 @@
                           iter_sampling, seed, adapt_delta = NULL,
                           max_treedepth = NULL, sample_args = list()) {
   if (identical(backend, "rstan")) {
+    # `...` reaches the sampler unchanged, so an argument that only cmdstanr
+    # understands would be handed to rstan::sampling() and kill every chain
+    # with "no applicable method for `@`", which says nothing about the cause.
+    # Name the problem instead.
+    cmdstanr_only <- c("show_exceptions", "show_messages", "parallel_chains",
+                       "threads_per_chain", "output_dir", "output_basename",
+                       "sig_figs", "iter_warmup", "iter_sampling",
+                       "save_warmup", "opencl_ids")
+    clash <- intersect(names(sample_args), cmdstanr_only)
+    if (length(clash)) {
+      stop("`", paste(clash, collapse = "`, `"), "` ",
+           if (length(clash) == 1L) "is a cmdstanr argument" else
+             "are cmdstanr arguments",
+           " and cannot be passed to the rstan backend. Drop ",
+           if (length(clash) == 1L) "it" else "them",
+           ", or fit with backend = \"cmdstanr\". Note that `adapt_delta` and ",
+           "`max_treedepth` are arguments of cmlnmr() itself and work on both.",
+           call. = FALSE)
+    }
     control <- sample_args$control %||% list()
     if (!is.null(adapt_delta)) control$adapt_delta <- adapt_delta
     if (!is.null(max_treedepth)) control$max_treedepth <- max_treedepth

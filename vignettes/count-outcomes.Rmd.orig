@@ -471,7 +471,7 @@ fit <- cmlnmr(ipd, agd,
               exposure = ".exposure",
               trt_effects = "random",
               chains = 4, iter_warmup = 500, iter_sampling = 500,
-              n_int = 64, seed = 3, show_exceptions = FALSE)
+              n_int = 64, seed = 3)
 fit
 ```
 
@@ -943,7 +943,7 @@ fit_fixed <- cmlnmr(ipd, agd, effect_modifiers = ems, inactive = "PBO",
                     family = "poisson", exposure = ".exposure",
                     trt_effects = "fixed",
                     chains = 4, iter_warmup = 500, iter_sampling = 500,
-                    n_int = 64, seed = 3, show_exceptions = FALSE)
+                    n_int = 64, seed = 3)
 
 loo::loo_compare(list(random = loo::loo(fit), fixed = loo::loo(fit_fixed)))
 

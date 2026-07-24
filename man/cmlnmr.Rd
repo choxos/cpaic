@@ -403,7 +403,7 @@ fit, and everything downstream of the fit works on either.
 }
 
 \examples{
-\dontshow{if (requireNamespace("cmdstanr", quietly = TRUE) && !inherits(try(cmdstanr::cmdstan_path(), silent = TRUE), "try-error")) withAutoprint(\{ # examplesIf}
+\dontshow{if (requireNamespace("rstan", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 \donttest{
 ipd <- data.frame(.study = "S1",
                   .trt = rep(c("Placebo", "A"), each = 100),

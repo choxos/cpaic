@@ -192,7 +192,7 @@ test_that("the estimability screen is invariant to aggregate row multiplicity", 
 })
 
 test_that("cmlnmr rejects data overrides, source overlap, and non-integer n_int", {
-  skip_if_not_installed("cmdstanr")
+  skip_if_not_installed("rstan")
   skip_if_not_installed("randtoolbox")
   ipd <- data.frame(.study = "S1", .trt = rep(c("Placebo", "A"), each = 10),
                     .y = stats::rbinom(20, 1, 0.5), x1 = stats::rnorm(20))

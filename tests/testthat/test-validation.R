@@ -153,7 +153,7 @@ test_that("cmaic requires n_boot >= 2", {
 })
 
 test_that("cmlnmr validates inactive and cut_points before sampling", {
-  skip_if_not_installed("cmdstanr")
+  skip_if_not_installed("rstan")
   skip_if_not_installed("randtoolbox")
   set.seed(1)
   ipd <- data.frame(.study = "S1", .trt = rep(c("Placebo", "A"), each = 20),

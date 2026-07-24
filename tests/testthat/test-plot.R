@@ -167,10 +167,8 @@ test_that("plot_edge_influence() builds and flags zero-influence IPD edges", {
 
 skip_if_no_stan <- function() {
   skip_on_cran()
-  skip_if_not_installed("cmdstanr")
+  skip_if_not_installed("rstan")
   skip_if_not_installed("randtoolbox")
-  skip_if(is.null(tryCatch(cmdstanr::cmdstan_path(), error = function(e) NULL)),
-          "cmdstan not installed")
 }
 
 # One small fit, reused by every Bayesian plot test in this file.

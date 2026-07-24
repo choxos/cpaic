@@ -502,7 +502,7 @@
 #' Wigle A, Beliveau A, Nikolakopoulou A, Lin L (2026). Creating Treatment and
 #' Component Hierarchies in Component Network Meta-Analysis.
 #' @seealso [cmaic()], [cstc()], [cnma_bridge()], [estimable_effects()]
-#' @examplesIf requireNamespace("cmdstanr", quietly = TRUE) && !inherits(try(cmdstanr::cmdstan_path(), silent = TRUE), "try-error")
+#' @examplesIf requireNamespace("rstan", quietly = TRUE)
 #' \donttest{
 #' ipd <- data.frame(.study = "S1",
 #'                   .trt = rep(c("Placebo", "A"), each = 100),
