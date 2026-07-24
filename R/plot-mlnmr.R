@@ -58,7 +58,7 @@ utils::globalVariables(c("dens", "density", "group", "parameter", "point",
 #'
 #' The full rank distribution behind [cpaic_ranks()]: the posterior probability
 #' that each treatment (or component) takes each rank, **in a named target
-#' population**. Ported from `multinma::posterior_rank_probs()` (Phillippo et
+#' population**. Ported from multinma's `posterior_rank_probs()` (Phillippo et
 #' al. 2020) and extended, because under population adjustment the hierarchy is
 #' a function of the target: the component effects are `beta + Gamma x`, so the
 #' ranks move with `x`.
@@ -175,7 +175,7 @@ rank_probs <- function(object, newdata = NULL,
 
 #' Rankogram and cumulative rank plot
 #'
-#' Ported from `multinma::plot.nma_rank_probs()` (Phillippo et al. 2020). The
+#' Ported from multinma's `plot.nma_rank_probs()` (Phillippo et al. 2020). The
 #' rankogram gives the posterior probability of each rank; the cumulative
 #' version gives the probability of being ranked among the best `k`, whose
 #' normalized area is SUCRA.
@@ -555,7 +555,7 @@ plot_estimability <- function(object, em, values, at = NULL, reference = NULL,
 
 #' Deviance and dev-dev plots
 #'
-#' Ported from `multinma::plot.nma_dic()` (Phillippo et al. 2020). With a single
+#' Ported from multinma's `plot.nma_dic()` (Phillippo et al. 2020). With a single
 #' [dic()] object the plot shows each data point's contribution to the posterior
 #' mean deviance; points contributing much more than the rest are fitted poorly.
 #' With two [dic()] objects it draws the **dev-dev plot**: points below the line
@@ -634,7 +634,7 @@ plot.cpaic_dic <- function(x, y = NULL, ..., labels = c("Model 1", "Model 2")) {
 
 #' Leverage plot
 #'
-#' Ported from `multinma::plot.nma_dic()` with `type = "leverage"` (Phillippo et
+#' Ported from multinma's `plot.nma_dic()` with `type = "leverage"` (Phillippo et
 #' al. 2020). Each data point's leverage (its contribution to the effective
 #' number of parameters) is plotted against its signed square root residual
 #' deviance, with contours of constant DIC contribution. Points outside the
@@ -738,7 +738,7 @@ plot_leverage <- function(object, ..., dic_contours = 1:4) {
 
 #' Prior versus posterior
 #'
-#' Ported from `multinma::plot_prior_posterior()` (Phillippo et al. 2020).
+#' Ported from multinma's `plot_prior_posterior()` (Phillippo et al. 2020).
 #' Posteriors are drawn as histograms, priors as lines. Where a posterior simply
 #' reproduces its prior, the data carry no information about that parameter, and
 #' any quantity that leans on it is prior-driven rather than estimated. This is
@@ -825,7 +825,7 @@ plot_prior_posterior <- function(x, ..., prior = NULL, bins = 40) {
 
 #' Numerical integration error against the number of integration points
 #'
-#' Ported from `multinma::plot_integration_error()` (Phillippo et al. 2020).
+#' Ported from multinma's `plot_integration_error()` (Phillippo et al. 2020).
 #' Aggregate arms are fitted by integrating the individual-level model over the
 #' study's covariate distribution with Sobol' quasi-Monte-Carlo points. The
 #' integration error at `N` points is the estimate using the first `N` points
@@ -1004,7 +1004,7 @@ plot_integration_error <- function(x, ..., int_thin = NULL, ndraws = 200L,
 
 #' MCMC diagnostics for a cML-NMR fit
 #'
-#' Ported from `multinma::plot.stan_nma()` (Phillippo et al. 2020), which hands
+#' Ported from multinma's `plot.stan_nma()` (Phillippo et al. 2020), which hands
 #' the posterior draws to `bayesplot`. Diverging transitions, a high maximum
 #' `Rhat`, or a low effective sample size all mean the posterior has not been
 #' explored, and nothing downstream of it is trustworthy.
@@ -1072,7 +1072,7 @@ plot.cpaic_mlnmr <- function(x, y, ...,
 
 #' Kaplan-Meier curves from the survival data behind a cML-NMR fit
 #'
-#' Ported from `multinma::geom_km()` (Phillippo et al. 2020). Returns a list of
+#' Ported from multinma's `geom_km()` (Phillippo et al. 2020). Returns a list of
 #' ggplot2 layers, so it can be added to an existing plot; adding it to
 #' [plot_survival()] overlays the observed data on the fitted survival curves.
 #'
@@ -1146,7 +1146,7 @@ geom_km <- function(object, ..., curve_args = list(), cens_args = list()) {
 
 #' Fitted survival curves from a cML-NMR fit
 #'
-#' Ported from `multinma::plot.surv_nma_summary()` (Phillippo et al. 2020).
+#' Ported from multinma's `plot.surv_nma_summary()` (Phillippo et al. 2020).
 #' Draws the model-implied survival function for each study arm, averaged over
 #' that arm's own covariate distribution (the IPD covariates for an IPD arm, the
 #' integration points for an aggregate arm), with posterior credible bands. Add

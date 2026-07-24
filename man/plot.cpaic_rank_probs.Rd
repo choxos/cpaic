@@ -17,7 +17,7 @@
 A \code{ggplot} object.
 }
 \description{
-Ported from \code{multinma::plot.nma_rank_probs()} (Phillippo et al. 2020). The
+Ported from multinma's \code{plot.nma_rank_probs()} (Phillippo et al. 2020). The
 rankogram gives the posterior probability of each rank; the cumulative
 version gives the probability of being ranked among the best \code{k}, whose
 normalized area is SUCRA.

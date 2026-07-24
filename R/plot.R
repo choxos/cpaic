@@ -34,7 +34,7 @@ utils::globalVariables(c(
 
 #' A light ggplot2 theme shared by the cpaic plots
 #'
-#' Adapted from `multinma::theme_multinma()` (GPL-3).
+#' Adapted from multinma's `theme_multinma()` (GPL-3).
 #' @noRd
 .cpaic_theme <- function() {
   ggplot2::theme_light() +
@@ -101,7 +101,7 @@ utils::globalVariables(c(
 #' through which the additive component model reconnects the network.
 #'
 #' Each sub-network is laid out on its own circle, so a disconnected network
-#' looks disconnected. Ported in spirit from `multinma::plot.nma_data()`
+#' looks disconnected. Ported in spirit from multinma's `plot.nma_data()`
 #' (Phillippo et al. 2020), re-implemented on ggplot2 without a `ggraph`
 #' dependency.
 #'
@@ -272,7 +272,7 @@ plot.cpaic_network <- function(x, ..., weight_edges = TRUE,
 #' Forest plot of relative or component effects
 #'
 #' A ggplot2 forest plot of the estimates in a cpaic fit. Ported from
-#' `multinma::plot.nma_summary()` (Phillippo et al. 2020) and re-implemented on
+#' multinma's `plot.nma_summary()` (Phillippo et al. 2020) and re-implemented on
 #' ggplot2 alone.
 #'
 #' Contrasts that the component design cannot identify are **shown**, labelled

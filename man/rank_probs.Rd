@@ -39,7 +39,7 @@ rank) and columns \code{element}, \code{rank_position}, and \code{probability}.
 \description{
 The full rank distribution behind \code{\link[=cpaic_ranks]{cpaic_ranks()}}: the posterior probability
 that each treatment (or component) takes each rank, \strong{in a named target
-population}. Ported from \code{multinma::posterior_rank_probs()} (Phillippo et
+population}. Ported from multinma's \code{posterior_rank_probs()} (Phillippo et
 al. 2020) and extended, because under population adjustment the hierarchy is
 a function of the target: the component effects are \verb{beta + Gamma x}, so the
 ranks move with \code{x}.
