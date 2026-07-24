@@ -62,10 +62,21 @@ jobs:
           fit <- cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "Placebo",
                         chains = 2, iter_warmup = 400, iter_sampling = 400,
                         seed = 1)
+          # A is carried by the IPD contrast, so it is identified at the
+          # covariate origin. B appears only inside the aggregate A+B arm, so
+          # the design identifies the SUM there, not B on its own, and the
+          # component table has to say so. It must also agree with
+          # component_effects(), which applies the same gate.
           stopifnot(nrow(fit$components) == 2L,
-                    all(is.finite(fit$components$estimate)))
+                    identical(fit$components$component, c("A", "B")),
+                    is.finite(fit$components$estimate[1]),
+                    is.na(fit$components$estimate[2]),
+                    identical(is.na(fit$components$estimate),
+                              is.na(component_effects(fit)$estimate)))
           re <- relative_effects(fit, newdata = data.frame(x1 = 0.2))
           stopifnot("basis" %in% names(re))
+          stopifnot(is.finite(fit$diagnostics$max_rhat),
+                    is.finite(fit$diagnostics$min_ess))
           cat("Stan smoke fit OK; max Rhat =",
               round(fit$diagnostics$max_rhat, 3), "\n")
         shell: Rscript {0}
