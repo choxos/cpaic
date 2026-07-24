@@ -29,7 +29,7 @@ plot_integration_error(
 A \code{ggplot} object.
 }
 \description{
-Ported from \code{multinma::plot_integration_error()} (Phillippo et al. 2020).
+Ported from multinma's \code{plot_integration_error()} (Phillippo et al. 2020).
 Aggregate arms are fitted by integrating the individual-level model over the
 study's covariate distribution with Sobol' quasi-Monte-Carlo points. The
 integration error at \code{N} points is the estimate using the first \code{N} points

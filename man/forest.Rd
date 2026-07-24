@@ -54,7 +54,7 @@ A \code{ggplot} object.
 }
 \description{
 A ggplot2 forest plot of the estimates in a cpaic fit. Ported from
-\code{multinma::plot.nma_summary()} (Phillippo et al. 2020) and re-implemented on
+multinma's \code{plot.nma_summary()} (Phillippo et al. 2020) and re-implemented on
 ggplot2 alone.
 }
 \details{

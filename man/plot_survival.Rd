@@ -21,7 +21,7 @@ plot_survival(object, ..., times = NULL, ndraws = 200L, level = 0.95)
 A \code{ggplot} object.
 }
 \description{
-Ported from \code{multinma::plot.surv_nma_summary()} (Phillippo et al. 2020).
+Ported from multinma's \code{plot.surv_nma_summary()} (Phillippo et al. 2020).
 Draws the model-implied survival function for each study arm, averaged over
 that arm's own covariate distribution (the IPD covariates for an IPD arm, the
 integration points for an aggregate arm), with posterior credible bands. Add

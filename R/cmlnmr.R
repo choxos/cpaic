@@ -6,7 +6,7 @@
 #'
 #' Sobol' quasi-Monte-Carlo points are coupled by a Gaussian copula and then
 #' pushed through each covariate's marginal inverse CDF, following the
-#' construction used by `multinma::add_integration()`. Supported margins are
+#' construction used by multinma's `add_integration()`. Supported margins are
 #' `"normal"` (from the study mean and SD) and `"bernoulli"` (from the study
 #' mean, i.e. the prevalence). Using a normal margin for a binary covariate
 #' generates integration points outside `{0, 1}` and integrates the

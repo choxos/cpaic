@@ -30,7 +30,7 @@ random-effects model, the heterogeneity \code{tau}.}
 A \code{ggplot} object (\code{"pairs"} returns a \code{bayesplot} grid).
 }
 \description{
-Ported from \code{multinma::plot.stan_nma()} (Phillippo et al. 2020), which hands
+Ported from multinma's \code{plot.stan_nma()} (Phillippo et al. 2020), which hands
 the posterior draws to \code{bayesplot}. Diverging transitions, a high maximum
 \code{Rhat}, or a low effective sample size all mean the posterior has not been
 explored, and nothing downstream of it is trustworthy.
