@@ -121,5 +121,5 @@ Imports are kept to what is load-bearing: `netmeta` for the component-NMA engine
 otherwise packages that ship with R. The component-additive ML-NMR models and
 their quasi-Monte-Carlo integration are implemented in cpaic itself; `multinma`
 is a `Suggests` used only by the test that keeps the random-effects correlation
-in step with `multinma::RE_cor()`. `cmlnmr()` needs `cmdstanr`, installed from
+in step with multinma's `RE_cor()`. `cmlnmr()` needs `cmdstanr`, installed from
 <https://stan-dev.r-universe.dev>.
