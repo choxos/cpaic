@@ -84,7 +84,7 @@ $$ g\{E(y \mid \text{arm } t, x)\}
 so the treatment coefficient $\beta_t$ is the population-adjusted contrast
 at the target (the interaction term vanishes at $x = \bar x_{\text{target}}$).
 This is the anchored generalization of regression-based standardization; it
-is implemented natively because `mlumr::stc()` targets the unanchored
+is implemented natively because the `stc()` function in mlumr targets the unanchored
 two-trial case.
 
 ```{r}
