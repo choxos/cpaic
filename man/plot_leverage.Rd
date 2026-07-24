@@ -17,7 +17,7 @@ plot_leverage(object, ..., dic_contours = 1:4)
 A \code{ggplot} object.
 }
 \description{
-Ported from \code{multinma::plot.nma_dic()} with \code{type = "leverage"} (Phillippo et
+Ported from multinma's \code{plot.nma_dic()} with \code{type = "leverage"} (Phillippo et
 al. 2020). Each data point's leverage (its contribution to the effective
 number of parameters) is plotted against its signed square root residual
 deviance, with contours of constant DIC contribution. Points outside the

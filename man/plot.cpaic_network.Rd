@@ -34,7 +34,7 @@ through which the additive component model reconnects the network.
 }
 \details{
 Each sub-network is laid out on its own circle, so a disconnected network
-looks disconnected. Ported in spirit from \code{multinma::plot.nma_data()}
+looks disconnected. Ported in spirit from multinma's \code{plot.nma_data()}
 (Phillippo et al. 2020), re-implemented on ggplot2 without a \code{ggraph}
 dependency.
 }

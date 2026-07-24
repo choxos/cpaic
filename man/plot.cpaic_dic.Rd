@@ -19,7 +19,7 @@
 A \code{ggplot} object.
 }
 \description{
-Ported from \code{multinma::plot.nma_dic()} (Phillippo et al. 2020). With a single
+Ported from multinma's \code{plot.nma_dic()} (Phillippo et al. 2020). With a single
 \code{\link[=dic]{dic()}} object the plot shows each data point's contribution to the posterior
 mean deviance; points contributing much more than the rest are fitted poorly.
 With two \code{\link[=dic]{dic()}} objects it draws the \strong{dev-dev plot}: points below the line

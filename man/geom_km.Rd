@@ -19,7 +19,7 @@ curves (\code{\link[ggplot2:geom_step]{ggplot2::geom_step()}}) and the censoring
 A list of ggplot2 layers.
 }
 \description{
-Ported from \code{multinma::geom_km()} (Phillippo et al. 2020). Returns a list of
+Ported from multinma's \code{geom_km()} (Phillippo et al. 2020). Returns a list of
 ggplot2 layers, so it can be added to an existing plot; adding it to
 \code{\link[=plot_survival]{plot_survival()}} overlays the observed data on the fitted survival curves.
 }

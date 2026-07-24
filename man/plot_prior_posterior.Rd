@@ -22,7 +22,7 @@ only). Defaults to all that the model used.}
 A \code{ggplot} object.
 }
 \description{
-Ported from \code{multinma::plot_prior_posterior()} (Phillippo et al. 2020).
+Ported from multinma's \code{plot_prior_posterior()} (Phillippo et al. 2020).
 Posteriors are drawn as histograms, priors as lines. Where a posterior simply
 reproduces its prior, the data carry no information about that parameter, and
 any quantity that leans on it is prior-driven rather than estimated. This is
