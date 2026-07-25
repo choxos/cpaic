@@ -573,12 +573,20 @@ fit <- cmlnmr(ipd, agd,
               inactive = "UC", family = "binomial",
               trt_effects = "random",
               chains = 4, iter_warmup = 500, iter_sampling = 500,
-              n_int = 64, seed = 1, show_exceptions = FALSE)
-#> Error in `x@mode`:
-#> ! no applicable method for `@` applied to an object of class "try-error"
+              n_int = 64, seed = 1)
 fit
-#> Error:
-#> ! object 'fit' not found
+#> cpaic: component-additive ML-NMR (Bayesian, binomial)
+#>   Treatment effects: random (noncentered)
+#>   Effect modifiers: cpd [normal]
+#>   Provenance: cpaic 0.1.0, rstan 2.36.0.9000, Stan md5 0a55fe50, seed 1
+#>   Component effects below are at the covariate origin (x = 0).
+#>   For a target population use relative_effects(fit, newdata = ...).
+#> 
+#>  component estimate   se lower upper
+#>        BUP       NA   NA    NA    NA
+#>        CBT    0.484 0.13 0.165 0.694
+#>        NRT       NA   NA    NA    NA
+#>        VAR       NA   NA    NA    NA
 ```
 
 Note what the print method insists on: those component effects are at the
@@ -597,9 +605,23 @@ knitr::kable(do.call(rbind, lapply(names(fit$priors), function(p) {
   data.frame(parameter = p, distribution = s$distribution,
              location = s$location, scale = s$scale)
 })), caption = "The complete prior specification, as passed to Stan")
-#> Error:
-#> ! object 'fit' not found
 ```
+
+
+
+Table: The complete prior specification, as passed to Stan
+
+|parameter  |distribution | location| scale|
+|:----------|:------------|--------:|-----:|
+|intercept  |normal       |        0|   2.5|
+|aux        |half-normal  |        0|   1.0|
+|beta       |normal       |        0|   2.5|
+|sigma      |half-normal  |        0|   2.5|
+|regression |normal       |        0|   1.0|
+|gamma      |normal       |        0|   1.0|
+|tau        |half-normal  |        0|   1.0|
+
+
 
 The defaults are the Stan prior-choice recommendations: normal(0, 2.5) on
 component effects and study intercepts, normal(0, 1) on the component by
@@ -617,9 +639,12 @@ line beneath it.
 
 ``` r
 plot_prior_posterior(fit)
-#> Error:
-#> ! object 'fit' not found
 ```
+
+<div class="figure" style="text-align: center">
+<img src="figure/binary-prior-posterior-1.png" alt="plot of chunk prior-posterior"  />
+<p class="caption">plot of chunk prior-posterior</p>
+</div>
 
 The study intercepts `mu` and the component effects `beta` are sharp against
 broad priors, as they should be with several thousand patients. The components
@@ -638,11 +663,11 @@ data.frame(
   divergences   = fit$diagnostics$divergences,
   max_treedepth = fit$diagnostics$max_treedepth,
   max_rhat      = round(fit$diagnostics$max_rhat, 4),
-  min_ess_bulk  = round(min(fit$fit$summary(c("beta", "gamma", "mu",
-                                              "tau"))$ess_bulk, na.rm = TRUE))
+  min_ess_bulk  = round(min(posterior_summary(
+    fit, c("beta", "gamma", "mu", "tau"))$ess_bulk, na.rm = TRUE))
 )
-#> Error:
-#> ! object 'fit' not found
+#>   divergences max_treedepth max_rhat min_ess_bulk
+#> 1           2             0   1.0122          528
 ```
 
 The trace plot shows the same thing chain by chain.
@@ -650,16 +675,22 @@ The trace plot shows the same thing chain by chain.
 
 ``` r
 plot(fit, type = "trace")
-#> Error:
-#> ! object 'fit' not found
 ```
+
+<div class="figure" style="text-align: center">
+<img src="figure/binary-mcmc-trace-1.png" alt="plot of chunk mcmc-trace"  />
+<p class="caption">plot of chunk mcmc-trace</p>
+</div>
 
 
 ``` r
 plot(fit, type = "rhat")
-#> Error:
-#> ! object 'fit' not found
 ```
+
+<div class="figure" style="text-align: center">
+<img src="figure/binary-mcmc-rhat-1.png" alt="plot of chunk mcmc-rhat"  />
+<p class="caption">plot of chunk mcmc-rhat</p>
+</div>
 
 All four chains overlap and are stationary in every panel, and every $\hat{R}$
 sits in the lowest band. Note that the *width* of a trace is not a convergence
@@ -679,9 +710,12 @@ the integral at all 64.
 
 ``` r
 plot_integration_error(fit)
-#> Error:
-#> ! object 'fit' not found
 ```
+
+<div class="figure" style="text-align: center">
+<img src="figure/binary-integration-error-1.png" alt="plot of chunk integration-error"  />
+<p class="caption">plot of chunk integration-error</p>
+</div>
 
 In every aggregate arm the error is already well inside the dashed `1/N` envelope
 by twenty points and keeps shrinking toward sixty-four, so `n_int = 64` is ample
@@ -706,8 +740,17 @@ mean $\bar x_j$ and cannot separate $m^\top\beta$ from $m^\top\Gamma$.
 
 ``` r
 estimable_effects_at(fit, newdata = target, reference = "NRT")
-#> Error:
-#> ! object 'fit' not found
+#> Estimability of the population-adjusted relative effects
+#>   Target population: cpd = 0.3
+#>  treatment comparator estimable identified_by          basis
+#>        CBT        NRT     FALSE          none not identified
+#>    CBT+BUP        NRT     FALSE          none not identified
+#>    CBT+NRT        NRT      TRUE           IPD          exact
+#>    CBT+VAR        NRT      TRUE           IPD          exact
+#>         UC        NRT     FALSE          none not identified
+#> 
+#>   Rows marked "not identified" carry no first-order information; a number
+#>   reported for them would be the prior. relative_effects() returns NA there.
 ```
 
 Read the `identified_by` column. `CBT+NRT` and `CBT+VAR` are identified **from
@@ -732,9 +775,12 @@ not a fixed property of the network.
 ``` r
 plot_estimability(fit, em = "cpd", values = seq(-1, 1, by = 0.25),
                   reference = "NRT")
-#> Error:
-#> ! object 'fit' not found
 ```
+
+<div class="figure" style="text-align: center">
+<img src="figure/binary-estimability-map-1.png" alt="plot of chunk estimability-map"  />
+<p class="caption">plot of chunk estimability-map</p>
+</div>
 
 The good news is the two green rows, and they are the rows that matter: the
 headline contrast `CBT+VAR` versus `NRT` is identified from within-trial
@@ -757,8 +803,28 @@ own
 #>          cpd
 #> 1 -0.7061574
 estimable_effects_at(fit, newdata = own, reference = "UC")
-#> Error:
-#> ! object 'fit' not found
+#> Estimability of the population-adjusted relative effects
+#>   Target population: cpd = -0.706
+#>  treatment comparator estimable identified_by              basis
+#>        CBT         UC      TRUE           IPD              exact
+#>    CBT+BUP         UC     FALSE          none     not identified
+#>    CBT+NRT         UC      TRUE     aggregate first-order screen
+#>    CBT+VAR         UC      TRUE     aggregate first-order screen
+#>        NRT         UC      TRUE     aggregate first-order screen
+#> 
+#>   Rows marked "first-order screen" are estimable by the linear criterion, which
+#>   is only a design-based screen for them (aggregate identification, or a
+#>   survival baseline) and can be optimistic. Check them with prior_sensitivity().
+#> 
+#>   Rows with identified_by = "aggregate" get their component x effect-modifier
+#>   information from BETWEEN-study covariate gradients, not from within-study
+#>   effect modification. The model imposes that the two are equal; covariate
+#>   means are not randomized across studies, so that is an ecological
+#>   association. See the "Within-study versus ecological effect modification"
+#>   section of ?cmlnmr.
+#> 
+#>   Rows marked "not identified" carry no first-order information; a number
+#>   reported for them would be the prior. relative_effects() returns NA there.
 ```
 
 That is the whole of what an aggregate two-arm trial can tell you: its own
@@ -772,9 +838,12 @@ usual care, which is where the aggregate `NRT` edge does its work.
 
 ``` r
 plot_estimability(fit, em = "cpd", values = own$cpd + 0.25 * (-1:7))
-#> Error:
-#> ! object 'fit' not found
 ```
+
+<div class="figure" style="text-align: center">
+<img src="figure/binary-estimability-own-map-1.png" alt="plot of chunk estimability-own-map"  />
+<p class="caption">plot of chunk estimability-own-map</p>
+</div>
 
 One column of the map, and one only, is different: at `BRIEF-1`'s own population
 three further contrasts become estimable, and they come up **yellow**, not green.
@@ -794,8 +863,11 @@ ever measured *against* nicotine replacement:
 
 ``` r
 component_effects(fit, newdata = target)
-#> Error:
-#> ! object 'fit' not found
+#>   component estimate        se      lower     upper
+#> 1       BUP       NA        NA         NA        NA
+#> 2       CBT 0.407785 0.1383116 0.08066389 0.6410474
+#> 3       NRT       NA        NA         NA        NA
+#> 4       VAR       NA        NA         NA        NA
 ```
 
 `forest()` renders the same table, and renders the `NA`s as what they are.
@@ -803,9 +875,12 @@ component_effects(fit, newdata = target)
 
 ``` r
 forest(fit, what = "component", newdata = target)
-#> Error:
-#> ! object 'fit' not found
 ```
+
+<div class="figure" style="text-align: center">
+<img src="figure/binary-forest-component-1.png" alt="plot of chunk forest-component"  />
+<p class="caption">plot of chunk forest-component</p>
+</div>
 
 Three of the four components are printed as empty rows marked *not estimable*
 rather than dropped. Dropping them would leave a plot that looked complete when
@@ -864,16 +939,27 @@ Here is the target population, against `NRT`:
 
 ``` r
 relative_effects(fit, reference = "NRT", newdata = target)
-#> Error:
-#> ! object 'fit' not found
+#> Relative effects (OR, back-transformed)
+#>   Conditional effect at covariate profile: cpd = 0.3
+#>  treatment comparator estimate    se lower upper pr_gt0          basis
+#>        CBT        NRT       NA    NA    NA    NA     NA not identified
+#>    CBT+BUP        NRT       NA    NA    NA    NA     NA not identified
+#>    CBT+NRT        NRT    1.518 0.138 1.084 1.898  0.988          exact
+#>    CBT+VAR        NRT    2.831 0.201 1.799 4.032  0.999          exact
+#>         UC        NRT       NA    NA    NA    NA     NA not identified
+#>   NA = not uniquely estimable from this component design (see estimable_effects()).
+#>   `se` is on the link (log) scale; the interval is back-transformed.
 ```
 
 
 ``` r
 forest(fit, reference = "NRT", newdata = target)
-#> Error:
-#> ! object 'fit' not found
 ```
+
+<div class="figure" style="text-align: center">
+<img src="figure/binary-forest-bayes-1.png" alt="plot of chunk forest-bayes"  />
+<p class="caption">plot of chunk forest-bayes</p>
+</div>
 
 Two contrasts, an interval each, and three rows that decline to answer. The
 headline result is the bottom row: `CBT+VAR` versus `NRT`, a comparison no trial
@@ -887,8 +973,16 @@ And the same network in a lighter-smoking population:
 
 ``` r
 relative_effects(fit, reference = "NRT", newdata = target_light)
-#> Error:
-#> ! object 'fit' not found
+#> Relative effects (OR, back-transformed)
+#>   Conditional effect at covariate profile: cpd = -0.4
+#>  treatment comparator estimate    se lower upper pr_gt0          basis
+#>        CBT        NRT       NA    NA    NA    NA     NA not identified
+#>    CBT+BUP        NRT       NA    NA    NA    NA     NA not identified
+#>    CBT+NRT        NRT    1.815 0.144 1.287 2.310  0.999          exact
+#>    CBT+VAR        NRT    2.236 0.240 1.331 3.426  0.994          exact
+#>         UC        NRT       NA    NA    NA    NA     NA not identified
+#>   NA = not uniquely estimable from this component design (see estimable_effects()).
+#>   `se` is on the link (log) scale; the interval is back-transformed.
 ```
 
 Now put every method next to the truth we planted. The truth is the conditional
@@ -903,8 +997,6 @@ grab <- function(tab, t1, ref, what = "estimate") {
   as.numeric(tab[[what]][tab$treatment == t1 & tab$comparator == ref])
 }
 re_bayes <- relative_effects(fit, reference = "NRT", newdata = target)
-#> Error:
-#> ! object 'fit' not found
 re_stc   <- relative_effects(fit_stc,  reference = "NRT")
 re_maic  <- relative_effects(fit_maic, reference = "NRT")
 
@@ -920,13 +1012,20 @@ recovery <- do.call(rbind, lapply(c("CBT+NRT", "CBT+VAR"), function(t1) {
                                 grab(re_bayes, t1, "NRT", "upper")),
     check.names = FALSE)
 }))
-#> Error in `FUN()`:
-#> ! object 're_bayes' not found
 knitr::kable(recovery, digits = 2, row.names = FALSE,
   caption = "Odds ratios in the target population (cpd = 0.3), against the truth")
-#> Error:
-#> ! object 'recovery' not found
 ```
+
+
+
+Table: Odds ratios in the target population (cpd = 0.3), against the truth
+
+|Contrast       | True_OR| cSTC| cMAIC| cML-NMR|cML-NMR 95% CrI |
+|:--------------|-------:|----:|-----:|-------:|:---------------|
+|CBT+NRT vs NRT |    1.63| 1.66|  1.68|    1.52|(1.08, 1.90)    |
+|CBT+VAR vs NRT |    3.21| 3.23|  3.25|    2.83|(1.80, 4.03)    |
+
+
 
 Both estimable contrasts are recovered: the point estimates sit near the planted
 truth and the credible intervals cover it. The `CBT+VAR` row is the one to dwell
@@ -944,41 +1043,462 @@ contains.
 
 ``` r
 lg <- league_table(fit, newdata = target)
-#> Error:
-#> ! object 'fit' not found
 knitr::kable(lg, caption = paste("League table at cpd = 0.3 (row versus column).",
                                  "Empty cells are not estimable."))
-#> Error:
-#> ! object 'lg' not found
 ```
 
 
 
+Table: League table at cpd = 0.3 (row versus column). Empty cells are not estimable.
+
+|        |CBT               |CBT+BUP |CBT+NRT           |CBT+VAR           |NRT               |UC                |
+|:-------|:-----------------|:-------|:-----------------|:-----------------|:-----------------|:-----------------|
+|CBT     |CBT               |        |                  |                  |                  |1.52 (1.08, 1.90) |
+|CBT+BUP |                  |CBT+BUP |                  |                  |                  |                  |
+|CBT+NRT |                  |        |CBT+NRT           |0.55 (0.40, 0.72) |1.52 (1.08, 1.90) |                  |
+|CBT+VAR |                  |        |1.86 (1.39, 2.52) |CBT+VAR           |2.83 (1.80, 4.03) |                  |
+|NRT     |                  |        |0.67 (0.53, 0.92) |0.37 (0.25, 0.56) |NRT               |                  |
+|UC      |0.67 (0.53, 0.92) |        |                  |                  |                  |UC                |
 
 
 
 
 
+Most of it is empty: of the 30 off-diagonal cells, 8 carry
+a number. A conventional league table built from this network would have been
+full, and every cell in it would have looked equally authoritative. Note also that
+the `CBT` versus `UC` cell and the `CBT+NRT` versus `NRT` cell agree to the last
+digit. That is not a coincidence: under an additive model both contrasts *are* the
+counseling component, reached by two different routes.
+
+The population dependence is recovered too:
+
+
+``` r
+grid <- seq(-0.8, 1.2, by = 0.1)
+curve <- do.call(rbind, lapply(grid, function(x) {
+  re <- relative_effects(fit, reference = "NRT", newdata = data.frame(cpd = x))
+  r <- re[re$treatment == "CBT+VAR", ]
+  data.frame(cpd = x, est = r$estimate, lo = r$lower, hi = r$upper,
+             truth = exp(truth("CBT+VAR", "NRT", x)))
+}))
+ggplot(curve, aes(15 + 10 * cpd)) +
+  geom_ribbon(aes(ymin = lo, ymax = hi), alpha = 0.15) +
+  geom_line(aes(y = est, color = "cML-NMR posterior mean"), linewidth = 1) +
+  geom_line(aes(y = truth, color = "Truth"), linetype = "dashed",
+            linewidth = 1) +
+  geom_hline(yintercept = 1, color = "grey50") +
+  scale_y_log10() +
+  scale_color_manual(values = c("cML-NMR posterior mean" = "#2c7fb8",
+                                 "Truth" = "#d95f0e")) +
+  labs(x = "Cigarettes per day in the target population",
+       y = "Odds ratio, CBT+VAR vs NRT (log scale)", color = NULL,
+       title = "There is no population-free relative effect",
+       subtitle = "The contrast no trial measured, recovered across a gap no comparator spans") +
+  theme_minimal() + theme(legend.position = "top")
+```
+
+<div class="figure" style="text-align: center">
+<img src="figure/binary-pop-curve-1.png" alt="plot of chunk pop-curve"  />
+<p class="caption">plot of chunk pop-curve</p>
+</div>
+
+### The hierarchy, and the refusal to build one
+
+A guideline panel will ask for a ranking. @Wigle2026 set out the workflow that
+answers it responsibly: state the set to be ranked, **determine which of the
+required relative effects are estimable**, refine the set to the estimable ones or
+decline to rank, and only then compute the metrics. `cpaic_ranks()` performs those
+steps and reports what it had to discard.
+
+
+``` r
+rk <- cpaic_ranks(fit, newdata = target)
+rk
+#> Population-adjusted treatment hierarchy
+#>   Target population: cpd = 0.3
+#>  element estimate p_best median_rank mean_rank sucra
+#>      CBT    0.408  0.988           1     1.012 0.988
+#>       UC    0.000  0.013           2     1.988 0.012
+#>   Not estimable in this population, so not ranked: CBT+BUP, CBT+NRT, CBT+VAR, NRT
+#>   Ranking metrics depend on the set ranked; report them with the effects, not instead.
+plot(rk)
+```
+
+<div class="figure" style="text-align: center">
+<img src="figure/binary-hierarchy-1.png" alt="plot of chunk hierarchy"  />
+<p class="caption">plot of chunk hierarchy</p>
+</div>
+
+Four of the six treatments are gone. What remains is a two-element hierarchy,
+`CBT` above `UC`, and the caption names the four that were dropped. This is not a
+failure of the ranking code; it is the estimability result of the previous section
+reaching the quantity a guideline panel is most likely to quote. A SUCRA is
+computed from a treatment's relative effect, so a treatment whose relative effect
+is not identified can only be ranked by ranking the prior, and no ranking metric
+would carry any trace of the substitution.
+
+The rankogram makes the point more sharply still, because it declines outright.
+`rank_probs()` ranks the non-reference treatments, and once the four
+non-estimable ones are dropped a single treatment is left, from which no
+hierarchy can be formed:
+
+
+``` r
+tryCatch(rank_probs(fit, newdata = target),
+         error = function(e) cat("rank_probs() declined:\n ", conditionMessage(e)))
+#> rank_probs() declined:
+#>   Fewer than two elements are estimable (excluding elements identified only by aggregate arms) in this target population, so no hierarchy can be formed. See estimable_effects_at().
+```
+
+**An error is the correct output here.** A rankogram of this network at this
+target population would have been a picture of the prior, drawn with the same
+confident bars as a picture of the data, and no diagnostic downstream of it would
+have revealed the difference. Refusing is the whole point of Step 3.
+
+Within the set that *can* be ranked, the hierarchy is still population-specific,
+and `plot_rank_curve()` traces it across target populations.
+
+
+``` r
+rc <- rank_curve(fit, em = "cpd", values = seq(-1, 1, by = 0.25))
+plot_rank_curve(fit, em = "cpd", values = seq(-1, 1, by = 0.25))
+```
+
+<div class="figure" style="text-align: center">
+<img src="figure/binary-rank-curve-1.png" alt="plot of chunk rank-curve"  />
+<p class="caption">plot of chunk rank-curve</p>
+</div>
 
 
 
+Two cautions in one figure. First, the curves do not cross here, so counseling
+beats usual care in every target population; but the margin erodes steadily, and
+`CBT`'s SUCRA falls from 0.998 in the lightest-smoking
+population to 0.877 in the heaviest, which is what a
+component whose interaction with `cpd` is negative should do. In a network with
+more estimable contrasts the curves generally *do* cross, and a hierarchy quoted
+without a population is then not merely imprecise but wrong. Second, and more
+important: the plot shows two treatments because two is all that could be ranked.
+It gives no indication that four others exist. Read a rank curve only after
+`estimable_effects_at()`, never instead of it.
+
+### The contrasts the frequentist bridge gets quietly wrong
+
+Now the uncomfortable part, and the reason the estimability check is not
+optional. `cstc()` and `cmaic()` adjust the **IPD** edges to the target. They
+cannot adjust the aggregate edges, because there is no IPD for those trials; the
+aggregate contrasts enter `cnma_bridge()` **in their own populations**. Nothing
+warns you. Compare against `UC`, where the `NRT` edge (`BRIEF-1`, 8-a-day
+smokers) is doing the work:
+
+
+``` r
+re_stc_uc  <- relative_effects(fit_stc,  reference = "UC")
+re_maic_uc <- relative_effects(fit_maic, reference = "UC")
+re_bay_uc  <- relative_effects(fit, reference = "UC", newdata = target)
+
+cmp <- do.call(rbind, lapply(setdiff(treatments, "UC"), function(t1) {
+  data.frame(
+    Contrast    = paste(t1, "vs UC"),
+    True_OR     = exp(truth(t1, "UC", 0.3)),
+    cSTC        = grab(re_stc_uc,  t1, "UC"),
+    `cSTC 95% CI` = sprintf("(%.2f, %.2f)",
+                            grab(re_stc_uc, t1, "UC", "lower"),
+                            grab(re_stc_uc, t1, "UC", "upper")),
+    covers      = ifelse(exp(truth(t1, "UC", 0.3)) >= grab(re_stc_uc, t1, "UC", "lower") &
+                         exp(truth(t1, "UC", 0.3)) <= grab(re_stc_uc, t1, "UC", "upper"),
+                         "yes", "NO"),
+    cMAIC       = grab(re_maic_uc, t1, "UC"),
+    `cML-NMR`   = grab(re_bay_uc,  t1, "UC"),
+    check.names = FALSE)
+}))
+knitr::kable(cmp, digits = 2, row.names = FALSE,
+  caption = "Odds ratios vs usual care in the target population (cpd = 0.3)")
+```
 
 
 
+Table: Odds ratios vs usual care in the target population (cpd = 0.3)
+
+|Contrast      | True_OR| cSTC|cSTC 95% CI  |covers | cMAIC| cML-NMR|
+|:-------------|-------:|----:|:------------|:------|-----:|-------:|
+|NRT vs UC     |    1.46| 2.23|(1.82, 2.74) |NO     |  2.23|      NA|
+|CBT vs UC     |    1.63| 1.66|(1.43, 1.92) |yes    |  1.68|    1.52|
+|CBT+NRT vs UC |    2.39| 3.70|(2.89, 4.75) |NO     |  3.75|      NA|
+|CBT+VAR vs UC |    4.69| 7.20|(5.40, 9.61) |NO     |  7.26|      NA|
+|CBT+BUP vs UC |    2.60| 3.92|(2.82, 5.46) |NO     |  3.98|      NA|
 
 
 
+The frequentist bridge prints a confident number for every row. For `NRT` versus
+`UC` it prints roughly the odds ratio that held in `BRIEF-1`'s light-smoking
+population, because that is the only `NRT` evidence there is and it entered the
+bridge unadjusted. But nicotine replacement loses ground in heavy smokers
+($\Gamma_{\texttt{NRT}} = -0.40$), so the truth in the *target* population is
+materially smaller. Every row that inherits that edge inherits the error, and the
+`covers` column shows what that costs: the 95% confidence interval misses the
+truth.
+
+Now read the last column. **`cmlnmr()` returns `NA` for exactly the rows the
+two-stage route is getting wrong, and a number for exactly the row it is getting
+right.** That correspondence is not a coincidence: it is the same piece of linear
+algebra, read once as a warning and once as a silent assumption.
+
+Put the two forests side by side and the contrast is the argument of this
+vignette in one image. The frequentist bridge, plotted earlier in this section's
+own comparator, filled all five rows. Here is `cmlnmr()` asked the identical
+question, against the identical comparator, in the identical target population:
+
+
+``` r
+forest(fit, newdata = target)
+```
+
+<div class="figure" style="text-align: center">
+<img src="figure/binary-forest-bayes-uc-1.png" alt="plot of chunk forest-bayes-uc"  />
+<p class="caption">plot of chunk forest-bayes-uc</p>
+</div>
+
+One row survives, and it is the row the frequentist bridge also got right. The
+four blank rows are the four the `covers` column just convicted. A plot that
+refuses to draw four fifths of itself is an uncomfortable deliverable, and it is
+the correct one: the alternative is the plot above it, which is complete,
+confident, and wrong about `NRT` versus `UC` by a margin its confidence interval
+does not admit.
+
+### Random effects and model comparison
+
+The random-effects model lets each study-arm deviate from the component-implied
+effect; `tau` measures how much. With five contrasts and four components there is
+very little information about `tau`, so its posterior leans on the
+half-normal(0, 1) prior. Say so, rather than reporting it as a finding.
+
+
+``` r
+knitr::kable(posterior_summary(fit, "tau")[, c("variable", "mean", "sd", "q5",
+                                               "q95", "rhat", "ess_bulk")],
+             digits = 3)
+```
 
 
 
+|variable |  mean|    sd|    q5|   q95|  rhat| ess_bulk|
+|:--------|-----:|-----:|-----:|-----:|-----:|--------:|
+|tau[1]   | 0.125| 0.127| 0.008| 0.386| 1.007|  528.038|
 
 
 
+Compare the random-effects fit against a fixed-effect one by leave-one-out
+cross-validation [@vehtari2017] and DIC [@spiegelhalter2002dic]:
+
+
+``` r
+fit_fixed <- cmlnmr(ipd, agd, effect_modifiers = "cpd", inactive = "UC",
+                    family = "binomial", trt_effects = "fixed",
+                    chains = 4, iter_warmup = 500, iter_sampling = 500,
+                    n_int = 64, seed = 1)
+
+loo::loo_compare(list(random = loo::loo(fit), fixed = loo::loo(fit_fixed)))
+#>   model elpd_diff se_diff p_worse       diag_diff      diag_elpd
+#>  random       0.0     0.0      NA                 5 k_psis > 0.7
+#>   fixed      -0.3     0.8    0.64 |elpd_diff| < 4 6 k_psis > 0.7
+
+knitr::kable(data.frame(
+  model = c("random", "fixed"),
+  DIC   = c(dic(fit)$dic, dic(fit_fixed)$dic),
+  p_eff = c(dic(fit)$p_eff, dic(fit_fixed)$p_eff)),
+  digits = 1, caption = "Deviance information criterion")
+```
 
 
 
+Table: Deviance information criterion
+
+|model  |    DIC| p_eff|
+|:------|------:|-----:|
+|random | 3019.0|  16.1|
+|fixed  | 3017.8|  15.2|
 
 
 
+The two models sit essentially on top of each other, which is what should happen:
+the data really were generated by an additive component model with no extra
+study-arm noise, so the random-effects model is paying for flexibility it does not
+need. It remains the safer default, because in a real network you do not get to
+know that.
+
+A single DIC difference reduces the whole data set to one number. The dev-dev plot
+restores the detail: each point is one data point's contribution to the posterior
+mean deviance under each of the two models.
 
 
+``` r
+plot(dic(fit_fixed), dic(fit), labels = c("fixed", "random"))
+```
+
+<div class="figure" style="text-align: center">
+<img src="figure/binary-devdev-1.png" alt="plot of chunk devdev"  />
+<p class="caption">plot of chunk devdev</p>
+</div>
+
+The points lie along the line of equality with almost no scatter, so the two
+models are not merely tied on average; they fit essentially every arm and every
+patient the same way. A DIC tie that came instead from one model fitting some
+points much better and others much worse would look nothing like this, and would
+mean something quite different.
+
+The leverage plot asks the complementary question: is any single data point
+distorting the fit?
+
+
+``` r
+plot_leverage(fit)
+```
+
+<div class="figure" style="text-align: center">
+<img src="figure/binary-leverage-1.png" alt="plot of chunk leverage"  />
+<p class="caption">plot of chunk leverage</p>
+</div>
+
+No point lies outside the `DIC = 3` contour, so nothing is spoiling the fit. The
+structure worth noticing is the separation between the two colors. The individual
+patients (green) sit along leverage zero, each contributing almost nothing on its
+own; the aggregate arms (navy) sit an order of magnitude higher. That is exactly
+as it should be, and it is the same fact that the next paragraph reaches from the
+other direction.
+
+Two cautions on reading these numbers. First, LOO's Pareto-$k$ diagnostic flags
+several observations. It is right to: **each aggregate arm is a single
+"observation" that carries an entire trial's worth of information**, so leaving it
+out is a large perturbation and the importance-sampling approximation strains.
+Treat the LOO comparison of an IPD-plus-aggregate model as indicative, and read it
+alongside DIC. Second, neither criterion can test the assumption that actually
+bridges the gap; nor can the Cochran $Q$ of the frequentist bridge, which is why
+`additivity_test()` says so out loud:
+
+
+``` r
+additivity_test(fit_stc)
+#> Additive component model: fit statistics
+#>   Total lack of fit (Q.additive): Q = 3.101, df = 3, p = 0.376
+#>   Additivity restrictions (Q.diff): not available; no standard NMA
+#>     is estimable on a disconnected network.
+#>   Note: neither statistic tests whether component effects are constant
+#>   ACROSS sub-networks, which is the assumption that bridges the gap.
+#>   That assumption is untestable from the data and must be justified
+#>   clinically.
+```
+
+The additive model fits the observed contrasts comfortably here. Do not read that
+as reassurance about the bridge: a `Q` this size is consistent with an additive
+model *and* with the population mismatch we are about to expose, and it says
+nothing whatever about whether the component effects are the same on both sides
+of the gap. (In `vignette("count-outcomes")` the same statistic comes out large,
+for a reason that has nothing to do with additivity.)
+
+### Prior sensitivity
+
+The interactions $\Gamma$ are where the identification problem lives, so look at
+them alone before perturbing anything.
+
+
+``` r
+plot_prior_posterior(fit, prior = "gamma")
+```
+
+<div class="figure" style="text-align: center">
+<img src="figure/binary-prior-posterior-gamma-1.png" alt="plot of chunk prior-posterior-gamma"  />
+<p class="caption">plot of chunk prior-posterior-gamma</p>
+</div>
+
+Three of the four posteriors have collapsed to a narrow spike well inside the
+`normal(0, 1)` prior: those are the interactions for `CBT`, `NRT` and `VAR`, the
+three components that the two IPD trials touch, and they are estimated from
+within-trial covariate variation. The fourth, `gamma[1,1]`, is bupropion, and its
+histogram traces the prior curve. **The prior is not a formality for that
+parameter; it is the entire posterior.** Whatever `prior_gamma_scale` we had
+chosen, the data would have returned it unchanged, and any contrast that leans on
+it inherits that property while continuing to look like an estimate.
+
+Prior movement is the empirical definition of identification: a contrast that
+moves when you change a prior it should not depend on was never data-driven.
+`prior_sensitivity()` refits under a tighter and a looser interaction prior and
+reports how far each contrast travels. **It deliberately reports movement for
+non-estimable contrasts too**, bypassing the `NA` mask, so you can see the
+mechanism rather than take it on trust.
+
+
+``` r
+ps <- prior_sensitivity(fit, newdata = target, reference = "NRT",
+                        prior = "gamma", tighter = 0.5, looser = 2,
+                        chains = 2, iter_warmup = 250, iter_sampling = 250)
+ps
+#> cML-NMR prior sensitivity: gamma prior
+#>  treatment comparator estimate tighter looser move_tighter move_looser max_movement estimable
+#>        CBT        NRT   -0.105  -0.062 -0.129        0.042       0.024        0.042     FALSE
+#>    CBT+BUP        NRT    0.301   0.379  0.236        0.078       0.065        0.078     FALSE
+#>    CBT+NRT        NRT    0.408   0.441  0.399        0.034       0.009        0.034      TRUE
+#>    CBT+VAR        NRT    1.021   1.056  1.004        0.036       0.017        0.036      TRUE
+#>         UC        NRT   -0.512  -0.504 -0.527        0.009       0.015        0.015     FALSE
+```
+
+Read the `max_movement` column against `estimable`. Every contrast the criterion
+calls estimable is prior-insensitive; every contrast it rejects moves with the
+prior. That is what "not identified" *means*: there is no likelihood ridge holding
+the posterior in place, so the prior fills the vacuum, and the posterior looks
+perfectly healthy while doing it. The criterion and the sampler agree, which is
+the check the package's own validation script performs.
+
+## What to take away
+
+| | Adjusts the population | Bridges the gap | Reports non-identified effects |
+|---|---|---|---|
+| Standard NMA | no | no | not at all; they lie outside the model |
+| ML-NMR | yes | no | yes, as prior-driven numbers |
+| `cstc()` / `cmaic()` + `cnma_bridge()` | IPD edges only | yes | **yes, silently** |
+| `cmlnmr()` | yes, all edges | yes | no: returns `NA` |
+
+* **Name the population.** With effect modifiers there is no population-free
+  relative effect. `relative_effects()` will not let you pretend otherwise, and
+  the odds ratio for `CBT+VAR` versus `NRT` genuinely runs from about 2 to about
+  5 across plausible target populations.
+* **Reconnecting is not identifying.** The component design here has full column
+  rank, so an aggregate-data component NMA identifies every component effect; the
+  *population-adjusted* effects are still not all identified, because the
+  interactions are not. Run `estimable_effects_at()` and believe it.
+* **Pick your estimand deliberately.** `cstc()` and `cmlnmr()` give a conditional
+  odds ratio; `cmaic()` gives a marginal one. On a non-collapsible scale they
+  differ even when all three are right.
+
+Three honest limitations.
+
+1. **The bridging assumption is untestable.** Reconnecting through shared
+   components requires component effects *and their interactions with the effect
+   modifiers* to be the same in both sub-networks. There is, by construction, no
+   cross-gap evidence with which to test that. `additivity_test()` tests
+   additivity *within* what the data can see and cannot touch this; the
+   assumption must be defended clinically [@Veroniki2026].
+2. **The two-stage route leaves the aggregate edges unadjusted.** `cstc()` and
+   `cmaic()` adjust only the edges where you hold IPD. Every aggregate edge
+   enters the bridge in its own trial's population, and the additive model then
+   propagates that mismatch into any contrast that leans on it, with no warning,
+   and, as the `covers` column showed, with an interval that can exclude the
+   truth. Use the two-stage route when the aggregate edges sit close to the target
+   or their components are not effect-modified; otherwise prefer `cmlnmr()`, which
+   integrates each aggregate study over its own covariate distribution and tells
+   you when it cannot answer.
+3. **The bridge mixes estimands, and dilutes the adjustment.** Two related
+   problems, both visible above. First, the additive component model is a model
+   for *conditional*, link-scale effects; marginal log odds ratios do not add
+   across components, so feeding `cmaic()` contrasts into `cnma_bridge()` mixes
+   currencies on a non-collapsible scale. (The published aggregate contrasts are
+   marginal too, so even the `cstc()` route pools conditional IPD edges with
+   marginal aggregate ones.) Second, the adjusted IPD edge is only ever a *share*
+   of the weight on its contrast, so the population adjustment is diluted by
+   however much unadjusted aggregate evidence sits alongside it. Both problems
+   are milder on a collapsible measure; see `vignette("count-outcomes")`, where
+   the rate ratio is collapsible and the conditional and marginal estimands very
+   nearly coincide.
+
+## References

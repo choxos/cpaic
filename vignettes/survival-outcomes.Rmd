@@ -583,15 +583,15 @@ fit_pw
 #> cpaic: component-additive ML-NMR (Bayesian, survival)
 #>   Treatment effects: fixed
 #>   Effect modifiers: egfr_c [normal]
-#>   Provenance: cpaic 0.1.0, CmdStan 2.39.0, Stan md5 b49f6b72, seed 2026
+#>   Provenance: cpaic 0.1.0, rstan 2.36.0.9000, Stan md5 b49f6b72, seed 2026
 #>   Component effects below are at the covariate origin (x = 0).
 #>   For a target population use relative_effects(fit, newdata = ...).
 #> 
 #>  component estimate    se  lower  upper
 #>          A       NA    NA     NA     NA
 #>          B       NA    NA     NA     NA
-#>          M   -0.218 0.131 -0.478  0.032
-#>          S   -0.347 0.129 -0.596 -0.092
+#>          M   -0.216 0.141 -0.486  0.055
+#>          S   -0.345 0.126 -0.591 -0.101
 ```
 
 
@@ -601,56 +601,6 @@ fit_ms <- cmlnmr(ipd, agd, effect_modifiers = "egfr_c", inactive = "Std",
                  n_int = 8,
                  chains = 4, iter_warmup = 400, iter_sampling = 400,
                  seed = 2026)
-#> Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
-#> Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)
-#> Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
-#> Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
-#> Chain 4
-#> Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
-#> Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)
-#> Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
-#> Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
-#> Chain 4
-#> Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
-#> Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)
-#> Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
-#> Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
-#> Chain 4
-#> Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
-#> Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)
-#> Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
-#> Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
-#> Chain 4
-#> Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
-#> Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)
-#> Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
-#> Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
-#> Chain 4
-#> Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
-#> Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)
-#> Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
-#> Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
-#> Chain 4
-#> Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
-#> Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)
-#> Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
-#> Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
-#> Chain 4
-#> Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
-#> Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)
-#> Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
-#> Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
-#> Chain 4
-#> Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
-#> Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)
-#> Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
-#> Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
-#> Chain 4
-#> Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
-#> Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)
-#> Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
-#> Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
-#> Chain 4
 ```
 
 Each aggregate row's likelihood is averaged over `n_int` quasi-Monte-Carlo points
@@ -673,60 +623,20 @@ fit_re <- cmlnmr(ipd, agd, effect_modifiers = "egfr_c", inactive = "Std",
                  n_int = 8, trt_effects = "random",
                  chains = 4, iter_warmup = 400, iter_sampling = 400,
                  seed = 2026, adapt_delta = 0.95)
-#> Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
-#> Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)
-#> Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
-#> Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
-#> Chain 4
-#> Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
-#> Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)
-#> Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
-#> Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
-#> Chain 4
-#> Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
-#> Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)
-#> Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
-#> Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
-#> Chain 4
-#> Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
-#> Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)
-#> Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
-#> Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
-#> Chain 4
-#> Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
-#> Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)
-#> Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
-#> Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
-#> Chain 4
-#> Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
-#> Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)
-#> Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
-#> Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
-#> Chain 4
-#> Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
-#> Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)
-#> Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
-#> Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
-#> Chain 4
-#> Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
-#> Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)
-#> Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
-#> Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
-#> Chain 4
-#> Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
-#> Chain 4 Exception: cpaic_survival_mspline_f1c7477e74_model_namespace::log_prob: coefficients[1] is not a valid simplex. sum(coefficients[1]) = nan, but should be 1 (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmpe1Yv63/model-54602d6edf32.stan', line 143, column 2 to column 48)
-#> Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
-#> Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
-#> Chain 4
-#> Warning: 2 of 1600 (0.0%) transitions ended with a divergence.
-#> See https://mc-stan.org/misc/warnings for details.
-#> Warning: 2 divergent transition(s) in cmlnmr(); results may be unreliable (consider
+#> Warning: There were 1 divergent transitions after warmup. See
+#> https://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
+#> to find out why this is a problem and how to eliminate them.
+#> Warning: Examine the pairs() plot to diagnose sampling problems
+#> Warning: Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable.
+#> Running the chains for more iterations may help. See
+#> https://mc-stan.org/misc/warnings.html#bulk-ess
+#> Warning: 1 divergent transition(s) in cmlnmr(); results may be unreliable (consider
 #> higher adapt_delta or more iterations).
-fit_re$fit$summary("tau")
-#> # A tibble: 1 × 10
-#>   variable  mean median    sd   mad     q5   q95  rhat ess_bulk ess_tail
-#>   <chr>    <dbl>  <dbl> <dbl> <dbl>  <dbl> <dbl> <dbl>    <dbl>    <dbl>
-#> 1 tau[1]   0.254  0.163 0.273 0.169 0.0118 0.800  1.01     350.     343.
+posterior_summary(fit_re, "tau")
+#>   variable      mean    median        sd       mad         q5       q95    rhat ess_bulk
+#> 1   tau[1] 0.2469094 0.1751215 0.2386439 0.1590851 0.01644764 0.7477595 1.00154 440.4855
+#>   ess_tail
+#> 1 697.4937
 ```
 
 Six studies and four components leave two degrees of freedom for heterogeneity,
@@ -818,13 +728,13 @@ rbind(
   mspline   = unlist(fit_ms$diagnostics),
   random    = unlist(fit_re$diagnostics))
 #>           divergences max_treedepth max_rhat  min_ess    ebfmi1    ebfmi2    ebfmi3
-#> piecewise           0             0 1.005617 593.0960 0.8770191 0.8330011 0.8036431
-#> mspline             0             0 1.014945 456.7966 0.8740325 0.8097030 0.9213980
-#> random              2             0 1.010460 272.8671 0.9258028 0.7849794 0.8436011
+#> piecewise           0             0 1.007386 609.9383 0.9356577 0.8944313 1.0008640
+#> mspline             0             0 1.006797 651.2240 0.8160058 0.8851426 0.7616253
+#> random              1             0 1.005473 440.4855 0.8388412 0.8160701 0.8506088
 #>              ebfmi4
-#> piecewise 0.9332426
-#> mspline   0.9845668
-#> random    0.8030072
+#> piecewise 0.9101555
+#> mspline   0.7881987
+#> random    0.9770736
 ```
 
 The summary is not a substitute for looking at the chains.
@@ -939,9 +849,9 @@ relative_effects(fit_ms, reference = "Std+B",
 #> Relative effects (HR, back-transformed)
 #>   Conditional effect at covariate profile: egfr_c = -1
 #>  treatment comparator estimate    se lower upper pr_gt0              basis
-#>        B+M      Std+B    0.737 0.169  0.53 1.020  0.031 first-order screen
+#>        B+M      Std+B    0.736 0.170 0.520 1.011  0.032 first-order screen
 #>      B+M+A      Std+B       NA    NA    NA    NA     NA     not identified
-#>      B+M+S      Std+B    0.555 0.209  0.36 0.826  0.003 first-order screen
+#>      B+M+S      Std+B    0.555 0.204 0.359 0.797  0.001 first-order screen
 #>        Std      Std+B       NA    NA    NA    NA     NA     not identified
 #>      Std+M      Std+B       NA    NA    NA    NA     NA     not identified
 #>   NA = not uniquely estimable from this component design (see estimable_effects()).
@@ -1000,10 +910,10 @@ Table: cML-NMR: recovered vs true hazard ratios
 
 |target  |contrast       |    HR| lower| upper| true_HR|
 |:-------|:--------------|-----:|-----:|-----:|-------:|
-|eGFR 50 |B+M vs Std+B   | 0.737| 0.530| 1.020|   0.619|
-|eGFR 50 |B+M+S vs Std+B | 0.555| 0.360| 0.826|   0.517|
-|eGFR 70 |B+M vs Std+B   | 0.967| 0.734| 1.285|   0.887|
-|eGFR 70 |B+M+S vs Std+B | 0.667| 0.428| 1.015|   0.631|
+|eGFR 50 |B+M vs Std+B   | 0.736| 0.520| 1.011|   0.619|
+|eGFR 50 |B+M+S vs Std+B | 0.555| 0.359| 0.797|   0.517|
+|eGFR 70 |B+M vs Std+B   | 0.966| 0.714| 1.266|   0.887|
+|eGFR 70 |B+M+S vs Std+B | 0.664| 0.406| 0.997|   0.631|
 
 
 
@@ -1077,12 +987,12 @@ Table: League table of hazard ratios at eGFR 50 (row vs column)
 
 |      |B+M               |B+M+A |B+M+S             |Std               |Std+B             |Std+M             |
 |:-----|:-----------------|:-----|:-----------------|:-----------------|:-----------------|:-----------------|
-|B+M   |B+M               |      |1.35 (1.06, 1.70) |                  |0.74 (0.53, 1.02) |                  |
+|B+M   |B+M               |      |1.35 (1.07, 1.69) |                  |0.74 (0.52, 1.01) |                  |
 |B+M+A |                  |B+M+A |                  |                  |                  |                  |
-|B+M+S |0.75 (0.59, 0.95) |      |B+M+S             |                  |0.55 (0.36, 0.83) |                  |
-|Std   |                  |      |                  |Std               |                  |1.40 (0.98, 1.89) |
-|Std+B |1.40 (0.98, 1.89) |      |1.88 (1.21, 2.78) |                  |Std+B             |                  |
-|Std+M |                  |      |                  |0.74 (0.53, 1.02) |                  |Std+M             |
+|B+M+S |0.75 (0.59, 0.94) |      |B+M+S             |                  |0.55 (0.36, 0.80) |                  |
+|Std   |                  |      |                  |Std               |                  |1.40 (0.99, 1.92) |
+|Std+B |1.40 (0.99, 1.92) |      |1.88 (1.26, 2.79) |                  |Std+B             |                  |
+|Std+M |                  |      |                  |0.74 (0.52, 1.01) |                  |Std+M             |
 
 
 
@@ -1282,7 +1192,7 @@ Table: B+M+S vs Std+B at eGFR 50: two estimands, three routes
 |:---------------------|:-----------|-----:|-----:|-----:|-------------------:|
 |cSTC (conditional)    |conditional | 0.621| 0.404| 0.953|               0.517|
 |cMAIC (marginal)      |marginal    | 0.703| 0.490| 1.007|               0.517|
-|cML-NMR (conditional) |conditional | 0.555| 0.360| 0.826|               0.517|
+|cML-NMR (conditional) |conditional | 0.555| 0.359| 0.797|               0.517|
 
 
 
@@ -1304,14 +1214,27 @@ mean difference.
 ps <- prior_sensitivity(fit_ms, newdata = data.frame(egfr_c = -1),
                         prior = "gamma", reference = "Std+B",
                         chains = 2, iter_warmup = 250, iter_sampling = 250)
+#> Warning: Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable.
+#> Running the chains for more iterations may help. See
+#> https://mc-stan.org/misc/warnings.html#bulk-ess
+#> Warning: Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.
+#> Running the chains for more iterations may help. See
+#> https://mc-stan.org/misc/warnings.html#tail-ess
+#> Warning: Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable.
+#> Running the chains for more iterations may help. See
+#> https://mc-stan.org/misc/warnings.html#bulk-ess
+#> Warning: Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.
+#> Running the chains for more iterations may help. See
+#> https://mc-stan.org/misc/warnings.html#tail-ess
+#> Warning: The ESS has been capped to avoid unstable estimates.
 ps
 #> cML-NMR prior sensitivity: gamma prior
 #>  treatment comparator estimate tighter looser move_tighter move_looser max_movement
-#>        B+M      Std+B   -0.320  -0.314 -0.313        0.006       0.007        0.007
-#>      B+M+A      Std+B   -0.527  -0.467 -0.558        0.060       0.031        0.060
-#>      B+M+S      Std+B   -0.612  -0.606 -0.608        0.006       0.004        0.006
-#>        Std      Std+B    0.134   0.136  0.162        0.002       0.028        0.028
-#>      Std+M      Std+B   -0.186  -0.178 -0.150        0.007       0.036        0.036
+#>        B+M      Std+B   -0.320  -0.325 -0.318        0.005       0.003        0.005
+#>      B+M+A      Std+B   -0.542  -0.476 -0.572        0.066       0.029        0.066
+#>      B+M+S      Std+B   -0.610  -0.620 -0.609        0.010       0.001        0.010
+#>        Std      Std+B    0.132   0.129  0.112        0.003       0.019        0.019
+#>      Std+M      Std+B   -0.189  -0.196 -0.205        0.008       0.017        0.017
 #>  estimable
 #>       TRUE
 #>      FALSE
@@ -1333,25 +1256,25 @@ loo_ms <- loo::loo(fit_ms)
 loo::loo_compare(list(piecewise = loo_pw, mspline = loo_ms))
 #>      model elpd_diff se_diff p_worse       diag_diff diag_elpd
 #>  piecewise       0.0     0.0      NA                          
-#>    mspline      -3.3     2.7    0.89 |elpd_diff| < 4
+#>    mspline      -3.2     2.7    0.88 |elpd_diff| < 4
 #> 
 #> Diagnostic flags present.
 #> See ?`loo-glossary` (sections `diag_diff` and `diag_elpd`)
 #> or https://mc-stan.org/loo/reference/loo-glossary.html.
 dic(fit_pw)
 #> Deviance information criterion
-#>   DIC: 5915.6
-#>   Mean deviance: 5890.5
-#>   Effective parameters (pV): 25.2
+#>   DIC: 5915.9
+#>   Mean deviance: 5890.6
+#>   Effective parameters (pV): 25.3
 dic(fit_ms)
 #> Deviance information criterion
-#>   DIC: 5924.3
+#>   DIC: 5922.5
 #>   Mean deviance: 5894.1
-#>   Effective parameters (pV): 30.2
+#>   Effective parameters (pV): 28.5
 loo::loo_compare(list(mspline_fixed = loo_ms, mspline_random = loo::loo(fit_re)))
 #>           model elpd_diff se_diff p_worse       diag_diff diag_elpd
 #>   mspline_fixed       0.0     0.0      NA                          
-#>  mspline_random      -1.0     0.4    0.99 |elpd_diff| < 4
+#>  mspline_random      -1.2     0.5    0.99 |elpd_diff| < 4
 #> 
 #> Diagnostic flags present.
 #> See ?`loo-glossary` (sections `diag_diff` and `diag_elpd`)

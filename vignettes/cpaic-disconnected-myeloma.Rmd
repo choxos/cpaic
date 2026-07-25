@@ -438,9 +438,9 @@ relative_effects(fit, reference = "R", newdata = data.frame(hr = 0.15))
 #>   Conditional effect at covariate profile: hr = 0.15
 #>  treatment comparator estimate    se lower upper pr_gt0          basis
 #>        Obs          R       NA    NA    NA    NA     NA not identified
-#>        R+D          R    1.557 0.135 1.186 2.001      1          exact
+#>        R+D          R    1.558 0.140 1.171 2.046  0.999          exact
 #>        R+I          R       NA    NA    NA    NA     NA not identified
-#>        R+V          R    1.741 0.084 1.474 2.047      1          exact
+#>        R+V          R    1.746 0.088 1.470 2.074  1.000          exact
 #>          V          R       NA    NA    NA    NA     NA not identified
 #>   NA = not uniquely estimable from this component design (see estimable_effects()).
 #>   `se` is on the link (log) scale; the interval is back-transformed.
@@ -449,9 +449,9 @@ relative_effects(fit, reference = "R", newdata = data.frame(hr = 0.60))
 #>   Conditional effect at covariate profile: hr = 0.6
 #>  treatment comparator estimate    se lower upper pr_gt0          basis
 #>        Obs          R       NA    NA    NA    NA     NA not identified
-#>        R+D          R    2.134 0.141 1.617 2.798  1.000          exact
+#>        R+D          R    2.131 0.141 1.609 2.785      1          exact
 #>        R+I          R       NA    NA    NA    NA     NA not identified
-#>        R+V          R    1.356 0.097 1.112 1.648  0.999          exact
+#>        R+V          R    1.357 0.098 1.123 1.656      1          exact
 #>          V          R       NA    NA    NA    NA     NA not identified
 #>   NA = not uniquely estimable from this component design (see estimable_effects()).
 #>   `se` is on the link (log) scale; the interval is back-transformed.
@@ -509,12 +509,12 @@ Table: cML-NMR league table (odds ratios, row versus column) in a target populat
 
 |    |Obs               |R                 |R+D               |R+I |R+V               |V                 |
 |:---|:-----------------|:-----------------|:-----------------|:---|:-----------------|:-----------------|
-|Obs |Obs               |                  |                  |    |                  |0.74 (0.61, 0.90) |
-|R   |                  |R                 |0.48 (0.36, 0.62) |    |0.74 (0.61, 0.90) |                  |
-|R+D |                  |2.13 (1.62, 2.80) |R+D               |    |1.57 (1.29, 1.91) |                  |
+|Obs |Obs               |                  |                  |    |                  |0.74 (0.60, 0.89) |
+|R   |                  |R                 |0.48 (0.36, 0.62) |    |0.74 (0.60, 0.89) |                  |
+|R+D |                  |2.13 (1.61, 2.78) |R+D               |    |1.57 (1.29, 1.90) |                  |
 |R+I |                  |                  |                  |R+I |                  |                  |
-|R+V |                  |1.36 (1.11, 1.65) |0.64 (0.52, 0.78) |    |R+V               |                  |
-|V   |1.36 (1.11, 1.65) |                  |                  |    |                  |V                 |
+|R+V |                  |1.36 (1.12, 1.66) |0.64 (0.53, 0.77) |    |R+V               |                  |
+|V   |1.36 (1.12, 1.66) |                  |                  |    |                  |V                 |
 
 
 
@@ -543,22 +543,22 @@ population?"** [@Wigle2026].
 
 ``` r
 cpaic_ranks(fit, newdata = data.frame(hr = 0.05), what = "component")
-#> Warning: Dropped from the hierarchy as not estimable in this target population: I, R.
-#> Ranking them would rank the prior. See estimable_effects_at().
+#> Warning: Dropped from the hierarchy as not estimable in this target population:
+#> I, R. Ranking them would rank the prior. See estimable_effects_at().
 #> Population-adjusted component hierarchy
 #>   Target population: hr = 0.05
 #>  element estimate p_best median_rank mean_rank sucra
-#>        V    0.607  0.979           1     1.021 0.979
-#>        D    0.364  0.021           2     1.979 0.021
+#>        V    0.610  0.978           1     1.022 0.978
+#>        D    0.364  0.022           2     1.978 0.022
 #>   Not estimable in this population, so not ranked: I, R
 #>   Ranking metrics depend on the set ranked; report them with the effects, not instead.
 cpaic_ranks(fit, newdata = data.frame(hr = 0.80), what = "component")
-#> Warning: Dropped from the hierarchy as not estimable in this target population: I, R.
-#> Ranking them would rank the prior. See estimable_effects_at().
+#> Warning: Dropped from the hierarchy as not estimable in this target population:
+#> I, R. Ranking them would rank the prior. See estimable_effects_at().
 #> Population-adjusted component hierarchy
 #>   Target population: hr = 0.8
 #>  element estimate p_best median_rank mean_rank sucra
-#>        D    0.888      1           1         1     1
+#>        D    0.886      1           1         1     1
 #>        V    0.188      0           2         2     0
 #>   Not estimable in this population, so not ranked: I, R
 #>   Ranking metrics depend on the set ranked; report them with the effects, not instead.
@@ -604,8 +604,9 @@ produces a refusal.
 tryCatch(
   rank_probs(fit, newdata = data.frame(hr = 0.30)),
   error = function(e) cat("rank_probs() refused:\n ", conditionMessage(e), "\n"))
-#> Warning: Dropped from the hierarchy as not estimable in this target population: R, R+D,
-#> R+I, R+V. Ranking them would rank the prior. See estimable_effects_at().
+#> Warning: Dropped from the hierarchy as not estimable in this target population:
+#> R, R+D, R+I, R+V. Ranking them would rank the prior. See
+#> estimable_effects_at().
 #> rank_probs() refused:
 #>   Fewer than two elements are estimable (excluding elements identified only by aggregate arms) in this target population, so no hierarchy can be formed. See estimable_effects_at().
 ```
