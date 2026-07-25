@@ -46,6 +46,41 @@ jobs:
           extra-packages: any::rcmdcheck
           needs: check
 
+      # A qualified package::function() reference is not inert prose: the
+      # pkgdown site resolves it by LOADING that package, so naming one we do
+      # not hard-depend on makes the docs build a hostage of whatever is
+      # installed on the runner. That is invisible on a pull request, because
+      # the pkgdown workflow runs only on the default branch, so check it here.
+      - name: Documentation references only hard dependencies
+        shell: Rscript {0}
+        run: |
+          desc <- read.dcf("DESCRIPTION")
+          hard <- trimws(sub(" .*", "", strsplit(desc[1, "Imports"], ",")[[1]]))
+          # knitr/rmarkdown appear in chunk setup, remotes in an install line;
+          # cmdstanr and ggplot2 are Suggests that load cleanly. The packages
+          # that broke the build were those with heavy compiled objects.
+          allowed <- c(hard, "knitr", "rmarkdown", "remotes", "cmdstanr",
+                       "ggplot2", "base", "utils", "stats", "methods",
+                       "parallel", "namespace")
+          files <- c(list.files("man", "[.]Rd$", full.names = TRUE),
+                     list.files("vignettes", "[.]Rmd$", full.names = TRUE),
+                     "README.md", "NEWS.md", "_pkgdown.yml")
+          files <- files[file.exists(files)]
+          bad <- unlist(lapply(files, function(f) {
+            txt <- readLines(f, warn = FALSE)
+            pk <- unique(sub("::.*", "", unlist(regmatches(txt, gregexpr(
+              "[A-Za-z][A-Za-z0-9.]*::[A-Za-z0-9._]+", txt)))))
+            o <- setdiff(pk, allowed)
+            if (length(o)) paste0("  ", f, ": ", paste(o, collapse = ", "))
+          }))
+          if (length(bad)) {
+            stop("These files use the double-colon form for a package cpaic ",
+                 "does not hard-depend on, so building the documentation site ",
+                 "will try to load it:\n", paste(bad, collapse = "\n"),
+                 "\nWrite \"multinma's `RE_cor()`\" instead.", call. = FALSE)
+          }
+          cat("Documentation references only hard dependencies.\n")
+
       - uses: r-lib/actions/check-r-package@v2
         with:
           upload-snapshots: true
