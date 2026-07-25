@@ -103,10 +103,50 @@ if (!length(stems)) {
 # exactly as they will for pkgdown.
 if (basename(getwd()) != "vignettes") setwd("vignettes")
 
+# Attach here, not only in each vignette's setup chunk. With caching on (below)
+# a resumed run restores that chunk from disk instead of executing it, so its
+# library() calls never happen and the first uncached chunk fails on a function
+# it cannot find. Attaching in the driver makes the resumed session look like
+# the one that was interrupted.
+suppressPackageStartupMessages({
+  library(cpaic); library(ggplot2); library(bayesplot)
+})
+
+# A full pass fits every model in the package and runs for hours, so an
+# interruption anywhere costs the whole vignette. Caching the chunks makes a
+# re-run resume where it stopped.
+#
+# The cache is keyed by PATH, on a digest of both the vignette source and the
+# installed package, so it can only ever be reused for a re-run of exactly the
+# same inputs. Editing a chunk or reinstalling cpaic gives a different path and
+# every chunk runs again. That is deliberately blunt: knitr's per-chunk keys
+# cover the chunk's own code and not the objects it inherits from earlier
+# chunks, so a finer key would happily serve a stale figure built from a
+# variable that has since changed. Recomputing everything is cheap next to
+# publishing a vignette whose numbers do not match its code.
+cache_key <- function(orig) {
+  pkg <- system.file(package = "cpaic")
+  files <- c(orig,
+             list.files(file.path(pkg, "R"), full.names = TRUE),
+             list.files(file.path(pkg, "stan"), full.names = TRUE))
+  files <- sort(files[file.exists(files)])
+  # md5sum() hashes files, so fold the per-file sums back through a file to get
+  # one fixed-length key without taking on a hashing dependency.
+  tmp <- tempfile()
+  on.exit(unlink(tmp), add = TRUE)
+  writeLines(paste(names(tools::md5sum(files)), tools::md5sum(files)), tmp)
+  substr(unname(tools::md5sum(tmp)), 1L, 12L)
+}
+
 precompile_one <- function(stem) {
   orig <- paste0(stem, ".Rmd.orig")
   rmd  <- paste0(stem, ".Rmd")
   message("\n=== precompiling ", orig, " ===")
+  key <- cache_key(orig)
+  knitr::opts_chunk$set(
+    cache = TRUE,
+    cache.path = file.path("..", ".knitr-cache", paste0(stem, "-", key), ""))
+  on.exit(knitr::opts_chunk$set(cache = FALSE), add = TRUE)
   knitr::knit(orig, output = rmd)            # runs the chunks -> fits Stan here
   rmarkdown::render(rmd, quiet = TRUE)       # output format taken from the YAML
   title <- rmarkdown::yaml_front_matter(orig)$title

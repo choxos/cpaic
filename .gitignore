@@ -45,3 +45,6 @@ src/*
 CLAUDE.md
 AGENTS.md
 Rplots.pdf
+
+# knitr cache for the vignette precompile (build artifact, keyed on inputs)
+.knitr-cache/

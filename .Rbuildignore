@@ -31,3 +31,4 @@
 ^AGENTS\.md$
 ^vignettes/cpaic-disconnected-myeloma\.Rmd$
 ^Rplots\.pdf$
+^\.knitr-cache$
