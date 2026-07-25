@@ -20,7 +20,8 @@ component design, diagnostics, and estimability information are preserved.
 }
 \details{
 After redaction the object can no longer be refitted, so \code{\link[=prior_sensitivity]{prior_sensitivity()}}
-will not run on it. The underlying \code{cmdstanr} fit may still hold the model
-data it was sampled with; for a fully data-free artifact, save only the
-posterior draws (for example \code{fit$fit$draws()}).
+will not run on it. Under either backend the sampler object in \code{fit$fit} may
+still hold the model data it was sampled with, so for a fully data-free
+artifact save only what you need from the posterior, such as the output of
+\code{\link[=posterior_summary]{posterior_summary()}}, rather than the fit itself.
 }

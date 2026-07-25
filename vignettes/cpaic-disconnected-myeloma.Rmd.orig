@@ -15,10 +15,11 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6,
                       # to fig.retina = 2, which quadruples them.
                       fig.height = 4, dpi = 96, fig.retina = 1,
                       fig.path = "figure/myeloma-")
-has_stan <- requireNamespace("cmdstanr", quietly = TRUE) &&
-  !inherits(try(cmdstanr::cmdstan_path(), silent = TRUE), "try-error")
+# cmlnmr()'s default backend is rstan, whose models are compiled into the
+# installed package, so no separate toolchain is needed.
+has_stan <- requireNamespace("rstan", quietly = TRUE)
 # Figures need ggplot2; the MCMC diagnostics also need bayesplot; the figures
-# that summarize the fitted model need a working Stan toolchain as well.
+# that summarize the fitted model need a working Stan engine as well.
 fig_ok <- requireNamespace("ggplot2", quietly = TRUE)
 fit_fig_ok <- has_stan && fig_ok
 mcmc_fig_ok <- fit_fig_ok && requireNamespace("bayesplot", quietly = TRUE)

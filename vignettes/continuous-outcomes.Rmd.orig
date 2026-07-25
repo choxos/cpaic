@@ -395,7 +395,7 @@ fit_re <- cmlnmr(ipd, agd, effect_modifiers = "bhba1c_c", inactive = "Diet",
                  family = "gaussian", trt_effects = "random",
                  chains = 4, iter_warmup = 500, iter_sampling = 500,
                  seed = 2026, adapt_delta = 0.95)
-fit_re$fit$summary("tau")
+posterior_summary(fit_re, "tau")
 ```
 
 The random-effects model adds study-arm deviations around the component-implied
@@ -462,8 +462,8 @@ data.frame(
   divergences   = fit_re$diagnostics$divergences,
   max_treedepth = fit_re$diagnostics$max_treedepth,
   max_rhat      = round(fit_re$diagnostics$max_rhat, 4),
-  min_ess_bulk  = round(min(fit_re$fit$summary(
-    c("beta", "gamma", "mu", "tau"))$ess_bulk, na.rm = TRUE)))
+  min_ess_bulk  = round(min(posterior_summary(
+    fit_re, c("beta", "gamma", "mu", "tau"))$ess_bulk, na.rm = TRUE)))
 ```
 
 Those are the summaries. The chains themselves are the evidence.

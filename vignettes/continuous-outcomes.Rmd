@@ -482,29 +482,19 @@ a fixed-effect and a random-effects version.
 fit <- cmlnmr(ipd, agd, effect_modifiers = "bhba1c_c", inactive = "Diet",
               family = "gaussian",
               chains = 4, iter_warmup = 500, iter_sampling = 500, seed = 2026)
-#> Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
-#> Chain 4 Exception: normal_lpdf: Scale parameter is 0, but must be positive! (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmp7Wk2Yn/model-10c2966f151a6.stan', line 124, column 19 to column 50)
-#> Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
-#> Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
-#> Chain 4
-#> Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
-#> Chain 4 Exception: normal_lpdf: Scale parameter is 0, but must be positive! (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmp7Wk2Yn/model-10c2966f151a6.stan', line 124, column 19 to column 50)
-#> Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
-#> Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
-#> Chain 4
 fit
 #> cpaic: component-additive ML-NMR (Bayesian, gaussian)
 #>   Treatment effects: fixed
 #>   Effect modifiers: bhba1c_c [normal]
-#>   Provenance: cpaic 0.1.0, CmdStan 2.39.0, Stan md5 093af39c, seed 2026
+#>   Provenance: cpaic 0.1.0, rstan 2.36.0.9000, Stan md5 093af39c, seed 2026
 #>   Component effects below are at the covariate origin (x = 0).
 #>   For a target population use relative_effects(fit, newdata = ...).
 #> 
 #>  component estimate    se  lower  upper
 #>       DPP4       NA    NA     NA     NA
-#>        Met   -1.095 0.083 -1.257 -0.928
-#>      SGLT2   -0.617 0.110 -0.825 -0.387
-#>         SU   -0.757 0.089 -0.926 -0.581
+#>        Met   -1.095 0.078 -1.248 -0.943
+#>      SGLT2   -0.617 0.107 -0.827 -0.409
+#>         SU   -0.752 0.087 -0.921 -0.587
 ```
 
 
@@ -513,20 +503,17 @@ fit_re <- cmlnmr(ipd, agd, effect_modifiers = "bhba1c_c", inactive = "Diet",
                  family = "gaussian", trt_effects = "random",
                  chains = 4, iter_warmup = 500, iter_sampling = 500,
                  seed = 2026, adapt_delta = 0.95)
-#> Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
-#> Chain 4 Exception: normal_lpdf: Scale parameter is 0, but must be positive! (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmp7Wk2Yn/model-10c2966f151a6.stan', line 124, column 19 to column 50)
-#> Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
-#> Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
-#> Chain 4
-#> Warning: 4 of 2000 (0.0%) transitions ended with a divergence.
-#> See https://mc-stan.org/misc/warnings for details.
-#> Warning: 4 divergent transition(s) in cmlnmr(); results may be unreliable (consider
+#> Warning: There were 1 divergent transitions after warmup. See
+#> https://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
+#> to find out why this is a problem and how to eliminate them.
+#> Warning: Examine the pairs() plot to diagnose sampling problems
+#> Warning: 1 divergent transition(s) in cmlnmr(); results may be unreliable (consider
 #> higher adapt_delta or more iterations).
-fit_re$fit$summary("tau")
-#> # A tibble: 1 × 10
-#>   variable  mean median    sd    mad      q5   q95  rhat ess_bulk ess_tail
-#>   <chr>    <dbl>  <dbl> <dbl>  <dbl>   <dbl> <dbl> <dbl>    <dbl>    <dbl>
-#> 1 tau[1]   0.149  0.102 0.160 0.0997 0.00852 0.455  1.01     415.     563.
+posterior_summary(fit_re, "tau")
+#>   variable      mean     median       sd       mad          q5       q95     rhat
+#> 1   tau[1] 0.1429527 0.09709962 0.148751 0.0985411 0.007348172 0.4254031 1.004115
+#>   ess_bulk ess_tail
+#> 1 499.2129 873.0799
 ```
 
 The random-effects model adds study-arm deviations around the component-implied
@@ -632,10 +619,10 @@ data.frame(
   divergences   = fit_re$diagnostics$divergences,
   max_treedepth = fit_re$diagnostics$max_treedepth,
   max_rhat      = round(fit_re$diagnostics$max_rhat, 4),
-  min_ess_bulk  = round(min(fit_re$fit$summary(
-    c("beta", "gamma", "mu", "tau"))$ess_bulk, na.rm = TRUE)))
+  min_ess_bulk  = round(min(posterior_summary(
+    fit_re, c("beta", "gamma", "mu", "tau"))$ess_bulk, na.rm = TRUE)))
 #>   divergences max_treedepth max_rhat min_ess_bulk
-#> 1           4             0    1.015          415
+#> 1           1             0   1.0057          499
 ```
 
 Those are the summaries. The chains themselves are the evidence.
@@ -742,11 +729,11 @@ relative_effects(fit, reference = "Met",
 #> Relative effects (MD, link scale)
 #>   Conditional effect at covariate profile: bhba1c_c = -0.5
 #>  treatment comparator estimate    se  lower  upper pr_gt0              basis
-#>       Diet        Met    0.962 0.087  0.790  1.139  1.000 first-order screen
+#>       Diet        Met    0.962 0.081  0.798  1.116      1 first-order screen
 #>   Met+DPP4        Met       NA    NA     NA     NA     NA     not identified
-#>  Met+SGLT2        Met   -0.567 0.127 -0.801 -0.310  0.000              exact
-#>     Met+SU        Met   -0.549 0.101 -0.736 -0.337  0.000              exact
-#>         SU        Met    0.413 0.140  0.145  0.701  0.997 first-order screen
+#>  Met+SGLT2        Met   -0.569 0.125 -0.808 -0.323      0              exact
+#>     Met+SU        Met   -0.544 0.100 -0.742 -0.351      0              exact
+#>         SU        Met    0.417 0.130  0.159  0.672      1 first-order screen
 #>   NA = not uniquely estimable from this component design (see estimable_effects()).
 #>   basis "first-order screen" = estimable by the row-space criterion but leaning
 #>   on aggregate arms or a survival baseline, so it can be optimistic; check
@@ -816,10 +803,10 @@ Table: cML-NMR: recovered vs true mean differences
 
 |target     |contrast         | estimate|  lower|  upper| truth|
 |:----------|:----------------|--------:|------:|------:|-----:|
-|HbA1c 7.5% |Met+SGLT2 vs Met |   -0.567| -0.801| -0.310| -0.56|
-|HbA1c 7.5% |Met+SU vs Met    |   -0.549| -0.736| -0.337| -0.50|
-|HbA1c 9.0% |Met+SGLT2 vs Met |   -0.716| -0.941| -0.481| -0.68|
-|HbA1c 9.0% |Met+SU vs Met    |   -1.174| -1.364| -0.977| -1.10|
+|HbA1c 7.5% |Met+SGLT2 vs Met |   -0.569| -0.808| -0.323| -0.56|
+|HbA1c 7.5% |Met+SU vs Met    |   -0.544| -0.742| -0.351| -0.50|
+|HbA1c 9.0% |Met+SGLT2 vs Met |   -0.714| -0.939| -0.485| -0.68|
+|HbA1c 9.0% |Met+SU vs Met    |   -1.168| -1.360| -0.988| -1.10|
 
 
 
@@ -886,12 +873,12 @@ Table: League table at baseline HbA1c 7.5%: mean difference (95% CrI) of the row
 
 |          |Diet                 |Met                  |Met+DPP4 |Met+SGLT2          |Met+SU              |SU                   |
 |:---------|:--------------------|:--------------------|:--------|:------------------|:-------------------|:--------------------|
-|Diet      |Diet                 |0.96 (0.79, 1.14)    |         |1.53 (1.24, 1.81)  |1.51 (1.26, 1.76)   |0.55 (0.34, 0.74)    |
-|Met       |-0.96 (-1.14, -0.79) |Met                  |         |0.57 (0.31, 0.80)  |0.55 (0.34, 0.74)   |-0.41 (-0.70, -0.14) |
+|Diet      |Diet                 |0.96 (0.80, 1.12)    |         |1.53 (1.25, 1.82)  |1.51 (1.26, 1.76)   |0.54 (0.35, 0.74)    |
+|Met       |-0.96 (-1.12, -0.80) |Met                  |         |0.57 (0.32, 0.81)  |0.54 (0.35, 0.74)   |-0.42 (-0.67, -0.16) |
 |Met+DPP4  |                     |                     |Met+DPP4 |                   |                    |                     |
-|Met+SGLT2 |-1.53 (-1.81, -1.24) |-0.57 (-0.80, -0.31) |         |Met+SGLT2          |-0.02 (-0.17, 0.13) |-0.98 (-1.20, -0.77) |
-|Met+SU    |-1.51 (-1.76, -1.26) |-0.55 (-0.74, -0.34) |         |0.02 (-0.13, 0.17) |Met+SU              |-0.96 (-1.14, -0.79) |
-|SU        |-0.55 (-0.74, -0.34) |0.41 (0.14, 0.70)    |         |0.98 (0.77, 1.20)  |0.96 (0.79, 1.14)   |SU                   |
+|Met+SGLT2 |-1.53 (-1.82, -1.25) |-0.57 (-0.81, -0.32) |         |Met+SGLT2          |-0.02 (-0.18, 0.12) |-0.99 (-1.20, -0.78) |
+|Met+SU    |-1.51 (-1.76, -1.26) |-0.54 (-0.74, -0.35) |         |0.02 (-0.12, 0.18) |Met+SU              |-0.96 (-1.12, -0.80) |
+|SU        |-0.54 (-0.74, -0.35) |0.42 (0.16, 0.67)    |         |0.99 (0.78, 1.20)  |0.96 (0.80, 1.12)   |SU                   |
 
 
 
@@ -960,7 +947,7 @@ ranks_early
 #> Population-adjusted treatment hierarchy
 #>   Target population: bhba1c_c = -0.5
 #>  element estimate p_best median_rank mean_rank sucra
-#>       SU   -0.549      1           1         1     1
+#>       SU   -0.544      1           1         1     1
 #>     Diet    0.000      0           2         2     0
 #>   Not estimable in this population, so not ranked: Met+DPP4
 #>   Identified only by aggregate arms (first-order screen), so not ranked by default: Met, Met+SGLT2, Met+SU
@@ -995,11 +982,11 @@ cpaic_ranks(fit, newdata = early, lower_is_better = TRUE,
 #> Population-adjusted treatment hierarchy
 #>   Target population: bhba1c_c = -0.5
 #>    element estimate p_best median_rank mean_rank sucra
-#>  Met+SGLT2   -1.530   0.59           1     1.411 0.897
-#>     Met+SU   -1.511   0.41           2     1.589 0.853
-#>        Met   -0.962   0.00           3     3.003 0.499
-#>         SU   -0.549   0.00           4     3.997 0.251
-#>       Diet    0.000   0.00           5     5.000 0.000
+#>  Met+SGLT2   -1.530  0.605           1     1.395 0.901
+#>     Met+SU   -1.506  0.395           2     1.605 0.849
+#>        Met   -0.962  0.000           3     3.000 0.500
+#>         SU   -0.544  0.000           4     4.000 0.250
+#>       Diet    0.000  0.000           5     5.000 0.000
 #>   Not estimable in this population, so not ranked: Met+DPP4
 #>   Ranking metrics depend on the set ranked; report them with the effects, not instead.
 ```
@@ -1098,7 +1085,7 @@ Table: Met+SGLT2 vs Met at baseline HbA1c 7.5%: three routes, one estimand
 |:---------------------|--------:|------:|------:|-----:|
 |cSTC (conditional)    |   -0.567| -1.177|  0.043| -0.56|
 |cMAIC (marginal)      |   -0.541| -1.316|  0.235| -0.56|
-|cML-NMR (conditional) |   -0.567| -0.801| -0.310| -0.56|
+|cML-NMR (conditional) |   -0.569| -0.808| -0.323| -0.56|
 
 
 
@@ -1210,14 +1197,20 @@ when you halve or double a prior scale is not being driven by the data.
 ps <- prior_sensitivity(fit, newdata = data.frame(bhba1c_c = -0.5),
                         prior = "gamma", reference = "Met",
                         chains = 2, iter_warmup = 300, iter_sampling = 300)
+#> Warning: Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable.
+#> Running the chains for more iterations may help. See
+#> https://mc-stan.org/misc/warnings.html#bulk-ess
+#> Warning: Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable.
+#> Running the chains for more iterations may help. See
+#> https://mc-stan.org/misc/warnings.html#bulk-ess
 ps
 #> cML-NMR prior sensitivity: gamma prior
 #>  treatment comparator estimate tighter looser move_tighter move_looser max_movement
-#>       Diet        Met    0.962   0.960  0.956        0.003       0.006        0.006
-#>   Met+DPP4        Met   -0.819  -0.961 -0.476        0.142       0.344        0.344
-#>  Met+SGLT2        Met   -0.567  -0.579 -0.572        0.012       0.005        0.012
-#>     Met+SU        Met   -0.549  -0.552 -0.547        0.003       0.002        0.003
-#>         SU        Met    0.413   0.407  0.409        0.006       0.004        0.006
+#>       Diet        Met    0.962   0.962  0.961        0.000       0.000        0.000
+#>   Met+DPP4        Met   -0.836  -0.921 -0.553        0.085       0.283        0.283
+#>  Met+SGLT2        Met   -0.569  -0.569 -0.570        0.000       0.002        0.002
+#>     Met+SU        Met   -0.544  -0.551 -0.549        0.007       0.005        0.007
+#>         SU        Met    0.417   0.411  0.412        0.007       0.005        0.007
 #>  estimable
 #>       TRUE
 #>      FALSE
@@ -1268,22 +1261,22 @@ loo_random <- loo::loo(fit_re)
 #> Warning: Some Pareto k diagnostic values are too high. See help('pareto-k-diagnostic') for details.
 loo::loo_compare(list(fixed = loo_fixed, random = loo_random))
 #>   model elpd_diff se_diff p_worse       diag_diff      diag_elpd
-#>   fixed       0.0     0.0      NA                 4 k_psis > 0.7
-#>  random      -0.5     0.6    0.81 |elpd_diff| < 4 4 k_psis > 0.7
+#>   fixed       0.0     0.0      NA                 2 k_psis > 0.7
+#>  random      -1.7     1.0    0.95 |elpd_diff| < 4 4 k_psis > 0.7
 #> 
 #> Diagnostic flags present.
 #> See ?`loo-glossary` (sections `diag_diff` and `diag_elpd`)
 #> or https://mc-stan.org/loo/reference/loo-glossary.html.
 dic(fit)
 #> Deviance information criterion
-#>   DIC: 3054.7
-#>   Mean deviance: 3039.2
-#>   Effective parameters (pV): 15.6
+#>   DIC: 3052.3
+#>   Mean deviance: 3038.8
+#>   Effective parameters (pV): 13.5
 dic(fit_re)
 #> Deviance information criterion
-#>   DIC: 3056
-#>   Mean deviance: 3039.3
-#>   Effective parameters (pV): 16.7
+#>   DIC: 3055.4
+#>   Mean deviance: 3039.4
+#>   Effective parameters (pV): 15.9
 ```
 
 Two things to say honestly here.
@@ -1320,8 +1313,8 @@ Table: Met+SGLT2 vs Met at HbA1c 7.5%: the price of random effects
 
 |model  | estimate|  lower|  upper| width|
 |:------|--------:|------:|------:|-----:|
-|fixed  |   -0.567| -0.801| -0.310| 0.491|
-|random |   -0.574| -1.035| -0.072| 0.962|
+|fixed  |   -0.569| -0.808| -0.323| 0.485|
+|random |   -0.562| -1.036| -0.044| 0.992|
 
 
 

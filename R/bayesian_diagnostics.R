@@ -6,7 +6,7 @@
   if (!inherits(object, "cpaic_mlnmr")) {
     stop("`object` must be a cpaic_mlnmr fit.", call. = FALSE)
   }
-  out <- as.matrix(object$fit$draws("log_lik", format = "draws_matrix"))
+  out <- .cpaic_draws_matrix(object$fit, "log_lik")
   if (!ncol(out)) {
     stop("The fit does not contain pointwise `log_lik` draws.", call. = FALSE)
   }
@@ -117,7 +117,7 @@ prior_predictive_check <- function(object, statistic = c("mean", "sd"),
 
   summarize_source <- function(source) {
     variable <- object$rep_variables[[source]]
-    draws <- as.matrix(object$fit$draws(variable, format = "draws_matrix"))
+    draws <- .cpaic_draws_matrix(object$fit, variable)
     replicated <- apply(draws, 1, stat)
     observed <- stat(object$observed[[source]])
     interval <- stats::quantile(replicated, c(alpha, 0.5, 1 - alpha),

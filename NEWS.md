@@ -20,7 +20,7 @@ for between-study imbalance in effect modifiers.
   each IPD-bearing edge with a population-adjusted contrast, which the component
   bridge then combines.
 * `cmlnmr()` is the Bayesian flagship: component-additive multilevel network
-  meta-regression, fitted with `cmdstanr`. The treatment effect is `C %*% beta`
+  meta-regression, fitted with rstan or CmdStan. The treatment effect is `C %*% beta`
   and the model carries component by effect-modifier interactions through the
   whole network, so disconnected sub-networks are connected by construction and
   every edge is adjusted to one target population coherently.
@@ -56,8 +56,14 @@ the prior.
   invalid edge is never passed silently into the additive bridge.
 * `cmlnmr()` validates its inputs before compiling the Stan model: a study
   present in both `ipd` and `agd`, a single-arm study, a non-numeric or
-  incomplete effect modifier, fractional aggregate counts, a malformed seed, and
-  protected sampler arguments such as `data` in `...` are all rejected by name.
+  incomplete effect modifier, fractional aggregate counts, a malformed seed, a
+  non-positive `chains`/`iter_warmup`/`iter_sampling`, and protected sampler
+  arguments such as `data` in `...` are all rejected by name. Zero warmup is
+  refused explicitly: rstan accepts it and samples without ever adapting the
+  step size, which returns draws that look like a fit and are not one.
+* Sampler arguments in `...` are checked against what the chosen backend
+  actually accepts, so a cmdstanr-only argument (or a misspelled one) is named
+  rather than handed to rstan to kill every chain with a message about `@`.
 * `cpaic_network()` rejects self-comparisons, duplicate {study, treatment-pair}
   rows, and missing treatment labels; `build_C_matrix()` rejects empty component
   tokens and an `inactive` label matching no component.
@@ -79,6 +85,8 @@ the prior.
 * `cmlnmr()` checks divergences, tree depth, E-BFMI, R-hat, and effective sample
   size across every sampled parameter block, and reports `NA` rather than an
   ideal infinity when a diagnostic is unavailable.
+* `posterior_summary()` summarizes any sampled parameter block of a `cmlnmr()`
+  fit, with the same columns whichever sampler backend produced it.
 * `prior_sensitivity()`, `prior_predictive_check()`, `dic()`, `loo()`, `waic()`,
   and `redact_fit()` cover prior movement, prior implications, model comparison,
   and sharing a fit without row-level data.
@@ -113,13 +121,44 @@ These are stated in the manual pages, not only here.
   and the aggregate likelihood carries a finite quasi-Monte-Carlo integration
   error.
 
+## Sampler backends
+
+`cmlnmr()` fits through either engine, selected with `backend`.
+
+* `"rstan"` is the default. The Stan models are compiled when cpaic is
+  installed, so the Bayesian engine works with no further setup, and the
+  examples and tests run anywhere.
+* `"cmdstanr"` fits the identical models with CmdStan, which tracks Stan
+  releases more closely and is often faster. It needs the `cmdstanr` package and
+  a separate CmdStan installation.
+
+The two agree up to Monte Carlo error but do not share a random number stream,
+so the same `seed` gives different draws on each. Convergence diagnostics are
+computed the same way for both, so `rhat`, `ess_bulk`, and `ess_tail` mean the
+same thing whichever produced a fit, and every summary, plot, and diagnostic in
+the package works on either. The engine and its version are recorded in the
+fit's provenance, and in the arguments `prior_sensitivity()` refits with, so a
+sensitivity analysis cannot silently switch engines.
+
+Reach for `posterior_summary()` rather than the sampler object under `fit$fit`.
+That object is an S4 `stanfit` under one backend and an R6 object under the
+other, and they share no accessors, so code written against one fails on the
+other.
+
+`adapt_delta` and `max_treedepth` are arguments of `cmlnmr()` rather than being
+passed through `...`, because the two engines take them in different places.
+Anything still passed through `...` reaches the chosen sampler unchanged and is
+therefore backend-specific.
+
 ## Dependencies
 
 Imports are kept to what is load-bearing: `netmeta` for the component-NMA engine,
 `maicplus` for the MAIC weights, `randtoolbox` for the Sobol' integration points,
-`igraph` for network connectivity, `loo` for the `loo`/`waic` generics, and
+`igraph` for network connectivity, `loo` for the `loo`/`waic` generics,
+`posterior` for the convergence quantities (which `loo` already brings in), and
 otherwise packages that ship with R. The component-additive ML-NMR models and
 their quasi-Monte-Carlo integration are implemented in cpaic itself; `multinma`
 is a `Suggests` used only by the test that keeps the random-effects correlation
-in step with multinma's `RE_cor()`. `cmlnmr()` needs `cmdstanr`, installed from
+in step with multinma's `RE_cor()`. `cmlnmr()` fits through `rstan` by default;
+`backend = "cmdstanr"` additionally needs `cmdstanr`, from
 <https://stan-dev.r-universe.dev>.

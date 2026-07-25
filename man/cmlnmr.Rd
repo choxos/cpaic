@@ -44,10 +44,13 @@ cmlnmr(
   prior_tau_scale = 1,
   prior_tau_df = 4,
   prior_predictive = FALSE,
+  backend = c("rstan", "cmdstanr"),
   chains = 4L,
   iter_warmup = 500L,
   iter_sampling = 500L,
   seed = NULL,
+  adapt_delta = NULL,
+  max_treedepth = NULL,
   ...
 )
 }
@@ -179,12 +182,31 @@ degrees of freedom for the positive heterogeneity prior.}
 observed likelihood. Replicated outcomes remain available for
 \code{\link[=prior_predictive_check]{prior_predictive_check()}}.}
 
-\item{chains, iter_warmup, iter_sampling, seed}{Passed to \code{cmdstanr}.}
+\item{backend}{Sampler engine: \code{"rstan"} (default) or \code{"cmdstanr"}. The two
+fit the same Stan models and are interchangeable; see the section below.}
 
-\item{...}{Passed to the \code{cmdstanr} sampler (e.g. \code{adapt_delta}).}
+\item{chains, iter_warmup, iter_sampling, seed}{Sampler settings. \code{iter_warmup}
+and \code{iter_sampling} are counted separately whichever backend is used; the
+translation to rstan's combined \code{iter} is handled internally.}
+
+\item{adapt_delta, max_treedepth}{Sampler tuning, or \code{NULL} for the engine
+default. These are named arguments rather than left to \code{...} because the two
+backends take them in different places.}
+
+\item{...}{Further arguments for the sampler. These are passed through
+untouched and are therefore \strong{backend-specific}: they reach
+\code{rstan::sampling()} or the \code{cmdstanr} \verb{$sample()} method as given. Prefer
+the named arguments above for anything that has one.
+
+Under \code{backend = "rstan"} an argument rstan does not accept is rejected by
+name before the fit, rather than being handed to \code{rstan::sampling()} to
+kill every chain with a message that names nothing. About twenty cmdstanr
+sampler arguments have no rstan equivalent (\code{step_size}, \code{metric},
+\code{inv_metric}, \code{adapt_engaged}, \code{parallel_chains}, \code{save_latent_dynamics},
+and so on), and a misspelled argument is caught the same way.}
 }
 \value{
-An object of class \code{cpaic_mlnmr} with the \code{cmdstanr} fit, the
+An object of class \code{cpaic_mlnmr} with the fitted Stan object, the
 component design, and a tidy table of component effects.
 }
 \description{
@@ -372,8 +394,36 @@ variation on the contrasts that involve it, and interactions informed only
 by aggregate arms are weakly identified (\code{prior_gamma_scale} regularizes).
 }
 
+\section{Backends}{
+
+\code{backend = "rstan"} is the default. Its models are compiled when cpaic is
+installed, so nothing else is needed and the examples and tests run anywhere.
+\code{backend = "cmdstanr"} fits the identical models with CmdStan, which tracks
+Stan releases more closely and is often faster, but it needs the \code{cmdstanr}
+package and a separate CmdStan installation.
+
+The two are interchangeable, not identical: they do not share a random number
+stream, so the same \code{seed} gives different draws on each. Convergence
+diagnostics are computed the same way for both (through \code{posterior}), so
+\code{rhat}, \code{ess_bulk}, and \code{ess_tail} mean the same thing whichever produced the
+fit, and everything downstream of the fit works on either.
+
+They also differ in how they run chains. cmdstanr runs all \code{chains} at once.
+rstan follows the R convention of taking its core count from
+\code{getOption("mc.cores")}, which is 1 unless you set it, so on the default
+backend the chains run one after another until you do:
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{options(mc.cores = parallel::detectCores())
+}\if{html}{\out{</div>}}
+
+Do not reach into \code{fit$fit} to summarize parameters. That slot holds whatever
+the backend returned, an S4 \code{stanfit} or an R6 CmdStan object, and the two
+share no accessors, so code written against one fails on the other. Use
+\code{\link[=posterior_summary]{posterior_summary()}}, which returns the same table either way.
+}
+
 \examples{
-\dontshow{if (requireNamespace("cmdstanr", quietly = TRUE) && !inherits(try(cmdstanr::cmdstan_path(), silent = TRUE), "try-error")) withAutoprint(\{ # examplesIf}
+\dontshow{if (requireNamespace("rstan", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 \donttest{
 ipd <- data.frame(.study = "S1",
                   .trt = rep(c("Placebo", "A"), each = 100),

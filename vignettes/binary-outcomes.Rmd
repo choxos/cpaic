@@ -573,20 +573,20 @@ fit <- cmlnmr(ipd, agd,
               inactive = "UC", family = "binomial",
               trt_effects = "random",
               chains = 4, iter_warmup = 500, iter_sampling = 500,
-              n_int = 64, seed = 1, show_exceptions = FALSE)
+              n_int = 64, seed = 1)
 fit
 #> cpaic: component-additive ML-NMR (Bayesian, binomial)
 #>   Treatment effects: random (noncentered)
 #>   Effect modifiers: cpd [normal]
-#>   Provenance: cpaic 0.1.0, CmdStan 2.39.0, Stan md5 0a55fe50, seed 1
+#>   Provenance: cpaic 0.1.0, rstan 2.36.0.9000, Stan md5 0a55fe50, seed 1
 #>   Component effects below are at the covariate origin (x = 0).
 #>   For a target population use relative_effects(fit, newdata = ...).
 #> 
-#>  component estimate    se lower upper
-#>        BUP       NA    NA    NA    NA
-#>        CBT    0.484 0.121 0.213 0.699
-#>        NRT       NA    NA    NA    NA
-#>        VAR       NA    NA    NA    NA
+#>  component estimate   se lower upper
+#>        BUP       NA   NA    NA    NA
+#>        CBT    0.484 0.13 0.165 0.694
+#>        NRT       NA   NA    NA    NA
+#>        VAR       NA   NA    NA    NA
 ```
 
 Note what the print method insists on: those component effects are at the
@@ -663,11 +663,11 @@ data.frame(
   divergences   = fit$diagnostics$divergences,
   max_treedepth = fit$diagnostics$max_treedepth,
   max_rhat      = round(fit$diagnostics$max_rhat, 4),
-  min_ess_bulk  = round(min(fit$fit$summary(c("beta", "gamma", "mu",
-                                              "tau"))$ess_bulk, na.rm = TRUE))
+  min_ess_bulk  = round(min(posterior_summary(
+    fit, c("beta", "gamma", "mu", "tau"))$ess_bulk, na.rm = TRUE))
 )
 #>   divergences max_treedepth max_rhat min_ess_bulk
-#> 1           2             0   1.0168          425
+#> 1           2             0   1.0122          528
 ```
 
 The trace plot shows the same thing chain by chain.
@@ -863,11 +863,11 @@ ever measured *against* nicotine replacement:
 
 ``` r
 component_effects(fit, newdata = target)
-#>   component estimate        se    lower     upper
-#> 1       BUP       NA        NA       NA        NA
-#> 2       CBT 0.406458 0.1309455 0.122849 0.6495137
-#> 3       NRT       NA        NA       NA        NA
-#> 4       VAR       NA        NA       NA        NA
+#>   component estimate        se      lower     upper
+#> 1       BUP       NA        NA         NA        NA
+#> 2       CBT 0.407785 0.1383116 0.08066389 0.6410474
+#> 3       NRT       NA        NA         NA        NA
+#> 4       VAR       NA        NA         NA        NA
 ```
 
 `forest()` renders the same table, and renders the `NA`s as what they are.
@@ -944,8 +944,8 @@ relative_effects(fit, reference = "NRT", newdata = target)
 #>  treatment comparator estimate    se lower upper pr_gt0          basis
 #>        CBT        NRT       NA    NA    NA    NA     NA not identified
 #>    CBT+BUP        NRT       NA    NA    NA    NA     NA not identified
-#>    CBT+NRT        NRT    1.514 0.131 1.131 1.915  0.992          exact
-#>    CBT+VAR        NRT    2.820 0.193 1.860 3.956  1.000          exact
+#>    CBT+NRT        NRT    1.518 0.138 1.084 1.898  0.988          exact
+#>    CBT+VAR        NRT    2.831 0.201 1.799 4.032  0.999          exact
 #>         UC        NRT       NA    NA    NA    NA     NA not identified
 #>   NA = not uniquely estimable from this component design (see estimable_effects()).
 #>   `se` is on the link (log) scale; the interval is back-transformed.
@@ -978,8 +978,8 @@ relative_effects(fit, reference = "NRT", newdata = target_light)
 #>  treatment comparator estimate    se lower upper pr_gt0          basis
 #>        CBT        NRT       NA    NA    NA    NA     NA not identified
 #>    CBT+BUP        NRT       NA    NA    NA    NA     NA not identified
-#>    CBT+NRT        NRT    1.818 0.137 1.324 2.298  0.997          exact
-#>    CBT+VAR        NRT    2.220 0.231 1.359 3.323  0.997          exact
+#>    CBT+NRT        NRT    1.815 0.144 1.287 2.310  0.999          exact
+#>    CBT+VAR        NRT    2.236 0.240 1.331 3.426  0.994          exact
 #>         UC        NRT       NA    NA    NA    NA     NA not identified
 #>   NA = not uniquely estimable from this component design (see estimable_effects()).
 #>   `se` is on the link (log) scale; the interval is back-transformed.
@@ -1022,8 +1022,8 @@ Table: Odds ratios in the target population (cpd = 0.3), against the truth
 
 |Contrast       | True_OR| cSTC| cMAIC| cML-NMR|cML-NMR 95% CrI |
 |:--------------|-------:|----:|-----:|-------:|:---------------|
-|CBT+NRT vs NRT |    1.63| 1.66|  1.68|    1.51|(1.13, 1.91)    |
-|CBT+VAR vs NRT |    3.21| 3.23|  3.25|    2.82|(1.86, 3.96)    |
+|CBT+NRT vs NRT |    1.63| 1.66|  1.68|    1.52|(1.08, 1.90)    |
+|CBT+VAR vs NRT |    3.21| 3.23|  3.25|    2.83|(1.80, 4.03)    |
 
 
 
@@ -1053,12 +1053,12 @@ Table: League table at cpd = 0.3 (row versus column). Empty cells are not estima
 
 |        |CBT               |CBT+BUP |CBT+NRT           |CBT+VAR           |NRT               |UC                |
 |:-------|:-----------------|:-------|:-----------------|:-----------------|:-----------------|:-----------------|
-|CBT     |CBT               |        |                  |                  |                  |1.51 (1.13, 1.91) |
+|CBT     |CBT               |        |                  |                  |                  |1.52 (1.08, 1.90) |
 |CBT+BUP |                  |CBT+BUP |                  |                  |                  |                  |
-|CBT+NRT |                  |        |CBT+NRT           |0.55 (0.41, 0.73) |1.51 (1.13, 1.91) |                  |
-|CBT+VAR |                  |        |1.86 (1.37, 2.43) |CBT+VAR           |2.82 (1.86, 3.96) |                  |
-|NRT     |                  |        |0.67 (0.52, 0.88) |0.37 (0.25, 0.54) |NRT               |                  |
-|UC      |0.67 (0.52, 0.88) |        |                  |                  |                  |UC                |
+|CBT+NRT |                  |        |CBT+NRT           |0.55 (0.40, 0.72) |1.52 (1.08, 1.90) |                  |
+|CBT+VAR |                  |        |1.86 (1.39, 2.52) |CBT+VAR           |2.83 (1.80, 4.03) |                  |
+|NRT     |                  |        |0.67 (0.53, 0.92) |0.37 (0.25, 0.56) |NRT               |                  |
+|UC      |0.67 (0.53, 0.92) |        |                  |                  |                  |UC                |
 
 
 
@@ -1118,8 +1118,8 @@ rk
 #> Population-adjusted treatment hierarchy
 #>   Target population: cpd = 0.3
 #>  element estimate p_best median_rank mean_rank sucra
-#>      CBT    0.406  0.992           1     1.008 0.992
-#>       UC    0.000  0.008           2     1.992 0.008
+#>      CBT    0.408  0.988           1     1.012 0.988
+#>       UC    0.000  0.013           2     1.988 0.012
 #>   Not estimable in this population, so not ranked: CBT+BUP, CBT+NRT, CBT+VAR, NRT
 #>   Ranking metrics depend on the set ranked; report them with the effects, not instead.
 plot(rk)
@@ -1174,8 +1174,8 @@ plot_rank_curve(fit, em = "cpd", values = seq(-1, 1, by = 0.25))
 
 Two cautions in one figure. First, the curves do not cross here, so counseling
 beats usual care in every target population; but the margin erodes steadily, and
-`CBT`'s SUCRA falls from 0.997 in the lightest-smoking
-population to 0.863 in the heaviest, which is what a
+`CBT`'s SUCRA falls from 0.998 in the lightest-smoking
+population to 0.877 in the heaviest, which is what a
 component whose interaction with `cpd` is negative should do. In a network with
 more estimable contrasts the curves generally *do* cross, and a hierarchy quoted
 without a population is then not merely imprecise but wrong. Second, and more
@@ -1224,7 +1224,7 @@ Table: Odds ratios vs usual care in the target population (cpd = 0.3)
 |Contrast      | True_OR| cSTC|cSTC 95% CI  |covers | cMAIC| cML-NMR|
 |:-------------|-------:|----:|:------------|:------|-----:|-------:|
 |NRT vs UC     |    1.46| 2.23|(1.82, 2.74) |NO     |  2.23|      NA|
-|CBT vs UC     |    1.63| 1.66|(1.43, 1.92) |yes    |  1.68|    1.51|
+|CBT vs UC     |    1.63| 1.66|(1.43, 1.92) |yes    |  1.68|    1.52|
 |CBT+NRT vs UC |    2.39| 3.70|(2.89, 4.75) |NO     |  3.75|      NA|
 |CBT+VAR vs UC |    4.69| 7.20|(5.40, 9.61) |NO     |  7.26|      NA|
 |CBT+BUP vs UC |    2.60| 3.92|(2.82, 5.46) |NO     |  3.98|      NA|
@@ -1276,15 +1276,16 @@ half-normal(0, 1) prior. Say so, rather than reporting it as a finding.
 
 
 ``` r
-knitr::kable(fit$fit$summary("tau")[, c("variable", "mean", "sd", "q5", "q95",
-                                        "rhat", "ess_bulk")], digits = 3)
+knitr::kable(posterior_summary(fit, "tau")[, c("variable", "mean", "sd", "q5",
+                                               "q95", "rhat", "ess_bulk")],
+             digits = 3)
 ```
 
 
 
 |variable |  mean|    sd|    q5|   q95|  rhat| ess_bulk|
 |:--------|-----:|-----:|-----:|-----:|-----:|--------:|
-|tau[1]   | 0.126| 0.121| 0.009| 0.352| 1.008|  442.099|
+|tau[1]   | 0.125| 0.127| 0.008| 0.386| 1.007|  528.038|
 
 
 
@@ -1296,12 +1297,12 @@ cross-validation [@vehtari2017] and DIC [@spiegelhalter2002dic]:
 fit_fixed <- cmlnmr(ipd, agd, effect_modifiers = "cpd", inactive = "UC",
                     family = "binomial", trt_effects = "fixed",
                     chains = 4, iter_warmup = 500, iter_sampling = 500,
-                    n_int = 64, seed = 1, show_exceptions = FALSE)
+                    n_int = 64, seed = 1)
 
 loo::loo_compare(list(random = loo::loo(fit), fixed = loo::loo(fit_fixed)))
 #>   model elpd_diff se_diff p_worse       diag_diff      diag_elpd
-#>   fixed       0.0     0.0      NA                 6 k_psis > 0.7
-#>  random      -1.7     0.7    0.99 |elpd_diff| < 4 8 k_psis > 0.7
+#>  random       0.0     0.0      NA                 5 k_psis > 0.7
+#>   fixed      -0.3     0.8    0.64 |elpd_diff| < 4 6 k_psis > 0.7
 
 knitr::kable(data.frame(
   model = c("random", "fixed"),
@@ -1316,8 +1317,8 @@ Table: Deviance information criterion
 
 |model  |    DIC| p_eff|
 |:------|------:|-----:|
-|random | 3019.4|  16.3|
-|fixed  | 3017.1|  14.7|
+|random | 3019.0|  16.1|
+|fixed  | 3017.8|  15.2|
 
 
 
@@ -1435,11 +1436,11 @@ ps <- prior_sensitivity(fit, newdata = target, reference = "NRT",
 ps
 #> cML-NMR prior sensitivity: gamma prior
 #>  treatment comparator estimate tighter looser move_tighter move_looser max_movement estimable
-#>        CBT        NRT   -0.076  -0.087 -0.066        0.012       0.010        0.012     FALSE
-#>    CBT+BUP        NRT    0.294   0.366  0.158        0.073       0.135        0.135     FALSE
-#>    CBT+NRT        NRT    0.406   0.405  0.416        0.001       0.009        0.009      TRUE
-#>    CBT+VAR        NRT    1.018   1.022  1.026        0.004       0.008        0.008      TRUE
-#>         UC        NRT   -0.482  -0.493 -0.482        0.010       0.001        0.010     FALSE
+#>        CBT        NRT   -0.105  -0.062 -0.129        0.042       0.024        0.042     FALSE
+#>    CBT+BUP        NRT    0.301   0.379  0.236        0.078       0.065        0.078     FALSE
+#>    CBT+NRT        NRT    0.408   0.441  0.399        0.034       0.009        0.034      TRUE
+#>    CBT+VAR        NRT    1.021   1.056  1.004        0.036       0.017        0.036      TRUE
+#>         UC        NRT   -0.512  -0.504 -0.527        0.009       0.015        0.015     FALSE
 ```
 
 Read the `max_movement` column against `estimable`. Every contrast the criterion

@@ -467,7 +467,7 @@ fit <- cmlnmr(ipd, agd,
               inactive = "UC", family = "binomial",
               trt_effects = "random",
               chains = 4, iter_warmup = 500, iter_sampling = 500,
-              n_int = 64, seed = 1, show_exceptions = FALSE)
+              n_int = 64, seed = 1)
 fit
 ```
 
@@ -521,8 +521,8 @@ data.frame(
   divergences   = fit$diagnostics$divergences,
   max_treedepth = fit$diagnostics$max_treedepth,
   max_rhat      = round(fit$diagnostics$max_rhat, 4),
-  min_ess_bulk  = round(min(fit$fit$summary(c("beta", "gamma", "mu",
-                                              "tau"))$ess_bulk, na.rm = TRUE))
+  min_ess_bulk  = round(min(posterior_summary(
+    fit, c("beta", "gamma", "mu", "tau"))$ess_bulk, na.rm = TRUE))
 )
 ```
 
@@ -946,8 +946,9 @@ very little information about `tau`, so its posterior leans on the
 half-normal(0, 1) prior. Say so, rather than reporting it as a finding.
 
 ```{r tau}
-knitr::kable(fit$fit$summary("tau")[, c("variable", "mean", "sd", "q5", "q95",
-                                        "rhat", "ess_bulk")], digits = 3)
+knitr::kable(posterior_summary(fit, "tau")[, c("variable", "mean", "sd", "q5",
+                                               "q95", "rhat", "ess_bulk")],
+             digits = 3)
 ```
 
 Compare the random-effects fit against a fixed-effect one by leave-one-out
@@ -957,7 +958,7 @@ cross-validation [@vehtari2017] and DIC [@spiegelhalter2002dic]:
 fit_fixed <- cmlnmr(ipd, agd, effect_modifiers = "cpd", inactive = "UC",
                     family = "binomial", trt_effects = "fixed",
                     chains = 4, iter_warmup = 500, iter_sampling = 500,
-                    n_int = 64, seed = 1, show_exceptions = FALSE)
+                    n_int = 64, seed = 1)
 
 loo::loo_compare(list(random = loo::loo(fit), fixed = loo::loo(fit_fixed)))
 

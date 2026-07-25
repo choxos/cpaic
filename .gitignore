@@ -21,10 +21,15 @@ inst/doc/
 # Compiled Stan / C++ (keep only the .stan sources under inst/stan)
 inst/stan/*
 !inst/stan/*.stan
-src/*.o
-src/*.so
-src/*.dll
+!inst/stan/include
 *.stanc
+
+# rstantools generates the C++ for each model from inst/stan/*.stan at install
+# time, via configure -> rstantools::rstan_config(). Only the Makevars pair is
+# authored, so only it is tracked; everything else here is a build product.
+src/*
+!src/Makevars
+!src/Makevars.win
 
 # macOS / editor
 .DS_Store
@@ -40,3 +45,4 @@ src/*.dll
 CLAUDE.md
 AGENTS.md
 Rplots.pdf
+

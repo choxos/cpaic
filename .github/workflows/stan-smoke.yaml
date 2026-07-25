@@ -1,5 +1,8 @@
-# Exercises the Bayesian (cmdstanr) engine that R CMD check skips on CRAN:
-# installs a pinned CmdStan, compiles a model, and runs a small end-to-end fit.
+# Exercises the cmdstanr backend, which nothing else in CI reaches: R CMD check
+# runs the test suite against the rstan default, and every cmdstanr test skips
+# without a CmdStan installation. This job installs CmdStan, compiles a model,
+# runs a small end-to-end fit through `backend = "cmdstanr"`, and checks that it
+# agrees with the same fit through rstan.
 on:
   push:
     branches: [main, master]
@@ -49,9 +52,16 @@ jobs:
           }
         shell: Rscript {0}
 
+      # Install rather than load_all(): the rstan models are compiled from
+      # `configure`, which runs on install and not on load_all(), so a fresh
+      # checkout has no stanExports_*.cc at all and the rstan half of the
+      # comparison below would have nothing to fit with.
+      - name: Install cpaic
+        run: R CMD INSTALL --preclean .
+
       - name: Compile a model and run a smoke fit
         run: |
-          devtools::load_all()
+          library(cpaic)
           set.seed(1)
           ipd <- data.frame(.study = "S1",
                             .trt = rep(c("Placebo", "A"), each = 40),
@@ -59,9 +69,14 @@ jobs:
           agd <- data.frame(.study = "S2", .trt = c("Placebo", "A+B"),
                             r = c(18, 26), n = c(40, 40),
                             x1_mean = c(0.2, 0.2), x1_sd = c(1, 1))
-          fit <- cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "Placebo",
-                        chains = 2, iter_warmup = 400, iter_sampling = 400,
-                        seed = 1)
+          args <- list(ipd = ipd, agd = agd, effect_modifiers = "x1",
+                       inactive = "Placebo", chains = 2, iter_warmup = 400,
+                       iter_sampling = 400, seed = 1)
+          fit <- do.call(cmlnmr, c(args, list(backend = "cmdstanr")))
+          # Guard against the fit quietly falling back to the default engine,
+          # which would make this whole job a duplicate of R CMD check.
+          stopifnot(identical(fit$provenance$backend, "cmdstanr"),
+                    !inherits(fit$fit, "stanfit"))
           # A is carried by the IPD contrast, so it is identified at the
           # covariate origin. B appears only inside the aggregate A+B arm, so
           # the design identifies the SUM there, not B on its own, and the
@@ -77,6 +92,29 @@ jobs:
           stopifnot("basis" %in% names(re))
           stopifnot(is.finite(fit$diagnostics$max_rhat),
                     is.finite(fit$diagnostics$min_ess))
-          cat("Stan smoke fit OK; max Rhat =",
-              round(fit$diagnostics$max_rhat, 3), "\n")
+
+          # The two engines must target the same posterior and be summarized
+          # identically. They do not share a random number stream, so the claim
+          # is agreement within Monte Carlo error, not equality.
+          fit_r <- do.call(cmlnmr, c(args, list(backend = "rstan")))
+          stopifnot(identical(fit_r$provenance$backend, "rstan"),
+                    inherits(fit_r$fit, "stanfit"))
+          s_c <- posterior_summary(fit, "beta")
+          s_r <- posterior_summary(fit_r, "beta")
+          stopifnot(identical(s_c$variable, s_r$variable),
+                    identical(names(s_c), names(s_r)))
+          re_r <- relative_effects(fit_r, newdata = data.frame(x1 = 0.2))
+          stopifnot(identical(re$treatment, re_r$treatment),
+                    identical(re$basis, re_r$basis),
+                    identical(is.na(fit$components$estimate),
+                              is.na(fit_r$components$estimate)))
+          gap <- max(abs(re$estimate - re_r$estimate), na.rm = TRUE)
+          if (gap > 0.3) {
+            stop("The backends disagree by ", round(gap, 3),
+                 " on the log scale, which is more than these short chains ",
+                 "can explain.")
+          }
+          cat("Stan smoke fit OK; cmdstanr max Rhat =",
+              round(fit$diagnostics$max_rhat, 3),
+              "; largest backend gap =", round(gap, 3), "\n")
         shell: Rscript {0}

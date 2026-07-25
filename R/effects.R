@@ -65,10 +65,10 @@
 #' covariate origin) is not a population-adjusted quantity.
 #' @noRd
 .cpaic_beta_at <- function(object, x) {
-  B <- as.matrix(object$fit$draws("beta", format = "draws_matrix"))
+  B <- .cpaic_draws_matrix(object$fit, "beta")
   nC <- ncol(object$C.matrix)
   if (!length(x)) return(B)
-  G <- as.matrix(object$fit$draws("gamma", format = "draws_matrix"))
+  G <- .cpaic_draws_matrix(object$fit, "gamma")
   out <- B
   for (q in seq_along(x)) {
     cols <- paste0("gamma[", seq_len(nC), ",", q, "]")

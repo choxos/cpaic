@@ -466,10 +466,54 @@
 #' @param prior_predictive If `TRUE`, sample from the prior and omit the
 #'   observed likelihood. Replicated outcomes remain available for
 #'   [prior_predictive_check()].
-#' @param chains,iter_warmup,iter_sampling,seed Passed to `cmdstanr`.
-#' @param ... Passed to the `cmdstanr` sampler (e.g. `adapt_delta`).
+#' @param backend Sampler engine: `"rstan"` (default) or `"cmdstanr"`. The two
+#'   fit the same Stan models and are interchangeable; see the section below.
+#' @param chains,iter_warmup,iter_sampling,seed Sampler settings. `iter_warmup`
+#'   and `iter_sampling` are counted separately whichever backend is used; the
+#'   translation to rstan's combined `iter` is handled internally.
+#' @param adapt_delta,max_treedepth Sampler tuning, or `NULL` for the engine
+#'   default. These are named arguments rather than left to `...` because the two
+#'   backends take them in different places.
+#' @param ... Further arguments for the sampler. These are passed through
+#'   untouched and are therefore **backend-specific**: they reach
+#'   `rstan::sampling()` or the `cmdstanr` `$sample()` method as given. Prefer
+#'   the named arguments above for anything that has one.
 #'
-#' @return An object of class `cpaic_mlnmr` with the `cmdstanr` fit, the
+#'   Under `backend = "rstan"` an argument rstan does not accept is rejected by
+#'   name before the fit, rather than being handed to `rstan::sampling()` to
+#'   kill every chain with a message that names nothing. About twenty cmdstanr
+#'   sampler arguments have no rstan equivalent (`step_size`, `metric`,
+#'   `inv_metric`, `adapt_engaged`, `parallel_chains`, `save_latent_dynamics`,
+#'   and so on), and a misspelled argument is caught the same way.
+#'
+#' @section Backends:
+#' `backend = "rstan"` is the default. Its models are compiled when cpaic is
+#' installed, so nothing else is needed and the examples and tests run anywhere.
+#' `backend = "cmdstanr"` fits the identical models with CmdStan, which tracks
+#' Stan releases more closely and is often faster, but it needs the `cmdstanr`
+#' package and a separate CmdStan installation.
+#'
+#' The two are interchangeable, not identical: they do not share a random number
+#' stream, so the same `seed` gives different draws on each. Convergence
+#' diagnostics are computed the same way for both (through `posterior`), so
+#' `rhat`, `ess_bulk`, and `ess_tail` mean the same thing whichever produced the
+#' fit, and everything downstream of the fit works on either.
+#'
+#' They also differ in how they run chains. cmdstanr runs all `chains` at once.
+#' rstan follows the R convention of taking its core count from
+#' `getOption("mc.cores")`, which is 1 unless you set it, so on the default
+#' backend the chains run one after another until you do:
+#'
+#' ```
+#' options(mc.cores = parallel::detectCores())
+#' ```
+#'
+#' Do not reach into `fit$fit` to summarize parameters. That slot holds whatever
+#' the backend returned, an S4 `stanfit` or an R6 CmdStan object, and the two
+#' share no accessors, so code written against one fails on the other. Use
+#' [posterior_summary()], which returns the same table either way.
+#'
+#' @return An object of class `cpaic_mlnmr` with the fitted Stan object, the
 #'   component design, and a tidy table of component effects.
 #' @references
 #' Phillippo DM, Dias S, Ades AE, et al. (2020). Multilevel network
@@ -479,7 +523,7 @@
 #' Wigle A, Beliveau A, Nikolakopoulou A, Lin L (2026). Creating Treatment and
 #' Component Hierarchies in Component Network Meta-Analysis.
 #' @seealso [cmaic()], [cstc()], [cnma_bridge()], [estimable_effects()]
-#' @examplesIf requireNamespace("cmdstanr", quietly = TRUE) && !inherits(try(cmdstanr::cmdstan_path(), silent = TRUE), "try-error")
+#' @examplesIf requireNamespace("rstan", quietly = TRUE)
 #' \donttest{
 #' ipd <- data.frame(.study = "S1",
 #'                   .trt = rep(c("Placebo", "A"), each = 100),
@@ -513,8 +557,11 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
                    prior_tau_dist = c("half-normal", "half-student-t"),
                    prior_tau_scale = 1, prior_tau_df = 4,
                    prior_predictive = FALSE,
+                   backend = c("rstan", "cmdstanr"),
                    chains = 4L, iter_warmup = 500L,
-                   iter_sampling = 500L, seed = NULL, ...) {
+                   iter_sampling = 500L, seed = NULL,
+                   adapt_delta = NULL, max_treedepth = NULL, ...) {
+  backend <- match.arg(backend)
   baseline <- match.arg(baseline)
   trt_effects <- match.arg(trt_effects)
   re_parameterization <- match.arg(re_parameterization)
@@ -527,9 +574,16 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
   if (family == "survival" && baseline == "mspline") {
     stan_family <- "survival_mspline"
   }
-  if (!requireNamespace("cmdstanr", quietly = TRUE)) {
-    stop("cmlnmr() needs 'cmdstanr'. Install from ",
-         "https://stan-dev.r-universe.dev .", call. = FALSE)
+  if (!.cpaic_backend_ready(backend)) .cpaic_backend_stop(backend)
+  for (nm in c("adapt_delta", "max_treedepth")) {
+    v <- get(nm)
+    if (!is.null(v) && (!is.numeric(v) || length(v) != 1L || !is.finite(v))) {
+      stop("`", nm, "` must be a single finite number, or NULL for the ",
+           "sampler default.", call. = FALSE)
+    }
+  }
+  if (!is.null(adapt_delta) && (adapt_delta <= 0 || adapt_delta >= 1)) {
+    stop("`adapt_delta` must lie in (0, 1).", call. = FALSE)
   }
   if (!is.logical(prior_predictive) || length(prior_predictive) != 1L ||
       is.na(prior_predictive)) {
@@ -651,6 +705,27 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
                          seed < 0 || seed > .Machine$integer.max)) {
     stop("`seed` must be a non-negative whole number within the integer range ",
          "(<= ", .Machine$integer.max, "), or NULL.", call. = FALSE)
+  }
+  # The two backends disagree about these on their own, so cpaic decides.
+  # rstan takes a single `iter` covering warmup, so `iter_sampling = 0` reaches
+  # it as `iter == warmup`; rstan then declines to sample but returns an empty
+  # stanfit rather than raising, and the failure surfaces much later as
+  # "non-numeric matrix extent". Worse, rstan ACCEPTS `iter_warmup = 0` and
+  # samples without ever adapting the step size, which returns draws that are
+  # not usable but look like a fit; CmdStan rejects the same call.
+  for (nm in c("chains", "iter_warmup", "iter_sampling")) {
+    v <- get(nm)
+    if (!is.numeric(v) || length(v) != 1L || !is.finite(v) ||
+        v != round(v) || v < 1L) {
+      zero_warmup <- identical(nm, "iter_warmup") && is.numeric(v) &&
+        length(v) == 1L && isTRUE(v == 0)
+      stop("`", nm, "` must be a single positive whole number.",
+           if (zero_warmup)
+             paste(" Warmup cannot be skipped: without it the sampler never",
+                   "tunes its step size, and the draws are not a usable",
+                   "posterior sample.") else "",
+           call. = FALSE)
+    }
   }
   miss_em <- setdiff(effect_modifiers, names(ipd))
   if (length(miss_em)) {
@@ -1045,7 +1120,6 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
       status_agd = surv_agd$status))
   )
 
-  mod <- .cpaic_stan_model(stan_family)
   stan_path <- system.file("stan", paste0("cpaic_", stan_family, ".stan"),
                            package = "cpaic")
   if (stan_path == "") {
@@ -1057,18 +1131,14 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
   # (Seed validity is checked at the front door, before the compile above.)
   seed_used <- if (is.null(seed)) sample.int(.Machine$integer.max, 1L) else
     as.integer(seed)
-  sample_defaults <- list(
-    data = standata, chains = chains, parallel_chains = chains,
-    iter_warmup = iter_warmup, iter_sampling = iter_sampling,
-    seed = seed_used, refresh = 0, show_messages = FALSE
-  )
-  if (length(sample_args)) {
-    sample_defaults[names(sample_args)] <- NULL
-  }
-  fit <- do.call(mod$sample, c(sample_defaults, sample_args))
+  fit <- .cpaic_sample(
+    backend = backend, family = stan_family, standata = standata,
+    chains = chains, iter_warmup = iter_warmup, iter_sampling = iter_sampling,
+    seed = seed_used, adapt_delta = adapt_delta,
+    max_treedepth = max_treedepth, sample_args = sample_args)
   diagnostics <- .cpaic_check_diagnostics(fit)
 
-  beta_draws <- fit$draws("beta", format = "draws_matrix")
+  beta_draws <- .cpaic_draws_matrix(fit, "beta")
   comp_tbl <- data.frame(
     component = comps,
     estimate = apply(beta_draws, 2, mean),
@@ -1126,6 +1196,10 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
     prior_gamma_scale = prior_gamma_scale, prior_gamma_df = prior_gamma_df,
     prior_tau_dist = prior_tau_dist, prior_tau_scale = prior_tau_scale,
     prior_tau_df = prior_tau_df, prior_predictive = prior_predictive,
+    # The backend is part of the call: prior_sensitivity() refits, and refitting
+    # on a different engine would compare prior movement across two samplers.
+    backend = backend, adapt_delta = adapt_delta,
+    max_treedepth = max_treedepth,
     chains = chains, iter_warmup = iter_warmup,
     iter_sampling = iter_sampling, seed = seed_used
   )
@@ -1142,12 +1216,19 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
            gaussian = "MD", poisson = "IRR", survival = "HR"),
          method = "cML-NMR", trt_effects = trt_effects,
          re_parameterization = re_parameterization, seed = seed_used,
+         backend = backend,
          provenance = list(
            package_version = tryCatch(
              as.character(utils::packageVersion("cpaic")),
              error = function(e) NA_character_),
-           cmdstan_version = tryCatch(
-             as.character(cmdstanr::cmdstan_version()),
+           # The engine and its version, so a fit records what produced it. The
+           # two backends do not share a random number stream, so this is part
+           # of what makes a result reproducible.
+           backend = backend,
+           engine_version = tryCatch(
+             if (identical(backend, "rstan"))
+               as.character(utils::packageVersion("rstan"))
+             else as.character(cmdstanr::cmdstan_version()),
              error = function(e) NA_character_),
            stan_source_md5 = stan_md5, seed = seed_used, n_int = n_int_eff,
            assumptions = list(
@@ -1181,8 +1262,7 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
 #' Warn on poor MCMC diagnostics from a cmdstanr fit
 #' @noRd
 .cpaic_check_diagnostics <- function(fit) {
-  diag <- tryCatch(fit$diagnostic_summary(quiet = TRUE),
-                   error = function(e) NULL)
+  diag <- .cpaic_sampler_diagnostics(fit)
   nd <- 0L
   ntd <- 0L
   ebfmi <- NA_real_
@@ -1209,12 +1289,9 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
   # only beta/mu: a non-converged or poorly-mixed gamma, tau, prognostic,
   # residual, or baseline-scale parameter would otherwise pass silently while
   # the fit still looks usable.
-  cand <- c("mu", "beta", "gamma", "breg", "tau", "sigma", "bsmooth",
-            "bshape_raw", "delta_aux")
-  present <- tryCatch(intersect(cand, fit$metadata()$stan_variables),
-                      error = function(e) c("beta", "mu"))
+  present <- intersect(.cpaic_param_blocks, .cpaic_stan_variables(fit))
   if (!length(present)) present <- c("beta", "mu")
-  smry <- tryCatch(fit$summary(present), error = function(e) NULL)
+  smry <- .cpaic_fit_summary(fit, present)
   # An all-NA column (a single chain gives no Rhat) makes max()/min() return
   # -Inf and +Inf, which then pass the finite checks below as if the fit were
   # perfect and suppress the warnings entirely. Report NA instead.
@@ -1316,9 +1393,10 @@ component_effects.cpaic_mlnmr <- function(object, newdata = NULL, level = 0.95,
 #' component design, diagnostics, and estimability information are preserved.
 #'
 #' After redaction the object can no longer be refitted, so [prior_sensitivity()]
-#' will not run on it. The underlying `cmdstanr` fit may still hold the model
-#' data it was sampled with; for a fully data-free artifact, save only the
-#' posterior draws (for example `fit$fit$draws()`).
+#' will not run on it. Under either backend the sampler object in `fit$fit` may
+#' still hold the model data it was sampled with, so for a fully data-free
+#' artifact save only what you need from the posterior, such as the output of
+#' [posterior_summary()], rather than the fit itself.
 #'
 #' @param object A [cmlnmr()] fit.
 #' @return The fit with raw individual patient data removed, marked redacted.
@@ -1350,8 +1428,8 @@ print.cpaic_mlnmr <- function(x, ...) {
             collapse = ", "), "\n", sep = "")
   if (!is.null(x$provenance)) {
     p <- x$provenance
-    cat("  Provenance: cpaic ", p$package_version %||% "?", ", CmdStan ",
-        p$cmdstan_version %||% "?", ", Stan md5 ",
+    cat("  Provenance: cpaic ", p$package_version %||% "?", ", ",
+        p$backend %||% "?", " ", p$engine_version %||% "?", ", Stan md5 ",
         substr(p$stan_source_md5 %||% "", 1L, 8L), ", seed ", p$seed, "\n",
         sep = "")
   }

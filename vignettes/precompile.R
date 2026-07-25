@@ -14,17 +14,27 @@
 # sources, the knitted *.Rmd intermediates and figure/ are all build-ignored (see
 # .Rbuildignore); only *.html and *.html.asis ship.
 #
-# Requires (Suggests): cmdstanr (fits the models), ggplot2 (figures), knitr,
-# rmarkdown, R.rsp.
+# Requires: rstan (the default backend, whose models are compiled into the
+# installed package), ggplot2 (figures), bayesplot, knitr, rmarkdown, R.rsp.
+# The vignettes fit through cmlnmr()'s default backend, so they exercise what a
+# reader gets from install.packages() rather than a toolchain most readers do
+# not have.
 
-for (pkg in c("knitr", "rmarkdown", "cmdstanr", "ggplot2", "bayesplot")) {
+for (pkg in c("knitr", "rmarkdown", "rstan", "ggplot2", "bayesplot")) {
   if (!requireNamespace(pkg, quietly = TRUE)) {
     stop("precompile.R needs the '", pkg, "' package installed.", call. = FALSE)
   }
 }
-if (inherits(try(cmdstanr::cmdstan_path(), silent = TRUE), "try-error")) {
-  stop("precompile.R needs a working CmdStan installation.", call. = FALSE)
+
+# rstan takes its core count from `mc.cores`, which is 1 unless it is set, so a
+# default run puts every chain of every fit end to end and the whole pass takes
+# roughly four times as long as it needs to. Set it here rather than in the
+# vignettes: this is a local build script, and a vignette that sets a global
+# option would be telling readers to do the same.
+if (is.null(getOption("mc.cores"))) {
+  options(mc.cores = max(1L, min(4L, parallel::detectCores() - 1L)))
 }
+message("Fitting with mc.cores = ", getOption("mc.cores"), ".")
 
 # The vignettes call library(cpaic), so they run against the INSTALLED package,
 # not this source tree. If the installed build is stale the vignettes are built
@@ -68,7 +78,7 @@ if (inherits(try(cmdstanr::cmdstan_path(), silent = TRUE), "try-error")) {
 }
 .assert_install_current()
 
-stems <- c(
+all_stems <- c(
   "binary-outcomes",
   "continuous-outcomes",
   "count-outcomes",
@@ -76,14 +86,85 @@ stems <- c(
   "cpaic-disconnected-myeloma"
 )
 
+# Naming stems on the command line re-renders only those, which is what you want
+# after editing one vignette: a full pass fits every Stan model in the package
+# and takes hours.
+#
+#   Rscript vignettes/precompile.R survival-outcomes
+stems <- commandArgs(trailingOnly = TRUE)
+if (!length(stems)) {
+  stems <- all_stems
+} else if (length(unknown <- setdiff(stems, all_stems))) {
+  stop("No such vignette stem: ", paste(unknown, collapse = ", "),
+       ". Known stems: ", paste(all_stems, collapse = ", "), call. = FALSE)
+}
+
 # Operate inside vignettes/ so figure paths and the bibliography path resolve
 # exactly as they will for pkgdown.
 if (basename(getwd()) != "vignettes") setwd("vignettes")
+
+# Attach here, not only in each vignette's setup chunk. With caching on (below)
+# a resumed run restores that chunk from disk instead of executing it, so its
+# library() calls never happen and the first uncached chunk fails on a function
+# it cannot find. Attaching in the driver makes the resumed session look like
+# the one that was interrupted.
+suppressPackageStartupMessages({
+  library(cpaic); library(ggplot2); library(bayesplot)
+})
+
+# A full pass fits every model in the package and runs for hours, so an
+# interruption anywhere costs the whole vignette. Caching the chunks makes a
+# re-run resume where it stopped.
+#
+# The cache is keyed by PATH, on a digest of both the vignette source and the
+# installed package, so it can only ever be reused for a re-run of exactly the
+# same inputs. Editing a chunk or reinstalling cpaic gives a different path and
+# every chunk runs again. That is deliberately blunt: knitr's per-chunk keys
+# cover the chunk's own code and not the objects it inherits from earlier
+# chunks, so a finer key would happily serve a stale figure built from a
+# variable that has since changed. Recomputing everything is cheap next to
+# publishing a vignette whose numbers do not match its code.
+#
+# Resuming is safe for random numbers too: knitr caches `.Random.seed` with the
+# chunk and restores it, so a run that resumes partway through reproduces the
+# uninterrupted output exactly.
+cache_key <- function(orig) {
+  pkg <- system.file(package = "cpaic")
+  files <- c(orig,
+             list.files(file.path(pkg, "R"), full.names = TRUE),
+             list.files(file.path(pkg, "stan"), full.names = TRUE))
+  # md5sum() returns NA for a directory and warns; inst/stan/include is one.
+  files <- sort(files[file.exists(files) & !dir.exists(files)])
+  # md5sum() hashes files, so fold the per-file sums back through a file to get
+  # one fixed-length key without taking on a hashing dependency. Names are
+  # included so that two different file sets cannot collide, which is also why
+  # `orig` must always be passed the same way (relative to vignettes/).
+  tmp <- tempfile()
+  on.exit(unlink(tmp), add = TRUE)
+  sums <- tools::md5sum(files)
+  writeLines(paste(names(sums), sums), tmp)
+  substr(unname(tools::md5sum(tmp)), 1L, 12L)
+}
+
+# Outside the package tree on purpose. A cache under the repository is an
+# ignored directory, and anything that cleans ignored files (a stray
+# `git clean -xdf`, a CI workspace reset) silently throws away hours of
+# fitting. R_user_dir() is where cpaic already caches its compiled Stan models,
+# so the two live together and neither is inside the build.
+cache_root <- function() {
+  file.path(tools::R_user_dir("cpaic", "cache"), "vignette-knitr")
+}
 
 precompile_one <- function(stem) {
   orig <- paste0(stem, ".Rmd.orig")
   rmd  <- paste0(stem, ".Rmd")
   message("\n=== precompiling ", orig, " ===")
+  key <- cache_key(orig)
+  cdir <- file.path(cache_root(), paste0(stem, "-", key))
+  dir.create(cdir, recursive = TRUE, showWarnings = FALSE)
+  message("    cache: ", cdir)
+  knitr::opts_chunk$set(cache = TRUE, cache.path = paste0(cdir, .Platform$file.sep))
+  on.exit(knitr::opts_chunk$set(cache = FALSE), add = TRUE)
   knitr::knit(orig, output = rmd)            # runs the chunks -> fits Stan here
   rmarkdown::render(rmd, quiet = TRUE)       # output format taken from the YAML
   title <- rmarkdown::yaml_front_matter(orig)$title

@@ -18,8 +18,8 @@ Description: Extends component network meta-analysis (cNMA) to
     population adjustment using individual patient data. Supports binary,
     continuous, count, and time-to-event outcomes. The component network
     meta-analysis engine is 'netmeta' and the matching weights come from
-    'maicplus'; the component-additive ML-NMR models are fitted with
-    'cmdstanr'.
+    'maicplus'; the component-additive ML-NMR models are written in Stan and
+    fitted with 'rstan' by default, or with 'cmdstanr' on request.
 License: GPL-3
 URL: https://github.com/choxos/cpaic, https://choxos.github.io/cpaic/
 BugReports: https://github.com/choxos/cpaic/issues
@@ -36,8 +36,14 @@ Imports:
     loo,
     maicplus,
     Matrix,
+    methods,
     netmeta,
+    posterior,
     randtoolbox,
+    Rcpp (>= 0.12.0),
+    RcppParallel (>= 5.0.1),
+    rstan (>= 2.26.0),
+    rstantools (>= 2.4.0),
     stats,
     survival,
     tools,
@@ -60,3 +66,12 @@ VignetteBuilder:
     knitr,
     R.rsp
 Language: en-US
+Biarch: true
+LinkingTo: 
+    BH (>= 1.66.0),
+    Rcpp (>= 0.12.0),
+    RcppEigen (>= 0.3.3.3.0),
+    RcppParallel (>= 5.0.1),
+    rstan (>= 2.26.0),
+    StanHeaders (>= 2.26.0)
+SystemRequirements: GNU make

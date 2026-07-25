@@ -138,7 +138,7 @@ whose effect-modifier interaction is informed only by aggregate data is
 weakly identified and relies on the regression prior.
 
 ```{r, eval = FALSE}
-# Requires cmdstanr; see ?cmlnmr.
+# Fits with rstan by default; backend = "cmdstanr" is the alternative.
 fit <- cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "Placebo",
               family = "binomial")
 component_effects(fit)

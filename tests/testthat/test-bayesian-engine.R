@@ -97,7 +97,7 @@ test_that("M-spline cumulative basis differentiates to its hazard basis", {
 })
 
 test_that("aggregate survival counts are rejected because they are not exact", {
-  skip_if_not_installed("cmdstanr")
+  skip_if_not_installed("rstan")
   ipd <- data.frame(
     .study = rep("S1", 4), .trt = rep(c("Placebo", "A"), each = 2),
     .y = c(1L, 0L, 1L, 0L), .time = c(1, 2, 1.5, 2),
