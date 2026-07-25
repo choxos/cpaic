@@ -38,23 +38,6 @@
        "no separate toolchain.", call. = FALSE)
 }
 
-#' Draw from the posterior with the requested backend
-#'
-#' `iter_warmup` and `iter_sampling` are cpaic's (and cmdstanr's) names. rstan
-#' counts `iter` as the TOTAL including warmup, so the translation happens here
-#' rather than being left to the caller.
-#'
-#' `adapt_delta` and `max_treedepth` are named arguments because the two engines
-#' take them in different places: top level for cmdstanr, inside `control` for
-#' rstan. Anything else in `sample_args` is passed through untouched and is
-#' therefore backend-specific.
-#'
-#' The rstan branch deliberately does not set `cores`. rstan's own default reads
-#' `getOption("mc.cores")`, which is the R convention and is what CRAN's
-#' two-core limit is enforced through; hard-coding `cores = chains` here would
-#' override a user's setting and break that limit during checks.
-#' @noRd
-
 #' What `rstan::sampling()` will accept from a caller
 #'
 #' `...` reaches the sampler unchanged, so anything cpaic lets through must be
@@ -69,18 +52,64 @@
 #' silently lets a misspelling (`adapt_dleta`) through to be ignored. The names
 #' are the formals of the `.local()` inside rstan's `sampling()` method for
 #' `stanmodel`, plus the dot-arguments `?sampling` documents, minus the ones
-#' cpaic sets itself. `control` is here because it is merged, not passed
-#' through, and the merge happens after this check.
+#' cpaic derives from its own arguments (`object`, `data`, `chains`, `iter`,
+#' `warmup`, `seed`). `control` and `refresh` are here because cpaic supplies a
+#' default for each and then steps aside if the caller sets one.
 #' @noRd
 .cpaic_rstan_sample_args <- c(
   "pars", "thin", "init", "check_data", "sample_file", "diagnostic_file",
   "verbose", "algorithm", "control", "include", "cores", "open_progress",
-  "show_messages",
+  "show_messages", "refresh",
   "chain_id", "init_r", "test_grad", "append_samples")
+
+#' rstan arguments cmlnmr() computes for itself
+#'
+#' These are real `rstan::sampling()` arguments, so they need a different
+#' message from a name rstan has never heard of: the caller is not wrong about
+#' rstan, only about where to set it. `iter` is the trap worth naming, since
+#' rstan counts warmup inside it and cpaic does not.
+#' @noRd
+.cpaic_rstan_derived_args <- c("object", "data", "chains", "iter", "warmup",
+                               "seed")
+
+#' Draw from the posterior with the requested backend
+#'
+#' `iter_warmup` and `iter_sampling` are cpaic's (and cmdstanr's) names. rstan
+#' counts `iter` as the TOTAL including warmup, so the translation happens here
+#' rather than being left to the caller.
+#'
+#' `adapt_delta` and `max_treedepth` are named arguments because the two engines
+#' take them in different places: top level for cmdstanr, inside `control` for
+#' rstan. Anything else in `sample_args` is passed through untouched and is
+#' therefore backend-specific.
+#'
+#' Both branches drop their own defaults for anything the caller supplied, so
+#' `refresh` (and cmdstanr's `show_messages`) behave the same way on either
+#' engine. Building the argument list by concatenation instead would hand
+#' `do.call()` two elements of the same name and fail with "formal argument
+#' matched by multiple actual arguments".
+#'
+#' The rstan branch deliberately does not set `cores`. rstan's own default reads
+#' `getOption("mc.cores")`, which is the R convention and is what CRAN's
+#' two-core limit is enforced through; hard-coding `cores = chains` here would
+#' override a user's setting and break that limit during checks.
+#' @noRd
 .cpaic_sample <- function(backend, family, standata, chains, iter_warmup,
                           iter_sampling, seed, adapt_delta = NULL,
                           max_treedepth = NULL, sample_args = list()) {
   if (identical(backend, "rstan")) {
+    # `iter`, `warmup` and friends ARE rstan arguments; cpaic just computes
+    # them, so saying they are not would be false and would send the caller
+    # looking in the wrong place.
+    derived <- intersect(names(sample_args), .cpaic_rstan_derived_args)
+    if (length(derived)) {
+      stop("`", paste(derived, collapse = "`, `"), "` ",
+           if (length(derived) == 1L) "is" else "are",
+           " derived by cmlnmr() and cannot be set through `...`. Use ",
+           "`chains`, `iter_warmup`, `iter_sampling`, and `seed`, which work ",
+           "on both backends; rstan's single `iter` counts warmup, cpaic's ",
+           "does not.", call. = FALSE)
+    }
     clash <- setdiff(names(sample_args), .cpaic_rstan_sample_args)
     if (length(clash)) {
       stop("`", paste(clash, collapse = "`, `"), "` ",
@@ -99,14 +128,13 @@
     if (!is.null(adapt_delta)) control$adapt_delta <- adapt_delta
     if (!is.null(max_treedepth)) control$max_treedepth <- max_treedepth
     sample_args$control <- NULL
-    args <- c(
-      list(object = .cpaic_rstan_model(family), data = standata,
-           chains = chains, warmup = iter_warmup,
-           iter = iter_warmup + iter_sampling, seed = seed, refresh = 0),
-      if (length(control)) list(control = control),
-      sample_args
-    )
-    return(do.call(rstan::sampling, args))
+    defaults <- list(
+      object = .cpaic_rstan_model(family), data = standata,
+      chains = chains, warmup = iter_warmup,
+      iter = iter_warmup + iter_sampling, seed = seed, refresh = 0)
+    if (length(control)) defaults$control <- control
+    if (length(sample_args)) defaults[names(sample_args)] <- NULL
+    return(do.call(rstan::sampling, c(defaults, sample_args)))
   }
 
   # .cpaic_stan_model() prepends "cpaic_" itself, so it takes the bare family

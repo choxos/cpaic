@@ -52,6 +52,14 @@ test_that("the rstan backend takes only arguments rstan accepts", {
   # show_messages is a real rstan::sampling() argument and must pass.
   expect_true("show_messages" %in% ok)
   expect_true(all(c("thin", "init", "cores", "control", "pars") %in% ok))
+  # cpaic supplies a default for each of these and then steps aside, so a
+  # caller can set them on either backend.
+  expect_true(all(c("refresh", "control") %in% ok))
+  # The derived names are real rstan arguments, so they must not be reported as
+  # unknown to rstan; they are rejected for a different reason.
+  expect_length(intersect(.cpaic_rstan_derived_args, ok), 0L)
+  expect_true(all(c("iter", "warmup", "seed", "chains") %in%
+                    .cpaic_rstan_derived_args))
 })
 
 test_that("a fit reports which engine produced it", {
