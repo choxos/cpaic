@@ -56,8 +56,14 @@ the prior.
   invalid edge is never passed silently into the additive bridge.
 * `cmlnmr()` validates its inputs before compiling the Stan model: a study
   present in both `ipd` and `agd`, a single-arm study, a non-numeric or
-  incomplete effect modifier, fractional aggregate counts, a malformed seed, and
-  protected sampler arguments such as `data` in `...` are all rejected by name.
+  incomplete effect modifier, fractional aggregate counts, a malformed seed, a
+  non-positive `chains`/`iter_warmup`/`iter_sampling`, and protected sampler
+  arguments such as `data` in `...` are all rejected by name. Zero warmup is
+  refused explicitly: rstan accepts it and samples without ever adapting the
+  step size, which returns draws that look like a fit and are not one.
+* Sampler arguments in `...` are checked against what the chosen backend
+  actually accepts, so a cmdstanr-only argument (or a misspelled one) is named
+  rather than handed to rstan to kill every chain with a message about `@`.
 * `cpaic_network()` rejects self-comparisons, duplicate {study, treatment-pair}
   rows, and missing treatment labels; `build_C_matrix()` rejects empty component
   tokens and an `inactive` label matching no component.
