@@ -196,7 +196,14 @@ backends take them in different places.}
 \item{...}{Further arguments for the sampler. These are passed through
 untouched and are therefore \strong{backend-specific}: they reach
 \code{rstan::sampling()} or the \code{cmdstanr} \verb{$sample()} method as given. Prefer
-the named arguments above for anything that has one.}
+the named arguments above for anything that has one.
+
+Under \code{backend = "rstan"} an argument rstan does not accept is rejected by
+name before the fit, rather than being handed to \code{rstan::sampling()} to
+kill every chain with a message that names nothing. About twenty cmdstanr
+sampler arguments have no rstan equivalent (\code{step_size}, \code{metric},
+\code{inv_metric}, \code{adapt_engaged}, \code{parallel_chains}, \code{save_latent_dynamics},
+and so on), and a misspelled argument is caught the same way.}
 }
 \value{
 An object of class \code{cpaic_mlnmr} with the fitted Stan object, the

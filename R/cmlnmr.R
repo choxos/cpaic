@@ -479,6 +479,13 @@
 #'   `rstan::sampling()` or the `cmdstanr` `$sample()` method as given. Prefer
 #'   the named arguments above for anything that has one.
 #'
+#'   Under `backend = "rstan"` an argument rstan does not accept is rejected by
+#'   name before the fit, rather than being handed to `rstan::sampling()` to
+#'   kill every chain with a message that names nothing. About twenty cmdstanr
+#'   sampler arguments have no rstan equivalent (`step_size`, `metric`,
+#'   `inv_metric`, `adapt_engaged`, `parallel_chains`, `save_latent_dynamics`,
+#'   and so on), and a misspelled argument is caught the same way.
+#'
 #' @section Backends:
 #' `backend = "rstan"` is the default. Its models are compiled when cpaic is
 #' installed, so nothing else is needed and the examples and tests run anywhere.
@@ -698,6 +705,27 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
                          seed < 0 || seed > .Machine$integer.max)) {
     stop("`seed` must be a non-negative whole number within the integer range ",
          "(<= ", .Machine$integer.max, "), or NULL.", call. = FALSE)
+  }
+  # The two backends disagree about these on their own, so cpaic decides.
+  # rstan takes a single `iter` covering warmup, so `iter_sampling = 0` reaches
+  # it as `iter == warmup`; rstan then declines to sample but returns an empty
+  # stanfit rather than raising, and the failure surfaces much later as
+  # "non-numeric matrix extent". Worse, rstan ACCEPTS `iter_warmup = 0` and
+  # samples without ever adapting the step size, which returns draws that are
+  # not usable but look like a fit; CmdStan rejects the same call.
+  for (nm in c("chains", "iter_warmup", "iter_sampling")) {
+    v <- get(nm)
+    if (!is.numeric(v) || length(v) != 1L || !is.finite(v) ||
+        v != round(v) || v < 1L) {
+      zero_warmup <- identical(nm, "iter_warmup") && is.numeric(v) &&
+        length(v) == 1L && isTRUE(v == 0)
+      stop("`", nm, "` must be a single positive whole number.",
+           if (zero_warmup)
+             paste(" Warmup cannot be skipped: without it the sampler never",
+                   "tunes its step size, and the draws are not a usable",
+                   "posterior sample.") else "",
+           call. = FALSE)
+    }
   }
   miss_em <- setdiff(effect_modifiers, names(ipd))
   if (length(miss_em)) {
@@ -1365,9 +1393,10 @@ component_effects.cpaic_mlnmr <- function(object, newdata = NULL, level = 0.95,
 #' component design, diagnostics, and estimability information are preserved.
 #'
 #' After redaction the object can no longer be refitted, so [prior_sensitivity()]
-#' will not run on it. The underlying `cmdstanr` fit may still hold the model
-#' data it was sampled with; for a fully data-free artifact, save only the
-#' posterior draws (for example `fit$fit$draws()`).
+#' will not run on it. Under either backend the sampler object in `fit$fit` may
+#' still hold the model data it was sampled with, so for a fully data-free
+#' artifact save only what you need from the posterior, such as the output of
+#' [posterior_summary()], rather than the fit itself.
 #'
 #' @param object A [cmlnmr()] fit.
 #' @return The fit with raw individual patient data removed, marked redacted.

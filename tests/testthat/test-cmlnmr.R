@@ -38,7 +38,7 @@ test_that("cmlnmr recovers component effects when identified", {
     expect_true(beta[[cc]] >= row$lower && beta[[cc]] <= row$upper,
                 info = paste("component", cc))
   }
-  expect_lt(max(fit$fit$summary("beta")$rhat), 1.1)
+  expect_lt(max(posterior_summary(fit, "beta")$rhat), 1.1)
 
   # relative_effects() must work on the Bayesian fit (no $bridge slot), and
   # must be told which population to report in.
@@ -167,7 +167,7 @@ test_that("cmlnmr fits a piecewise-exponential (flexible) survival baseline", {
   ce <- component_effects(fit)
   expect_true(all(is.finite(ce$estimate)))
   expect_true(all(ce$estimate > 0))                 # both log-HRs positive
-  expect_lt(max(fit$fit$summary("beta")$rhat), 1.2)
+  expect_lt(max(posterior_summary(fit, "beta")$rhat), 1.2)
   # Combined effect A+B in a sensible region of the truth (0.8).
   ab <- sum(ce$estimate)
   expect_gt(ab, 0.4)
@@ -224,7 +224,7 @@ test_that("cmlnmr fits an M-spline survival baseline", {
   ce <- component_effects(fit)
   expect_true(all(is.finite(ce$estimate)))
   expect_true(all(ce$estimate > 0))
-  expect_lt(max(fit$fit$summary("beta")$rhat), 1.2)
+  expect_lt(max(posterior_summary(fit, "beta")$rhat), 1.2)
 })
 
 test_that("integration margins respect the covariate's support", {

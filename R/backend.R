@@ -54,26 +54,44 @@
 #' two-core limit is enforced through; hard-coding `cores = chains` here would
 #' override a user's setting and break that limit during checks.
 #' @noRd
+
+#' What `rstan::sampling()` will accept from a caller
+#'
+#' `...` reaches the sampler unchanged, so anything cpaic lets through must be
+#' something rstan understands. cmdstanr's `$sample()` takes about twenty
+#' arguments rstan has no equivalent for (`step_size`, `metric`, `inv_metric`,
+#' `adapt_engaged`, `init_buffer`, `fixed_param`, `save_latent_dynamics`, ...),
+#' and handing one to `rstan::sampling()` kills every chain with "no applicable
+#' method for `@`", which says nothing about the cause.
+#'
+#' This is a whitelist rather than a list of known-bad names, because the
+#' known-bad list can only ever be a guess at cmdstanr's surface, and it also
+#' silently lets a misspelling (`adapt_dleta`) through to be ignored. The names
+#' are the formals of the `.local()` inside rstan's `sampling()` method for
+#' `stanmodel`, plus the dot-arguments `?sampling` documents, minus the ones
+#' cpaic sets itself. `control` is here because it is merged, not passed
+#' through, and the merge happens after this check.
+#' @noRd
+.cpaic_rstan_sample_args <- c(
+  "pars", "thin", "init", "check_data", "sample_file", "diagnostic_file",
+  "verbose", "algorithm", "control", "include", "cores", "open_progress",
+  "show_messages",
+  "chain_id", "init_r", "test_grad", "append_samples")
 .cpaic_sample <- function(backend, family, standata, chains, iter_warmup,
                           iter_sampling, seed, adapt_delta = NULL,
                           max_treedepth = NULL, sample_args = list()) {
   if (identical(backend, "rstan")) {
-    # `...` reaches the sampler unchanged, so an argument that only cmdstanr
-    # understands would be handed to rstan::sampling() and kill every chain
-    # with "no applicable method for `@`", which says nothing about the cause.
-    # Name the problem instead.
-    cmdstanr_only <- c("show_exceptions", "show_messages", "parallel_chains",
-                       "threads_per_chain", "output_dir", "output_basename",
-                       "sig_figs", "iter_warmup", "iter_sampling",
-                       "save_warmup", "opencl_ids")
-    clash <- intersect(names(sample_args), cmdstanr_only)
+    clash <- setdiff(names(sample_args), .cpaic_rstan_sample_args)
     if (length(clash)) {
       stop("`", paste(clash, collapse = "`, `"), "` ",
-           if (length(clash) == 1L) "is a cmdstanr argument" else
-             "are cmdstanr arguments",
-           " and cannot be passed to the rstan backend. Drop ",
+           if (length(clash) == 1L) "is not an argument of rstan::sampling()"
+           else "are not arguments of rstan::sampling()",
+           ", so the rstan backend cannot take ",
            if (length(clash) == 1L) "it" else "them",
-           ", or fit with backend = \"cmdstanr\". Note that `adapt_delta` and ",
+           ". Several cmdstanr sampler arguments (`step_size`, `metric`, ",
+           "`adapt_engaged`, `parallel_chains`, ...) have no rstan equivalent; ",
+           "drop ", if (length(clash) == 1L) "it" else "them",
+           " or fit with backend = \"cmdstanr\". Note that `adapt_delta` and ",
            "`max_treedepth` are arguments of cmlnmr() itself and work on both.",
            call. = FALSE)
     }

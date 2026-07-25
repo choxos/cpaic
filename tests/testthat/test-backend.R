@@ -7,6 +7,53 @@ test_that("backend selection is validated and reported", {
     "should be one of")
 })
 
+test_that("sampler counts are validated before any model is compiled", {
+  # These reach rstan as a single `iter` covering warmup, where the two
+  # backends stop agreeing on what is legal. `iter_sampling = 0` makes
+  # `iter == warmup`, and rstan returns an EMPTY stanfit instead of raising, so
+  # the failure used to surface much later as "non-numeric matrix extent".
+  # `iter_warmup = 0` is worse: rstan samples with no adaptation at all and
+  # returns draws that look like a fit, while CmdStan rejects the same call.
+  ipd <- data.frame(.study = "S1", .trt = rep(c("Placebo", "A"), each = 4),
+                    .y = c(0, 1, 0, 1, 1, 1, 0, 1), x1 = seq(-1, 1, length = 8))
+  agd <- data.frame(.study = "S2", .trt = c("Placebo", "A+B"),
+                    r = c(2, 3), n = c(5, 5),
+                    x1_mean = c(0.2, 0.2), x1_sd = c(1, 1))
+  bad <- function(...) {
+    cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "Placebo", ...)
+  }
+  expect_error(bad(chains = 1, iter_warmup = 100, iter_sampling = 0),
+               "`iter_sampling` must be a single positive whole number")
+  expect_error(bad(chains = 1, iter_warmup = 0, iter_sampling = 100),
+               "Warmup cannot be skipped")
+  expect_error(bad(chains = 0, iter_warmup = 50, iter_sampling = 50),
+               "`chains` must be a single positive whole number")
+  expect_error(bad(chains = 2.5, iter_warmup = 50, iter_sampling = 50),
+               "`chains` must be a single positive whole number")
+  expect_error(bad(chains = NA, iter_warmup = 50, iter_sampling = 50),
+               "`chains` must be a single positive whole number")
+  # A malformed vector is not a request to skip warmup, so it must not be told
+  # that it was.
+  expect_error(bad(chains = 1, iter_warmup = c(1, 2), iter_sampling = 50),
+               "^.*must be a single positive whole number\\.$")
+})
+
+test_that("the rstan backend takes only arguments rstan accepts", {
+  # A whitelist, not a list of known-bad names: the bad list can only ever
+  # guess at cmdstanr's surface, and it lets a misspelling through to be
+  # silently ignored.
+  ok <- .cpaic_rstan_sample_args
+  cmdstanr_only <- c("step_size", "metric", "inv_metric", "adapt_engaged",
+                     "parallel_chains", "threads_per_chain", "opencl_ids",
+                     "save_latent_dynamics", "init_buffer", "term_buffer",
+                     "fixed_param", "sig_figs", "output_dir", "save_warmup",
+                     "show_exceptions", "chain_ids", "num_warmup", "max_depth")
+  expect_length(intersect(ok, cmdstanr_only), 0L)
+  # show_messages is a real rstan::sampling() argument and must pass.
+  expect_true("show_messages" %in% ok)
+  expect_true(all(c("thin", "init", "cores", "control", "pars") %in% ok))
+})
+
 test_that("a fit reports which engine produced it", {
   # Dispatch is on the fit's class, not on a recorded flag, so a saved object
   # still resolves correctly.

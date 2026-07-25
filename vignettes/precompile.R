@@ -26,6 +26,16 @@ for (pkg in c("knitr", "rmarkdown", "rstan", "ggplot2", "bayesplot")) {
   }
 }
 
+# rstan takes its core count from `mc.cores`, which is 1 unless it is set, so a
+# default run puts every chain of every fit end to end and the whole pass takes
+# roughly four times as long as it needs to. Set it here rather than in the
+# vignettes: this is a local build script, and a vignette that sets a global
+# option would be telling readers to do the same.
+if (is.null(getOption("mc.cores"))) {
+  options(mc.cores = max(1L, min(4L, parallel::detectCores() - 1L)))
+}
+message("Fitting with mc.cores = ", getOption("mc.cores"), ".")
+
 # The vignettes call library(cpaic), so they run against the INSTALLED package,
 # not this source tree. If the installed build is stale the vignettes are built
 # from the wrong code, and the failure is not always loud: a plot method that is
