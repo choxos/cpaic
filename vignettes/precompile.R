@@ -124,18 +124,35 @@ suppressPackageStartupMessages({
 # chunks, so a finer key would happily serve a stale figure built from a
 # variable that has since changed. Recomputing everything is cheap next to
 # publishing a vignette whose numbers do not match its code.
+#
+# Resuming is safe for random numbers too: knitr caches `.Random.seed` with the
+# chunk and restores it, so a run that resumes partway through reproduces the
+# uninterrupted output exactly.
 cache_key <- function(orig) {
   pkg <- system.file(package = "cpaic")
   files <- c(orig,
              list.files(file.path(pkg, "R"), full.names = TRUE),
              list.files(file.path(pkg, "stan"), full.names = TRUE))
-  files <- sort(files[file.exists(files)])
+  # md5sum() returns NA for a directory and warns; inst/stan/include is one.
+  files <- sort(files[file.exists(files) & !dir.exists(files)])
   # md5sum() hashes files, so fold the per-file sums back through a file to get
-  # one fixed-length key without taking on a hashing dependency.
+  # one fixed-length key without taking on a hashing dependency. Names are
+  # included so that two different file sets cannot collide, which is also why
+  # `orig` must always be passed the same way (relative to vignettes/).
   tmp <- tempfile()
   on.exit(unlink(tmp), add = TRUE)
-  writeLines(paste(names(tools::md5sum(files)), tools::md5sum(files)), tmp)
+  sums <- tools::md5sum(files)
+  writeLines(paste(names(sums), sums), tmp)
   substr(unname(tools::md5sum(tmp)), 1L, 12L)
+}
+
+# Outside the package tree on purpose. A cache under the repository is an
+# ignored directory, and anything that cleans ignored files (a stray
+# `git clean -xdf`, a CI workspace reset) silently throws away hours of
+# fitting. R_user_dir() is where cpaic already caches its compiled Stan models,
+# so the two live together and neither is inside the build.
+cache_root <- function() {
+  file.path(tools::R_user_dir("cpaic", "cache"), "vignette-knitr")
 }
 
 precompile_one <- function(stem) {
@@ -143,9 +160,10 @@ precompile_one <- function(stem) {
   rmd  <- paste0(stem, ".Rmd")
   message("\n=== precompiling ", orig, " ===")
   key <- cache_key(orig)
-  knitr::opts_chunk$set(
-    cache = TRUE,
-    cache.path = file.path("..", ".knitr-cache", paste0(stem, "-", key), ""))
+  cdir <- file.path(cache_root(), paste0(stem, "-", key))
+  dir.create(cdir, recursive = TRUE, showWarnings = FALSE)
+  message("    cache: ", cdir)
+  knitr::opts_chunk$set(cache = TRUE, cache.path = paste0(cdir, .Platform$file.sep))
   on.exit(knitr::opts_chunk$set(cache = FALSE), add = TRUE)
   knitr::knit(orig, output = rmd)            # runs the chunks -> fits Stan here
   rmarkdown::render(rmd, quiet = TRUE)       # output format taken from the YAML
