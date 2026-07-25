@@ -87,7 +87,12 @@ further setup. It fits through **rstan** by default; pass
 closely and is often faster, and which needs the `cmdstanr` package from
 <https://stan-dev.r-universe.dev> plus a CmdStan installation. The two fit the
 same models and agree up to Monte Carlo error; they do not share a random number
-stream, so the same `seed` gives different draws on each.
+stream, so the same `seed` gives different draws on each. Under rstan the chains
+run one after another unless you set `options(mc.cores = ...)`, as usual for R.
+
+Summarize a fit with `posterior_summary()` rather than the sampler object under
+`fit$fit`: that slot is an S4 `stanfit` on one backend and an R6 object on the
+other, and they share no accessors.
 
 ## Quick start
 

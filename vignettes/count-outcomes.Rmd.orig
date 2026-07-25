@@ -523,16 +523,16 @@ data.frame(
   divergences   = fit$diagnostics$divergences,
   max_treedepth = fit$diagnostics$max_treedepth,
   max_rhat      = round(fit$diagnostics$max_rhat, 4),
-  min_ess_bulk  = round(min(fit$fit$summary(c("beta", "gamma", "mu",
-                                              "tau"))$ess_bulk, na.rm = TRUE))
+  min_ess_bulk  = round(min(posterior_summary(
+    fit, c("beta", "gamma", "mu", "tau"))$ess_bulk, na.rm = TRUE))
 )
 ```
 
 No divergences, and $\hat R$ and the effective sample sizes are fine. A handful of
 iterations saturate the maximum tree depth, which costs efficiency rather than
 correctness; it is the signature of the mild funnel that any random-effects model
-has when `tau` is only weakly informed. Raising `max_treedepth` (passed through
-`...` to `cmdstanr`) removes it at the cost of runtime.
+has when `tau` is only weakly informed. Raising `max_treedepth`, an argument of
+`cmlnmr()` itself, removes it at the cost of runtime.
 
 The same conclusion, drawn rather than tabulated. `plot()` on a `cmlnmr()` fit
 hands the draws to `bayesplot`; `type = "trace"` shows the four chains for the
@@ -931,8 +931,9 @@ seven contrasts and four components there are three degrees of freedom for it, s
 it is informed, but not richly.
 
 ```{r tau}
-knitr::kable(fit$fit$summary("tau")[, c("variable", "mean", "sd", "q5", "q95",
-                                        "rhat", "ess_bulk")], digits = 3)
+knitr::kable(posterior_summary(fit, "tau")[, c("variable", "mean", "sd", "q5",
+                                               "q95", "rhat", "ess_bulk")],
+             digits = 3)
 ```
 
 Compare against a fixed-effect fit by leave-one-out cross-validation

@@ -45,6 +45,23 @@ test_that("cmlnmr fits with the rstan backend", {
   re <- relative_effects(fit, newdata = data.frame(x1 = 0.2))
   expect_true("basis" %in% names(re))
   expect_true(all(is.finite(re$estimate)))
+
+  # posterior_summary() exists precisely so that no caller has to reach into
+  # fit$fit, whose API is the backend's. `fit$fit$summary(...)` is cmdstanr's
+  # and dies on an S4 stanfit with "$ operator not defined for this S4 class".
+  ps <- posterior_summary(fit, "beta")
+  expect_true(all(c("variable", "mean", "sd", "q5", "q95", "rhat", "ess_bulk",
+                    "ess_tail") %in% names(ps)))
+  expect_identical(nrow(ps), 2L)
+  expect_true(all(is.finite(ps$rhat)))
+  # The default block set must track what the fit actually sampled, and its
+  # minimum ESS must be the one the convergence check reported.
+  ps_all <- posterior_summary(fit)
+  expect_true(all(c("beta", "mu") %in% sub("\\[.*", "", ps_all$variable)))
+  expect_equal(min(c(ps_all$ess_bulk, ps_all$ess_tail), na.rm = TRUE),
+               fit$diagnostics$min_ess)
+  expect_error(posterior_summary(fit, "nope"), "no parameter named")
+  expect_error(posterior_summary(unclass(fit)), "must be a cmlnmr\\(\\) fit")
 })
 
 test_that("the two backends agree up to Monte Carlo error", {
@@ -76,6 +93,13 @@ test_that("the two backends agree up to Monte Carlo error", {
   expect_identical(r_r$basis, r_c$basis)
   expect_identical(is.na(f_r$components$estimate),
                    is.na(f_c$components$estimate))
+  # Same rows, same columns, same meaning: a script written against one engine
+  # must read the other's fit unchanged.
+  s_r <- posterior_summary(f_r, "beta")
+  s_c <- posterior_summary(f_c, "beta")
+  expect_identical(s_r$variable, s_c$variable)
+  expect_identical(names(s_r), names(s_c))
+  expect_equal(s_r$mean, s_c$mean, tolerance = 0.15)
   # Generous but not vacuous: these are separate short chains, so agreement
   # within a fraction of the posterior standard deviation is the claim.
   expect_equal(r_r$estimate, r_c$estimate, tolerance = 0.15)

@@ -490,7 +490,7 @@ fit_re <- cmlnmr(ipd, agd, effect_modifiers = "egfr_c", inactive = "Std",
                  n_int = 8, trt_effects = "random",
                  chains = 4, iter_warmup = 400, iter_sampling = 400,
                  seed = 2026, adapt_delta = 0.95)
-fit_re$fit$summary("tau")
+posterior_summary(fit_re, "tau")
 ```
 
 Six studies and four components leave two degrees of freedom for heterogeneity,

@@ -48,6 +48,11 @@
 #' take them in different places: top level for cmdstanr, inside `control` for
 #' rstan. Anything else in `sample_args` is passed through untouched and is
 #' therefore backend-specific.
+#'
+#' The rstan branch deliberately does not set `cores`. rstan's own default reads
+#' `getOption("mc.cores")`, which is the R convention and is what CRAN's
+#' two-core limit is enforced through; hard-coding `cores = chains` here would
+#' override a user's setting and break that limit during checks.
 #' @noRd
 .cpaic_sample <- function(backend, family, standata, chains, iter_warmup,
                           iter_sampling, seed, adapt_delta = NULL,
@@ -188,4 +193,80 @@
 #' @noRd
 .cpaic_fit_backend <- function(fit) {
   if (inherits(fit, "stanfit")) "rstan" else "cmdstanr"
+}
+
+#' Every parameter block a cpaic model can sample
+#'
+#' One list serves both the convergence check and the default of
+#' `posterior_summary()`, so the two cannot drift apart and start reporting
+#' different parameters. Which of these a given fit actually has depends on the
+#' family, the baseline, and `trt_effects`, so callers intersect it with
+#' `.cpaic_stan_variables()`.
+#' @noRd
+.cpaic_param_blocks <- c("mu", "beta", "gamma", "breg", "tau", "sigma",
+                         "bsmooth", "bshape_raw", "delta_aux")
+
+#' Posterior summary of a component ML-NMR fit
+#'
+#' @description
+#' Summarizes the posterior draws of a [cmlnmr()] fit: the component effects
+#' `beta`, the component by effect-modifier interactions `gamma`, the study
+#' baselines `mu`, the heterogeneity `tau`, and any other sampled block, with
+#' the usual convergence quantities alongside.
+#'
+#' Use this rather than reaching into `fit$fit`. That object is whatever the
+#' sampler backend returned: an S4 `stanfit` under `backend = "rstan"` and an R6
+#' object under `backend = "cmdstanr"`. The two share no accessors, so
+#' `fit$fit$summary(...)` works on one and fails on the other. This function
+#' works on both and returns the same columns either way.
+#'
+#' @param x A `cpaic_mlnmr` fit from [cmlnmr()].
+#' @param variables Character vector of Stan variable names to summarize, for
+#'   example `"tau"` or `c("beta", "gamma")`. Naming a block returns one row per
+#'   element of it. The default summarizes every sampled block the fit has.
+#' @param ... Further summary functions passed to
+#'   `posterior::summarise_draws()`, for example `"quantile2"` or a function.
+#'   With none given, the default set is returned.
+#'
+#' @return A data frame with one row per scalar parameter. With the default
+#'   summaries the columns are `variable`, `mean`, `median`, `sd`, `mad`, `q5`,
+#'   `q95`, `rhat`, `ess_bulk`, and `ess_tail`. Because both backends are
+#'   summarized through the same code, `rhat`, `ess_bulk`, and `ess_tail` are
+#'   the same quantities whichever engine produced the fit.
+#'
+#' @seealso [cmlnmr()] for the fit, [relative_effects()] and
+#'   [component_effects()] for effects on the outcome scale rather than the
+#'   parameters themselves, and [redact_fit()], which strips the draws.
+#'
+#' @examples
+#' \dontrun{
+#' fit <- cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "Placebo")
+#' posterior_summary(fit, "tau")
+#' min(posterior_summary(fit)$ess_bulk)
+#' }
+#' @export
+posterior_summary <- function(x, variables = NULL, ...) {
+  if (!inherits(x, "cpaic_mlnmr")) {
+    stop("`x` must be a cmlnmr() fit.", call. = FALSE)
+  }
+  fit <- x$fit
+  if (is.null(fit)) {
+    stop("This fit carries no posterior draws, so it cannot be summarized. ",
+         "redact_fit() removes them; refit to get them back.", call. = FALSE)
+  }
+  have <- .cpaic_stan_variables(fit)
+  if (is.null(variables)) {
+    variables <- intersect(.cpaic_param_blocks, have)
+    if (!length(variables)) variables <- intersect(c("beta", "mu"), have)
+  } else {
+    variables <- as.character(variables)
+    miss <- setdiff(variables, have)
+    if (length(miss)) {
+      stop("This fit has no parameter named ",
+           paste0("`", miss, "`", collapse = ", "),
+           ". It has: ", paste(have, collapse = ", "), ".", call. = FALSE)
+    }
+  }
+  draws <- posterior::as_draws_array(.cpaic_draws_array(fit, variables))
+  as.data.frame(posterior::summarise_draws(draws, ...))
 }

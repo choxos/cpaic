@@ -79,6 +79,8 @@ the prior.
 * `cmlnmr()` checks divergences, tree depth, E-BFMI, R-hat, and effective sample
   size across every sampled parameter block, and reports `NA` rather than an
   ideal infinity when a diagnostic is unavailable.
+* `posterior_summary()` summarizes any sampled parameter block of a `cmlnmr()`
+  fit, with the same columns whichever sampler backend produced it.
 * `prior_sensitivity()`, `prior_predictive_check()`, `dic()`, `loo()`, `waic()`,
   and `redact_fit()` cover prior movement, prior implications, model comparison,
   and sharing a fit without row-level data.
@@ -132,6 +134,11 @@ the package works on either. The engine and its version are recorded in the
 fit's provenance, and in the arguments `prior_sensitivity()` refits with, so a
 sensitivity analysis cannot silently switch engines.
 
+Reach for `posterior_summary()` rather than the sampler object under `fit$fit`.
+That object is an S4 `stanfit` under one backend and an R6 object under the
+other, and they share no accessors, so code written against one fails on the
+other.
+
 `adapt_delta` and `max_treedepth` are arguments of `cmlnmr()` rather than being
 passed through `...`, because the two engines take them in different places.
 Anything still passed through `...` reaches the chosen sampler unchanged and is
@@ -141,7 +148,8 @@ therefore backend-specific.
 
 Imports are kept to what is load-bearing: `netmeta` for the component-NMA engine,
 `maicplus` for the MAIC weights, `randtoolbox` for the Sobol' integration points,
-`igraph` for network connectivity, `loo` for the `loo`/`waic` generics, and
+`igraph` for network connectivity, `loo` for the `loo`/`waic` generics,
+`posterior` for the convergence quantities (which `loo` already brings in), and
 otherwise packages that ship with R. The component-additive ML-NMR models and
 their quasi-Monte-Carlo integration are implemented in cpaic itself; `multinma`
 is a `Suggests` used only by the test that keeps the random-effects correlation

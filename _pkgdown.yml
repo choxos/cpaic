@@ -74,6 +74,7 @@ reference:
   - geom_km
 - title: Bayesian diagnostics
   contents:
+  - posterior_summary
   - dic
   - loo.cpaic_mlnmr
   - waic.cpaic_mlnmr

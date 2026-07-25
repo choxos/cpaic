@@ -400,6 +400,19 @@ stream, so the same \code{seed} gives different draws on each. Convergence
 diagnostics are computed the same way for both (through \code{posterior}), so
 \code{rhat}, \code{ess_bulk}, and \code{ess_tail} mean the same thing whichever produced the
 fit, and everything downstream of the fit works on either.
+
+They also differ in how they run chains. cmdstanr runs all \code{chains} at once.
+rstan follows the R convention of taking its core count from
+\code{getOption("mc.cores")}, which is 1 unless you set it, so on the default
+backend the chains run one after another until you do:
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{options(mc.cores = parallel::detectCores())
+}\if{html}{\out{</div>}}
+
+Do not reach into \code{fit$fit} to summarize parameters. That slot holds whatever
+the backend returned, an S4 \code{stanfit} or an R6 CmdStan object, and the two
+share no accessors, so code written against one fails on the other. Use
+\code{\link[=posterior_summary]{posterior_summary()}}, which returns the same table either way.
 }
 
 \examples{

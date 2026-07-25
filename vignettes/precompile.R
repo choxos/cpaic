@@ -68,13 +68,26 @@ for (pkg in c("knitr", "rmarkdown", "rstan", "ggplot2", "bayesplot")) {
 }
 .assert_install_current()
 
-stems <- c(
+all_stems <- c(
   "binary-outcomes",
   "continuous-outcomes",
   "count-outcomes",
   "survival-outcomes",
   "cpaic-disconnected-myeloma"
 )
+
+# Naming stems on the command line re-renders only those, which is what you want
+# after editing one vignette: a full pass fits every Stan model in the package
+# and takes hours.
+#
+#   Rscript vignettes/precompile.R survival-outcomes
+stems <- commandArgs(trailingOnly = TRUE)
+if (!length(stems)) {
+  stems <- all_stems
+} else if (length(unknown <- setdiff(stems, all_stems))) {
+  stop("No such vignette stem: ", paste(unknown, collapse = ", "),
+       ". Known stems: ", paste(all_stems, collapse = ", "), call. = FALSE)
+}
 
 # Operate inside vignettes/ so figure paths and the bibliography path resolve
 # exactly as they will for pkgdown.

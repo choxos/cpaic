@@ -492,6 +492,20 @@
 #' `rhat`, `ess_bulk`, and `ess_tail` mean the same thing whichever produced the
 #' fit, and everything downstream of the fit works on either.
 #'
+#' They also differ in how they run chains. cmdstanr runs all `chains` at once.
+#' rstan follows the R convention of taking its core count from
+#' `getOption("mc.cores")`, which is 1 unless you set it, so on the default
+#' backend the chains run one after another until you do:
+#'
+#' ```
+#' options(mc.cores = parallel::detectCores())
+#' ```
+#'
+#' Do not reach into `fit$fit` to summarize parameters. That slot holds whatever
+#' the backend returned, an S4 `stanfit` or an R6 CmdStan object, and the two
+#' share no accessors, so code written against one fails on the other. Use
+#' [posterior_summary()], which returns the same table either way.
+#'
 #' @return An object of class `cpaic_mlnmr` with the fitted Stan object, the
 #'   component design, and a tidy table of component effects.
 #' @references
@@ -1247,9 +1261,7 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
   # only beta/mu: a non-converged or poorly-mixed gamma, tau, prognostic,
   # residual, or baseline-scale parameter would otherwise pass silently while
   # the fit still looks usable.
-  cand <- c("mu", "beta", "gamma", "breg", "tau", "sigma", "bsmooth",
-            "bshape_raw", "delta_aux")
-  present <- intersect(cand, .cpaic_stan_variables(fit))
+  present <- intersect(.cpaic_param_blocks, .cpaic_stan_variables(fit))
   if (!length(present)) present <- c("beta", "mu")
   smry <- .cpaic_fit_summary(fit, present)
   # An all-NA column (a single chain gives no Rhat) makes max()/min() return
