@@ -34,16 +34,32 @@ jobs:
 
       - uses: r-lib/actions/setup-pandoc@v2
 
+      # Deliberately NOT adding https://stan-dev.r-universe.dev as a repository.
+      # It serves development builds of rstan and StanHeaders that outrank the
+      # CRAN releases, and the Windows binary of one of those could not resolve
+      # its own DLL:
+      #
+      #   unable to load shared object '.../rstan/libs/x64/rstan.dll':
+      #   LoadLibrary failure: The specified module could not be found.
+      #
+      # which killed `configure.win` and with it the whole build. CRAN will
+      # resolve rstan from CRAN, so the check should too. cmdstanr is the only
+      # thing that actually needs the r-universe, and it is installed by name
+      # below.
       - uses: r-lib/actions/setup-r@v2
         with:
           r-version: ${{ matrix.config.r }}
           http-user-agent: ${{ matrix.config.http-user-agent }}
           use-public-rspm: true
-          extra-repositories: 'https://stan-dev.r-universe.dev'
 
+      # cmdstanr is a Suggests and is not on CRAN, so R CMD check would report
+      # it missing. Take it from source rather than from the r-universe, which
+      # would bring the development Stan stack back with it.
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::rcmdcheck
+          extra-packages: |
+            any::rcmdcheck
+            stan-dev/cmdstanr
           needs: check
 
       # A qualified package::function() reference is not inert prose: the
