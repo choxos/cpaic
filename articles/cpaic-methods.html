@@ -250,7 +250,7 @@ patient data. A component whose effect-modifier interaction is informed
 only by aggregate data is weakly identified and relies on the regression
 prior.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Requires cmdstanr; see ?cmlnmr.</span></span>
+<code class="sourceCode R"><span><span class="co"># Fits with rstan by default; backend = "cmdstanr" is the alternative.</span></span>
 <span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cmlnmr.html">cmlnmr</a></span><span class="op">(</span><span class="va">ipd</span>, <span class="va">agd</span>, effect_modifiers <span class="op">=</span> <span class="st">"x1"</span>, inactive <span class="op">=</span> <span class="st">"Placebo"</span>,</span>
 <span>              family <span class="op">=</span> <span class="st">"binomial"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/component_effects.html">component_effects</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></code></pre></div>

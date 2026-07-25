@@ -28,6 +28,9 @@ The fit with raw individual patient data removed, marked redacted.
 
 After redaction the object can no longer be refitted, so
 [`prior_sensitivity()`](https://choxos.github.io/cpaic/reference/prior_sensitivity.md)
-will not run on it. The underlying `cmdstanr` fit may still hold the
-model data it was sampled with; for a fully data-free artifact, save
-only the posterior draws (for example `fit$fit$draws()`).
+will not run on it. Under either backend the sampler object in `fit$fit`
+may still hold the model data it was sampled with, so for a fully
+data-free artifact save only what you need from the posterior, such as
+the output of
+[`posterior_summary()`](https://choxos.github.io/cpaic/reference/posterior_summary.md),
+rather than the fit itself.

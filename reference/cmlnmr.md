@@ -51,10 +51,13 @@ cmlnmr(
   prior_tau_scale = 1,
   prior_tau_df = 4,
   prior_predictive = FALSE,
+  backend = c("rstan", "cmdstanr"),
   chains = 4L,
   iter_warmup = 500L,
   iter_sampling = 500L,
   seed = NULL,
+  adapt_delta = NULL,
+  max_treedepth = NULL,
   ...
 )
 ```
@@ -242,18 +245,44 @@ cmlnmr(
   Replicated outcomes remain available for
   [`prior_predictive_check()`](https://choxos.github.io/cpaic/reference/prior_predictive_check.md).
 
+- backend:
+
+  Sampler engine: `"rstan"` (default) or `"cmdstanr"`. The two fit the
+  same Stan models and are interchangeable; see the section below.
+
 - chains, iter_warmup, iter_sampling, seed:
 
-  Passed to `cmdstanr`.
+  Sampler settings. `iter_warmup` and `iter_sampling` are counted
+  separately whichever backend is used; the translation to rstan's
+  combined `iter` is handled internally.
+
+- adapt_delta, max_treedepth:
+
+  Sampler tuning, or `NULL` for the engine default. These are named
+  arguments rather than left to `...` because the two backends take them
+  in different places.
 
 - ...:
 
-  Passed to the `cmdstanr` sampler (e.g. `adapt_delta`).
+  Further arguments for the sampler. These are passed through untouched
+  and are therefore **backend-specific**: they reach
+  [`rstan::sampling()`](https://mc-stan.org/rstan/reference/stanmodel-method-sampling.html)
+  or the `cmdstanr` `$sample()` method as given. Prefer the named
+  arguments above for anything that has one.
+
+  Under `backend = "rstan"` an argument rstan does not accept is
+  rejected by name before the fit, rather than being handed to
+  [`rstan::sampling()`](https://mc-stan.org/rstan/reference/stanmodel-method-sampling.html)
+  to kill every chain with a message that names nothing. About twenty
+  cmdstanr sampler arguments have no rstan equivalent (`step_size`,
+  `metric`, `inv_metric`, `adapt_engaged`, `parallel_chains`,
+  `save_latent_dynamics`, and so on), and a misspelled argument is
+  caught the same way.
 
 ## Value
 
-An object of class `cpaic_mlnmr` with the `cmdstanr` fit, the component
-design, and a tidy table of component effects.
+An object of class `cpaic_mlnmr` with the fitted Stan object, the
+component design, and a tidy table of component effects.
 
 ## Details
 
@@ -450,6 +479,35 @@ interaction is additionally identified only by covariate variation on
 the contrasts that involve it, and interactions informed only by
 aggregate arms are weakly identified (`prior_gamma_scale` regularizes).
 
+## Backends
+
+`backend = "rstan"` is the default. Its models are compiled when cpaic
+is installed, so nothing else is needed and the examples and tests run
+anywhere. `backend = "cmdstanr"` fits the identical models with CmdStan,
+which tracks Stan releases more closely and is often faster, but it
+needs the `cmdstanr` package and a separate CmdStan installation.
+
+The two are interchangeable, not identical: they do not share a random
+number stream, so the same `seed` gives different draws on each.
+Convergence diagnostics are computed the same way for both (through
+`posterior`), so `rhat`, `ess_bulk`, and `ess_tail` mean the same thing
+whichever produced the fit, and everything downstream of the fit works
+on either.
+
+They also differ in how they run chains. cmdstanr runs all `chains` at
+once. rstan follows the R convention of taking its core count from
+`getOption("mc.cores")`, which is 1 unless you set it, so on the default
+backend the chains run one after another until you do:
+
+    options(mc.cores = parallel::detectCores())
+
+Do not reach into `fit$fit` to summarize parameters. That slot holds
+whatever the backend returned, an S4 `stanfit` or an R6 CmdStan object,
+and the two share no accessors, so code written against one fails on the
+other. Use
+[`posterior_summary()`](https://choxos.github.io/cpaic/reference/posterior_summary.md),
+which returns the same table either way.
+
 ## References
 
 Phillippo DM, Dias S, Ades AE, et al. (2020). Multilevel network
@@ -469,7 +527,6 @@ and Component Hierarchies in Component Network Meta-Analysis.
 ## Examples
 
 ``` r
-if (FALSE) { # requireNamespace("cmdstanr", quietly = TRUE) && !inherits(try(cmdstanr::cmdstan_path(), silent = TRUE), "try-error")
 # \donttest{
 ipd <- data.frame(.study = "S1",
                   .trt = rep(c("Placebo", "A"), each = 100),
@@ -479,8 +536,22 @@ agd <- data.frame(.study = "S2", .trt = c("Placebo", "A+B"),
                   x1_mean = c(0.2, 0.2), x1_sd = c(1, 1))
 fit <- cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "Placebo",
               chains = 2, iter_warmup = 200, iter_sampling = 200)
+#> Warning: Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable.
+#> Running the chains for more iterations may help. See
+#> https://mc-stan.org/misc/warnings.html#bulk-ess
+#> Warning: Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.
+#> Running the chains for more iterations may help. See
+#> https://mc-stan.org/misc/warnings.html#tail-ess
 # Effects in a named target population (x1 = 0.2), not at the origin:
 relative_effects(fit, newdata = data.frame(x1 = 0.2))
+#> Relative effects (OR, back-transformed)
+#>   Conditional effect at covariate profile: x1 = 0.2
+#>  treatment comparator estimate    se lower upper pr_gt0              basis
+#>          A    Placebo    2.121 0.286 1.141 3.557  0.995              exact
+#>        A+B    Placebo    2.020 0.312 1.037 3.438  0.975 first-order screen
+#>   `se` is on the link (log) scale; the interval is back-transformed.
+#>   basis "first-order screen" = estimable by the row-space criterion but leaning
+#>   on aggregate arms or a survival baseline, so it can be optimistic; check
+#>   with prior_sensitivity() / estimable_effects_at().
 # }
-}
 ```

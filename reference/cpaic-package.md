@@ -14,8 +14,8 @@ network meta-regression (ML-NMR; Phillippo et al. 2020
 the population adjustment using individual patient data. Supports
 binary, continuous, count, and time-to-event outcomes. The component
 network meta-analysis engine is 'netmeta' and the matching weights come
-from 'maicplus'; the component-additive ML-NMR models are fitted with
-'cmdstanr'.
+from 'maicplus'; the component-additive ML-NMR models are written in
+Stan and fitted with 'rstan' by default, or with 'cmdstanr' on request.
 
 ## See also
 

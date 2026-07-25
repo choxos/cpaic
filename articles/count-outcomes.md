@@ -623,20 +623,20 @@ fit <- cmlnmr(ipd, agd,
               exposure = ".exposure",
               trt_effects = "random",
               chains = 4, iter_warmup = 500, iter_sampling = 500,
-              n_int = 64, seed = 3, show_exceptions = FALSE)
+              n_int = 64, seed = 3)
 fit
 #> cpaic: component-additive ML-NMR (Bayesian, poisson)
 #>   Treatment effects: random (noncentered)
 #>   Effect modifiers: eos [normal], freqex [bernoulli]
-#>   Provenance: cpaic 0.1.0, CmdStan 2.39.0, Stan md5 f235167d, seed 3
+#>   Provenance: cpaic 0.1.0, rstan 2.36.0.9000, Stan md5 f235167d, seed 3
 #>   Component effects below are at the covariate origin (x = 0).
 #>   For a target population use relative_effects(fit, newdata = ...).
 #> 
-#>  component estimate    se  lower upper
-#>        ICS       NA    NA     NA    NA
-#>       LABA   -0.133 0.099 -0.319 0.046
-#>       LAMA       NA    NA     NA    NA
-#>        ROF       NA    NA     NA    NA
+#>  component estimate  se  lower upper
+#>        ICS       NA  NA     NA    NA
+#>       LABA    -0.14 0.1 -0.324 0.062
+#>       LAMA       NA  NA     NA    NA
+#>        ROF       NA  NA     NA    NA
 ```
 
 The `[bernoulli]` and `[normal]` tags in the print output are the
@@ -713,18 +713,19 @@ data.frame(
   divergences   = fit$diagnostics$divergences,
   max_treedepth = fit$diagnostics$max_treedepth,
   max_rhat      = round(fit$diagnostics$max_rhat, 4),
-  min_ess_bulk  = round(min(fit$fit$summary(c("beta", "gamma", "mu",
-                                              "tau"))$ess_bulk, na.rm = TRUE))
+  min_ess_bulk  = round(min(posterior_summary(
+    fit, c("beta", "gamma", "mu", "tau"))$ess_bulk, na.rm = TRUE))
 )
 #>   divergences max_treedepth max_rhat min_ess_bulk
-#> 1           4             1   1.0145          396
+#> 1           1             6   1.0125          441
 ```
 
 No divergences, and $`\hat R`$ and the effective sample sizes are fine.
 A handful of iterations saturate the maximum tree depth, which costs
 efficiency rather than correctness; it is the signature of the mild
 funnel that any random-effects model has when `tau` is only weakly
-informed. Raising `max_treedepth` (passed through `...` to `cmdstanr`)
+informed. Raising `max_treedepth`, an argument of
+[`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md) itself,
 removes it at the cost of runtime.
 
 The same conclusion, drawn rather than tabulated.
@@ -933,7 +934,7 @@ The same algebra reaches the component effects:
 component_effects(fit, newdata = target)
 #>   component   estimate        se      lower      upper
 #> 1       ICS         NA        NA         NA         NA
-#> 2      LABA -0.1474449 0.1058796 -0.3378115 0.03994639
+#> 2      LABA -0.1427196 0.1076843 -0.3448784 0.07102677
 #> 3      LAMA         NA        NA         NA         NA
 #> 4       ROF         NA        NA         NA         NA
 ```
@@ -973,8 +974,8 @@ relative_effects(fit, reference = "LAMA", newdata = target)
 #>   Conditional effect at covariate profile: eos = 1.5, freqex = 0.55
 #>      treatment comparator estimate    se lower upper pr_gt0          basis
 #>           LABA       LAMA       NA    NA    NA    NA     NA not identified
-#>       LABA+ICS       LAMA    0.711 0.154 0.528 0.911  0.009          exact
-#>      LABA+LAMA       LAMA    0.868 0.106 0.713 1.041  0.054          exact
+#>       LABA+ICS       LAMA    0.717 0.151 0.536 0.951  0.012          exact
+#>      LABA+LAMA       LAMA    0.872 0.108 0.708 1.074  0.074          exact
 #>  LABA+LAMA+ROF       LAMA       NA    NA    NA    NA     NA not identified
 #>            PBO       LAMA       NA    NA    NA    NA     NA not identified
 #>   NA = not uniquely estimable from this component design (see estimable_effects()).
@@ -1006,8 +1007,8 @@ relative_effects(fit, reference = "LAMA", newdata = target_low)
 #>   Conditional effect at covariate profile: eos = -0.5, freqex = 0.2
 #>      treatment comparator estimate    se lower upper pr_gt0          basis
 #>           LABA       LAMA       NA    NA    NA    NA     NA not identified
-#>       LABA+ICS       LAMA    1.009 0.158 0.728 1.318  0.505          exact
-#>      LABA+LAMA       LAMA    0.882 0.097 0.731 1.050  0.064          exact
+#>       LABA+ICS       LAMA    1.002 0.160 0.724 1.343  0.469          exact
+#>      LABA+LAMA       LAMA    0.877 0.098 0.728 1.059  0.059          exact
 #>  LABA+LAMA+ROF       LAMA       NA    NA    NA    NA     NA not identified
 #>            PBO       LAMA       NA    NA    NA    NA     NA not identified
 #>   NA = not uniquely estimable from this component design (see estimable_effects()).
@@ -1053,8 +1054,8 @@ knitr::kable(recovery, digits = 3, row.names = FALSE,
 
 | Contrast | True_RR | cSTC | cSTC covers | cMAIC | cML-NMR | cML-NMR 95% CrI | cML-NMR covers |
 |:---|---:|---:|:---|---:|---:|:---|:---|
-| LABA+ICS vs LAMA | 0.676 | 0.790 | yes | 0.803 | 0.711 | (0.53, 0.91) | yes |
-| LABA+LAMA vs LAMA | 0.877 | 0.873 | yes | 0.870 | 0.868 | (0.71, 1.04) | yes |
+| LABA+ICS vs LAMA | 0.676 | 0.790 | yes | 0.803 | 0.717 | (0.54, 0.95) | yes |
+| LABA+LAMA vs LAMA | 0.877 | 0.873 | yes | 0.870 | 0.872 | (0.71, 1.07) | yes |
 
 Rate ratios in the target population, against the truth {.table}
 
@@ -1099,12 +1100,12 @@ knitr::kable(league_table(fit, newdata = target),
 
 |  | LABA | LABA+ICS | LABA+LAMA | LABA+LAMA+ROF | LAMA | PBO |
 |:---|:---|:---|:---|:---|:---|:---|
-| LABA | LABA |  |  |  |  | 0.87 (0.71, 1.04) |
-| LABA+ICS |  | LABA+ICS | 0.82 (0.66, 0.98) |  | 0.71 (0.53, 0.91) |  |
-| LABA+LAMA |  | 1.23 (1.02, 1.51) | LABA+LAMA |  | 0.87 (0.71, 1.04) |  |
+| LABA | LABA |  |  |  |  | 0.87 (0.71, 1.07) |
+| LABA+ICS |  | LABA+ICS | 0.82 (0.66, 1.01) |  | 0.72 (0.54, 0.95) |  |
+| LABA+LAMA |  | 1.23 (0.99, 1.51) | LABA+LAMA |  | 0.87 (0.71, 1.07) |  |
 | LABA+LAMA+ROF |  |  |  | LABA+LAMA+ROF |  |  |
-| LAMA |  | 1.44 (1.10, 1.89) | 1.17 (0.96, 1.40) |  | LAMA |  |
-| PBO | 1.17 (0.96, 1.40) |  |  |  |  | PBO |
+| LAMA |  | 1.43 (1.05, 1.87) | 1.16 (0.93, 1.41) |  | LAMA |  |
+| PBO | 1.16 (0.93, 1.41) |  |  |  |  | PBO |
 
 League table in the target population: rate ratio of the row treatment
 versus the column treatment, with its 95% credible interval. Blank cells
@@ -1318,13 +1319,14 @@ degrees of freedom for it, so it is informed, but not richly.
 
 ``` r
 
-knitr::kable(fit$fit$summary("tau")[, c("variable", "mean", "sd", "q5", "q95",
-                                        "rhat", "ess_bulk")], digits = 3)
+knitr::kable(posterior_summary(fit, "tau")[, c("variable", "mean", "sd", "q5",
+                                               "q95", "rhat", "ess_bulk")],
+             digits = 3)
 ```
 
-| variable |  mean |    sd |    q5 |  q95 |  rhat | ess_bulk |
-|:---------|------:|------:|------:|-----:|------:|---------:|
-| tau\[1\] | 0.082 | 0.094 | 0.006 | 0.25 | 1.015 |  396.395 |
+| variable |  mean |    sd |    q5 |   q95 |  rhat | ess_bulk |
+|:---------|------:|------:|------:|------:|------:|---------:|
+| tau\[1\] | 0.089 | 0.109 | 0.005 | 0.275 | 1.012 |   441.11 |
 
 Compare against a fixed-effect fit by leave-one-out cross-validation
 ([Vehtari et al. 2017](#ref-vehtari2017)) and DIC ([Spiegelhalter et al.
@@ -1336,12 +1338,12 @@ fit_fixed <- cmlnmr(ipd, agd, effect_modifiers = ems, inactive = "PBO",
                     family = "poisson", exposure = ".exposure",
                     trt_effects = "fixed",
                     chains = 4, iter_warmup = 500, iter_sampling = 500,
-                    n_int = 64, seed = 3, show_exceptions = FALSE)
+                    n_int = 64, seed = 3)
 
 loo::loo_compare(list(random = loo::loo(fit), fixed = loo::loo(fit_fixed)))
 #>   model elpd_diff se_diff p_worse       diag_diff      diag_elpd
-#>   fixed       0.0     0.0      NA                 4 k_psis > 0.7
-#>  random      -1.1     0.7    0.94 |elpd_diff| < 4 8 k_psis > 0.7
+#>   fixed       0.0     0.0      NA                 7 k_psis > 0.7
+#>  random      -0.5     1.0    0.71 |elpd_diff| < 4 9 k_psis > 0.7
 
 knitr::kable(data.frame(
   model = c("random", "fixed"),
@@ -1352,8 +1354,8 @@ knitr::kable(data.frame(
 
 | model  |    DIC | p_eff |
 |:-------|-------:|------:|
-| random | 6244.1 |  20.4 |
-| fixed  | 6241.0 |  17.3 |
+| random | 6245.2 |  21.2 |
+| fixed  | 6244.1 |  20.3 |
 
 Deviance information criterion {.table}
 
@@ -1468,11 +1470,11 @@ ps <- prior_sensitivity(fit, newdata = target, reference = "LAMA",
 ps
 #> cML-NMR prior sensitivity: gamma prior
 #>      treatment comparator estimate tighter looser move_tighter move_looser max_movement estimable
-#>           LABA       LAMA    0.130   0.120  0.152        0.010       0.023        0.023     FALSE
-#>       LABA+ICS       LAMA   -0.353  -0.328 -0.335        0.025       0.018        0.025      TRUE
-#>      LABA+LAMA       LAMA   -0.147  -0.138 -0.141        0.010       0.007        0.010      TRUE
-#>  LABA+LAMA+ROF       LAMA   -0.742  -0.380 -1.967        0.362       1.225        1.225     FALSE
-#>            PBO       LAMA    0.277   0.258  0.293        0.020       0.016        0.020     FALSE
+#>           LABA       LAMA    0.155   0.150  0.146        0.005       0.009        0.009     FALSE
+#>       LABA+ICS       LAMA   -0.345  -0.351 -0.353        0.006       0.008        0.008      TRUE
+#>      LABA+LAMA       LAMA   -0.143  -0.140 -0.146        0.003       0.004        0.004      TRUE
+#>  LABA+LAMA+ROF       LAMA   -0.739  -0.345 -1.661        0.394       0.922        0.922     FALSE
+#>            PBO       LAMA    0.298   0.290  0.293        0.008       0.005        0.008     FALSE
 ```
 
 Read `max_movement` against `estimable`. The estimable contrasts barely

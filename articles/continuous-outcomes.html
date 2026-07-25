@@ -652,48 +652,35 @@ random-effects version.</p>
 <code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cmlnmr.html">cmlnmr</a></span><span class="op">(</span><span class="va">ipd</span>, <span class="va">agd</span>, effect_modifiers <span class="op">=</span> <span class="st">"bhba1c_c"</span>, inactive <span class="op">=</span> <span class="st">"Diet"</span>,</span>
 <span>              family <span class="op">=</span> <span class="st">"gaussian"</span>,</span>
 <span>              chains <span class="op">=</span> <span class="fl">4</span>, iter_warmup <span class="op">=</span> <span class="fl">500</span>, iter_sampling <span class="op">=</span> <span class="fl">500</span>, seed <span class="op">=</span> <span class="fl">2026</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:</span></span>
-<span><span class="co">#&gt; Chain 4 Exception: normal_lpdf: Scale parameter is 0, but must be positive! (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmp7Wk2Yn/model-10c2966f151a6.stan', line 124, column 19 to column 50)</span></span>
-<span><span class="co">#&gt; Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,</span></span>
-<span><span class="co">#&gt; Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.</span></span>
-<span><span class="co">#&gt; Chain 4</span></span>
-<span><span class="co">#&gt; Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:</span></span>
-<span><span class="co">#&gt; Chain 4 Exception: normal_lpdf: Scale parameter is 0, but must be positive! (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmp7Wk2Yn/model-10c2966f151a6.stan', line 124, column 19 to column 50)</span></span>
-<span><span class="co">#&gt; Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,</span></span>
-<span><span class="co">#&gt; Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.</span></span>
-<span><span class="co">#&gt; Chain 4</span></span>
 <span><span class="va">fit</span></span>
 <span><span class="co">#&gt; cpaic: component-additive ML-NMR (Bayesian, gaussian)</span></span>
 <span><span class="co">#&gt;   Treatment effects: fixed</span></span>
 <span><span class="co">#&gt;   Effect modifiers: bhba1c_c [normal]</span></span>
-<span><span class="co">#&gt;   Provenance: cpaic 0.1.0, CmdStan 2.39.0, Stan md5 093af39c, seed 2026</span></span>
+<span><span class="co">#&gt;   Provenance: cpaic 0.1.0, rstan 2.36.0.9000, Stan md5 093af39c, seed 2026</span></span>
 <span><span class="co">#&gt;   Component effects below are at the covariate origin (x = 0).</span></span>
 <span><span class="co">#&gt;   For a target population use relative_effects(fit, newdata = ...).</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt;  component estimate    se  lower  upper</span></span>
 <span><span class="co">#&gt;       DPP4       NA    NA     NA     NA</span></span>
-<span><span class="co">#&gt;        Met   -1.095 0.083 -1.257 -0.928</span></span>
-<span><span class="co">#&gt;      SGLT2   -0.617 0.110 -0.825 -0.387</span></span>
-<span><span class="co">#&gt;         SU   -0.757 0.089 -0.926 -0.581</span></span></code></pre></div>
+<span><span class="co">#&gt;        Met   -1.095 0.078 -1.248 -0.943</span></span>
+<span><span class="co">#&gt;      SGLT2   -0.617 0.107 -0.827 -0.409</span></span>
+<span><span class="co">#&gt;         SU   -0.752 0.087 -0.921 -0.587</span></span></code></pre></div>
 <div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit_re</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cmlnmr.html">cmlnmr</a></span><span class="op">(</span><span class="va">ipd</span>, <span class="va">agd</span>, effect_modifiers <span class="op">=</span> <span class="st">"bhba1c_c"</span>, inactive <span class="op">=</span> <span class="st">"Diet"</span>,</span>
 <span>                 family <span class="op">=</span> <span class="st">"gaussian"</span>, trt_effects <span class="op">=</span> <span class="st">"random"</span>,</span>
 <span>                 chains <span class="op">=</span> <span class="fl">4</span>, iter_warmup <span class="op">=</span> <span class="fl">500</span>, iter_sampling <span class="op">=</span> <span class="fl">500</span>,</span>
 <span>                 seed <span class="op">=</span> <span class="fl">2026</span>, adapt_delta <span class="op">=</span> <span class="fl">0.95</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Chain 4 Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:</span></span>
-<span><span class="co">#&gt; Chain 4 Exception: normal_lpdf: Scale parameter is 0, but must be positive! (in '/var/folders/2h/yqztgsf96gsbkqn60cymgsjr0000gn/T/Rtmp7Wk2Yn/model-10c2966f151a6.stan', line 124, column 19 to column 50)</span></span>
-<span><span class="co">#&gt; Chain 4 If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,</span></span>
-<span><span class="co">#&gt; Chain 4 but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.</span></span>
-<span><span class="co">#&gt; Chain 4</span></span>
-<span><span class="co">#&gt; Warning: 4 of 2000 (0.0%) transitions ended with a divergence.</span></span>
-<span><span class="co">#&gt; See https://mc-stan.org/misc/warnings for details.</span></span>
-<span><span class="co">#&gt; Warning: 4 divergent transition(s) in cmlnmr(); results may be unreliable (consider</span></span>
+<span><span class="co">#&gt; Warning: There were 1 divergent transitions after warmup. See</span></span>
+<span><span class="co">#&gt; https://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup</span></span>
+<span><span class="co">#&gt; to find out why this is a problem and how to eliminate them.</span></span>
+<span><span class="co">#&gt; Warning: Examine the pairs() plot to diagnose sampling problems</span></span>
+<span><span class="co">#&gt; Warning: 1 divergent transition(s) in cmlnmr(); results may be unreliable (consider</span></span>
 <span><span class="co">#&gt; higher adapt_delta or more iterations).</span></span>
-<span><span class="va">fit_re</span><span class="op">$</span><span class="va">fit</span><span class="op">$</span><span class="fu">summary</span><span class="op">(</span><span class="st">"tau"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; # A tibble: 1 × 10</span></span>
-<span><span class="co">#&gt;   variable  mean median    sd    mad      q5   q95  rhat ess_bulk ess_tail</span></span>
-<span><span class="co">#&gt;   &lt;chr&gt;    &lt;dbl&gt;  &lt;dbl&gt; &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;    &lt;dbl&gt;    &lt;dbl&gt;</span></span>
-<span><span class="co">#&gt; 1 tau[1]   0.149  0.102 0.160 0.0997 0.00852 0.455  1.01     415.     563.</span></span></code></pre></div>
+<span><span class="fu"><a href="../reference/posterior_summary.html">posterior_summary</a></span><span class="op">(</span><span class="va">fit_re</span>, <span class="st">"tau"</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   variable      mean     median       sd       mad          q5       q95     rhat</span></span>
+<span><span class="co">#&gt; 1   tau[1] 0.1429527 0.09709962 0.148751 0.0985411 0.007348172 0.4254031 1.004115</span></span>
+<span><span class="co">#&gt;   ess_bulk ess_tail</span></span>
+<span><span class="co">#&gt; 1 499.2129 873.0799</span></span></code></pre></div>
 <p>The random-effects model adds study-arm deviations around the
 component-implied relative effects (non-centered by default), with a
 half-normal(0, 1) prior on the heterogeneity standard deviation
@@ -802,10 +789,10 @@ occupies much of the rest of this vignette.</p>
 <span>  divergences   <span class="op">=</span> <span class="va">fit_re</span><span class="op">$</span><span class="va">diagnostics</span><span class="op">$</span><span class="va">divergences</span>,</span>
 <span>  max_treedepth <span class="op">=</span> <span class="va">fit_re</span><span class="op">$</span><span class="va">diagnostics</span><span class="op">$</span><span class="va">max_treedepth</span>,</span>
 <span>  max_rhat      <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">fit_re</span><span class="op">$</span><span class="va">diagnostics</span><span class="op">$</span><span class="va">max_rhat</span>, <span class="fl">4</span><span class="op">)</span>,</span>
-<span>  min_ess_bulk  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="va">fit_re</span><span class="op">$</span><span class="va">fit</span><span class="op">$</span><span class="fu">summary</span><span class="op">(</span></span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"beta"</span>, <span class="st">"gamma"</span>, <span class="st">"mu"</span>, <span class="st">"tau"</span><span class="op">)</span><span class="op">)</span><span class="op">$</span><span class="va">ess_bulk</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span>  min_ess_bulk  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="fu"><a href="../reference/posterior_summary.html">posterior_summary</a></span><span class="op">(</span></span>
+<span>    <span class="va">fit_re</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"beta"</span>, <span class="st">"gamma"</span>, <span class="st">"mu"</span>, <span class="st">"tau"</span><span class="op">)</span><span class="op">)</span><span class="op">$</span><span class="va">ess_bulk</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;   divergences max_treedepth max_rhat min_ess_bulk</span></span>
-<span><span class="co">#&gt; 1           4             0    1.015          415</span></span></code></pre></div>
+<span><span class="co">#&gt; 1           1             0   1.0057          499</span></span></code></pre></div>
 <p>Those are the summaries. The chains themselves are the evidence.</p>
 <div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">fit</span>, type <span class="op">=</span> <span class="st">"trace"</span><span class="op">)</span></span></code></pre></div>
@@ -918,11 +905,11 @@ prior speaking, and <code>NA</code> is the right answer.</li>
 <span><span class="co">#&gt; Relative effects (MD, link scale)</span></span>
 <span><span class="co">#&gt;   Conditional effect at covariate profile: bhba1c_c = -0.5</span></span>
 <span><span class="co">#&gt;  treatment comparator estimate    se  lower  upper pr_gt0              basis</span></span>
-<span><span class="co">#&gt;       Diet        Met    0.962 0.087  0.790  1.139  1.000 first-order screen</span></span>
+<span><span class="co">#&gt;       Diet        Met    0.962 0.081  0.798  1.116      1 first-order screen</span></span>
 <span><span class="co">#&gt;   Met+DPP4        Met       NA    NA     NA     NA     NA     not identified</span></span>
-<span><span class="co">#&gt;  Met+SGLT2        Met   -0.567 0.127 -0.801 -0.310  0.000              exact</span></span>
-<span><span class="co">#&gt;     Met+SU        Met   -0.549 0.101 -0.736 -0.337  0.000              exact</span></span>
-<span><span class="co">#&gt;         SU        Met    0.413 0.140  0.145  0.701  0.997 first-order screen</span></span>
+<span><span class="co">#&gt;  Met+SGLT2        Met   -0.569 0.125 -0.808 -0.323      0              exact</span></span>
+<span><span class="co">#&gt;     Met+SU        Met   -0.544 0.100 -0.742 -0.351      0              exact</span></span>
+<span><span class="co">#&gt;         SU        Met    0.417 0.130  0.159  0.672      1 first-order screen</span></span>
 <span><span class="co">#&gt;   NA = not uniquely estimable from this component design (see estimable_effects()).</span></span>
 <span><span class="co">#&gt;   basis "first-order screen" = estimable by the row-space criterion but leaning</span></span>
 <span><span class="co">#&gt;   on aggregate arms or a survival baseline, so it can be optimistic; check</span></span>
@@ -994,33 +981,33 @@ reference, in each target population, next to the truth.</p>
 <tr class="odd">
 <td align="left">HbA1c 7.5%</td>
 <td align="left">Met+SGLT2 vs Met</td>
-<td align="right">-0.567</td>
-<td align="right">-0.801</td>
-<td align="right">-0.310</td>
+<td align="right">-0.569</td>
+<td align="right">-0.808</td>
+<td align="right">-0.323</td>
 <td align="right">-0.56</td>
 </tr>
 <tr class="even">
 <td align="left">HbA1c 7.5%</td>
 <td align="left">Met+SU vs Met</td>
-<td align="right">-0.549</td>
-<td align="right">-0.736</td>
-<td align="right">-0.337</td>
+<td align="right">-0.544</td>
+<td align="right">-0.742</td>
+<td align="right">-0.351</td>
 <td align="right">-0.50</td>
 </tr>
 <tr class="odd">
 <td align="left">HbA1c 9.0%</td>
 <td align="left">Met+SGLT2 vs Met</td>
-<td align="right">-0.716</td>
-<td align="right">-0.941</td>
-<td align="right">-0.481</td>
+<td align="right">-0.714</td>
+<td align="right">-0.939</td>
+<td align="right">-0.485</td>
 <td align="right">-0.68</td>
 </tr>
 <tr class="even">
 <td align="left">HbA1c 9.0%</td>
 <td align="left">Met+SU vs Met</td>
-<td align="right">-1.174</td>
-<td align="right">-1.364</td>
-<td align="right">-0.977</td>
+<td align="right">-1.168</td>
+<td align="right">-1.360</td>
+<td align="right">-0.988</td>
 <td align="right">-1.10</td>
 </tr>
 </tbody>
@@ -1103,20 +1090,20 @@ of the row treatment versus the column treatment</caption>
 <tr class="odd">
 <td align="left">Diet</td>
 <td align="left">Diet</td>
-<td align="left">0.96 (0.79, 1.14)</td>
+<td align="left">0.96 (0.80, 1.12)</td>
 <td align="left"></td>
-<td align="left">1.53 (1.24, 1.81)</td>
+<td align="left">1.53 (1.25, 1.82)</td>
 <td align="left">1.51 (1.26, 1.76)</td>
-<td align="left">0.55 (0.34, 0.74)</td>
+<td align="left">0.54 (0.35, 0.74)</td>
 </tr>
 <tr class="even">
 <td align="left">Met</td>
-<td align="left">-0.96 (-1.14, -0.79)</td>
+<td align="left">-0.96 (-1.12, -0.80)</td>
 <td align="left">Met</td>
 <td align="left"></td>
-<td align="left">0.57 (0.31, 0.80)</td>
-<td align="left">0.55 (0.34, 0.74)</td>
-<td align="left">-0.41 (-0.70, -0.14)</td>
+<td align="left">0.57 (0.32, 0.81)</td>
+<td align="left">0.54 (0.35, 0.74)</td>
+<td align="left">-0.42 (-0.67, -0.16)</td>
 </tr>
 <tr class="odd">
 <td align="left">Met+DPP4</td>
@@ -1129,29 +1116,29 @@ of the row treatment versus the column treatment</caption>
 </tr>
 <tr class="even">
 <td align="left">Met+SGLT2</td>
-<td align="left">-1.53 (-1.81, -1.24)</td>
-<td align="left">-0.57 (-0.80, -0.31)</td>
+<td align="left">-1.53 (-1.82, -1.25)</td>
+<td align="left">-0.57 (-0.81, -0.32)</td>
 <td align="left"></td>
 <td align="left">Met+SGLT2</td>
-<td align="left">-0.02 (-0.17, 0.13)</td>
-<td align="left">-0.98 (-1.20, -0.77)</td>
+<td align="left">-0.02 (-0.18, 0.12)</td>
+<td align="left">-0.99 (-1.20, -0.78)</td>
 </tr>
 <tr class="odd">
 <td align="left">Met+SU</td>
 <td align="left">-1.51 (-1.76, -1.26)</td>
-<td align="left">-0.55 (-0.74, -0.34)</td>
+<td align="left">-0.54 (-0.74, -0.35)</td>
 <td align="left"></td>
-<td align="left">0.02 (-0.13, 0.17)</td>
+<td align="left">0.02 (-0.12, 0.18)</td>
 <td align="left">Met+SU</td>
-<td align="left">-0.96 (-1.14, -0.79)</td>
+<td align="left">-0.96 (-1.12, -0.80)</td>
 </tr>
 <tr class="even">
 <td align="left">SU</td>
-<td align="left">-0.55 (-0.74, -0.34)</td>
-<td align="left">0.41 (0.14, 0.70)</td>
+<td align="left">-0.54 (-0.74, -0.35)</td>
+<td align="left">0.42 (0.16, 0.67)</td>
 <td align="left"></td>
-<td align="left">0.98 (0.77, 1.20)</td>
-<td align="left">0.96 (0.79, 1.14)</td>
+<td align="left">0.99 (0.78, 1.20)</td>
+<td align="left">0.96 (0.80, 1.12)</td>
 <td align="left">SU</td>
 </tr>
 </tbody>
@@ -1220,7 +1207,7 @@ actually identifies. A lower HbA1c is better, so
 <span><span class="co">#&gt; Population-adjusted treatment hierarchy</span></span>
 <span><span class="co">#&gt;   Target population: bhba1c_c = -0.5</span></span>
 <span><span class="co">#&gt;  element estimate p_best median_rank mean_rank sucra</span></span>
-<span><span class="co">#&gt;       SU   -0.549      1           1         1     1</span></span>
+<span><span class="co">#&gt;       SU   -0.544      1           1         1     1</span></span>
 <span><span class="co">#&gt;     Diet    0.000      0           2         2     0</span></span>
 <span><span class="co">#&gt;   Not estimable in this population, so not ranked: Met+DPP4</span></span>
 <span><span class="co">#&gt;   Identified only by aggregate arms (first-order screen), so not ranked by default: Met, Met+SGLT2, Met+SU</span></span>
@@ -1252,11 +1239,11 @@ ask for it explicitly and read it as exploratory:</p>
 <span><span class="co">#&gt; Population-adjusted treatment hierarchy</span></span>
 <span><span class="co">#&gt;   Target population: bhba1c_c = -0.5</span></span>
 <span><span class="co">#&gt;    element estimate p_best median_rank mean_rank sucra</span></span>
-<span><span class="co">#&gt;  Met+SGLT2   -1.530   0.59           1     1.411 0.897</span></span>
-<span><span class="co">#&gt;     Met+SU   -1.511   0.41           2     1.589 0.853</span></span>
-<span><span class="co">#&gt;        Met   -0.962   0.00           3     3.003 0.499</span></span>
-<span><span class="co">#&gt;         SU   -0.549   0.00           4     3.997 0.251</span></span>
-<span><span class="co">#&gt;       Diet    0.000   0.00           5     5.000 0.000</span></span>
+<span><span class="co">#&gt;  Met+SGLT2   -1.530  0.605           1     1.395 0.901</span></span>
+<span><span class="co">#&gt;     Met+SU   -1.506  0.395           2     1.605 0.849</span></span>
+<span><span class="co">#&gt;        Met   -0.962  0.000           3     3.000 0.500</span></span>
+<span><span class="co">#&gt;         SU   -0.544  0.000           4     4.000 0.250</span></span>
+<span><span class="co">#&gt;       Diet    0.000  0.000           5     5.000 0.000</span></span>
 <span><span class="co">#&gt;   Not estimable in this population, so not ranked: Met+DPP4</span></span>
 <span><span class="co">#&gt;   Ranking metrics depend on the set ranked; report them with the effects, not instead.</span></span></code></pre></div>
 <p>Ranking metrics compress a whole distribution into one number, so it
@@ -1370,9 +1357,9 @@ estimand</caption>
 </tr>
 <tr class="odd">
 <td align="left">cML-NMR (conditional)</td>
-<td align="right">-0.567</td>
-<td align="right">-0.801</td>
-<td align="right">-0.310</td>
+<td align="right">-0.569</td>
+<td align="right">-0.808</td>
+<td align="right">-0.323</td>
 <td align="right">-0.56</td>
 </tr>
 </tbody>
@@ -1535,14 +1522,20 @@ by the data.</p>
 <code class="sourceCode R"><span><span class="va">ps</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/prior_sensitivity.html">prior_sensitivity</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>bhba1c_c <span class="op">=</span> <span class="op">-</span><span class="fl">0.5</span><span class="op">)</span>,</span>
 <span>                        prior <span class="op">=</span> <span class="st">"gamma"</span>, reference <span class="op">=</span> <span class="st">"Met"</span>,</span>
 <span>                        chains <span class="op">=</span> <span class="fl">2</span>, iter_warmup <span class="op">=</span> <span class="fl">300</span>, iter_sampling <span class="op">=</span> <span class="fl">300</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Warning: Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable.</span></span>
+<span><span class="co">#&gt; Running the chains for more iterations may help. See</span></span>
+<span><span class="co">#&gt; https://mc-stan.org/misc/warnings.html#bulk-ess</span></span>
+<span><span class="co">#&gt; Warning: Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable.</span></span>
+<span><span class="co">#&gt; Running the chains for more iterations may help. See</span></span>
+<span><span class="co">#&gt; https://mc-stan.org/misc/warnings.html#bulk-ess</span></span>
 <span><span class="va">ps</span></span>
 <span><span class="co">#&gt; cML-NMR prior sensitivity: gamma prior</span></span>
 <span><span class="co">#&gt;  treatment comparator estimate tighter looser move_tighter move_looser max_movement</span></span>
-<span><span class="co">#&gt;       Diet        Met    0.962   0.960  0.956        0.003       0.006        0.006</span></span>
-<span><span class="co">#&gt;   Met+DPP4        Met   -0.819  -0.961 -0.476        0.142       0.344        0.344</span></span>
-<span><span class="co">#&gt;  Met+SGLT2        Met   -0.567  -0.579 -0.572        0.012       0.005        0.012</span></span>
-<span><span class="co">#&gt;     Met+SU        Met   -0.549  -0.552 -0.547        0.003       0.002        0.003</span></span>
-<span><span class="co">#&gt;         SU        Met    0.413   0.407  0.409        0.006       0.004        0.006</span></span>
+<span><span class="co">#&gt;       Diet        Met    0.962   0.962  0.961        0.000       0.000        0.000</span></span>
+<span><span class="co">#&gt;   Met+DPP4        Met   -0.836  -0.921 -0.553        0.085       0.283        0.283</span></span>
+<span><span class="co">#&gt;  Met+SGLT2        Met   -0.569  -0.569 -0.570        0.000       0.002        0.002</span></span>
+<span><span class="co">#&gt;     Met+SU        Met   -0.544  -0.551 -0.549        0.007       0.005        0.007</span></span>
+<span><span class="co">#&gt;         SU        Met    0.417   0.411  0.412        0.007       0.005        0.007</span></span>
 <span><span class="co">#&gt;  estimable</span></span>
 <span><span class="co">#&gt;       TRUE</span></span>
 <span><span class="co">#&gt;      FALSE</span></span>
@@ -1593,22 +1586,22 @@ it.</p>
 <span><span class="co">#&gt; Warning: Some Pareto k diagnostic values are too high. See help('pareto-k-diagnostic') for details.</span></span>
 <span><span class="fu">loo</span><span class="fu">::</span><span class="fu"><a href="https://mc-stan.org/loo/reference/loo_compare.html" class="external-link">loo_compare</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>fixed <span class="op">=</span> <span class="va">loo_fixed</span>, random <span class="op">=</span> <span class="va">loo_random</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;   model elpd_diff se_diff p_worse       diag_diff      diag_elpd</span></span>
-<span><span class="co">#&gt;   fixed       0.0     0.0      NA                 4 k_psis &gt; 0.7</span></span>
-<span><span class="co">#&gt;  random      -0.5     0.6    0.81 |elpd_diff| &lt; 4 4 k_psis &gt; 0.7</span></span>
+<span><span class="co">#&gt;   fixed       0.0     0.0      NA                 2 k_psis &gt; 0.7</span></span>
+<span><span class="co">#&gt;  random      -1.7     1.0    0.95 |elpd_diff| &lt; 4 4 k_psis &gt; 0.7</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Diagnostic flags present.</span></span>
 <span><span class="co">#&gt; See ?`loo-glossary` (sections `diag_diff` and `diag_elpd`)</span></span>
 <span><span class="co">#&gt; or https://mc-stan.org/loo/reference/loo-glossary.html.</span></span>
 <span><span class="fu"><a href="../reference/dic.html">dic</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Deviance information criterion</span></span>
-<span><span class="co">#&gt;   DIC: 3054.7</span></span>
-<span><span class="co">#&gt;   Mean deviance: 3039.2</span></span>
-<span><span class="co">#&gt;   Effective parameters (pV): 15.6</span></span>
+<span><span class="co">#&gt;   DIC: 3052.3</span></span>
+<span><span class="co">#&gt;   Mean deviance: 3038.8</span></span>
+<span><span class="co">#&gt;   Effective parameters (pV): 13.5</span></span>
 <span><span class="fu"><a href="../reference/dic.html">dic</a></span><span class="op">(</span><span class="va">fit_re</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Deviance information criterion</span></span>
-<span><span class="co">#&gt;   DIC: 3056</span></span>
-<span><span class="co">#&gt;   Mean deviance: 3039.3</span></span>
-<span><span class="co">#&gt;   Effective parameters (pV): 16.7</span></span></code></pre></div>
+<span><span class="co">#&gt;   DIC: 3055.4</span></span>
+<span><span class="co">#&gt;   Mean deviance: 3039.4</span></span>
+<span><span class="co">#&gt;   Effective parameters (pV): 15.9</span></span></code></pre></div>
 <p>Two things to say honestly here.</p>
 <p>First, the LOO warning is expected and is worth understanding rather
 than suppressing. An aggregate arm contributes <strong>one</strong>
@@ -1649,17 +1642,17 @@ effects</caption>
 <tbody>
 <tr class="odd">
 <td align="left">fixed</td>
-<td align="right">-0.567</td>
-<td align="right">-0.801</td>
-<td align="right">-0.310</td>
-<td align="right">0.491</td>
+<td align="right">-0.569</td>
+<td align="right">-0.808</td>
+<td align="right">-0.323</td>
+<td align="right">0.485</td>
 </tr>
 <tr class="even">
 <td align="left">random</td>
-<td align="right">-0.574</td>
-<td align="right">-1.035</td>
-<td align="right">-0.072</td>
-<td align="right">0.962</td>
+<td align="right">-0.562</td>
+<td align="right">-1.036</td>
+<td align="right">-0.044</td>
+<td align="right">0.992</td>
 </tr>
 </tbody>
 </table>

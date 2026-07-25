@@ -1003,20 +1003,20 @@ has to be made deliberately <span class="citation">(<a href="#ref-remiro2022">Re
 <span>              exposure <span class="op">=</span> <span class="st">".exposure"</span>,</span>
 <span>              trt_effects <span class="op">=</span> <span class="st">"random"</span>,</span>
 <span>              chains <span class="op">=</span> <span class="fl">4</span>, iter_warmup <span class="op">=</span> <span class="fl">500</span>, iter_sampling <span class="op">=</span> <span class="fl">500</span>,</span>
-<span>              n_int <span class="op">=</span> <span class="fl">64</span>, seed <span class="op">=</span> <span class="fl">3</span>, show_exceptions <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span>              n_int <span class="op">=</span> <span class="fl">64</span>, seed <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span>
 <span><span class="va">fit</span></span>
 <span><span class="co">#&gt; cpaic: component-additive ML-NMR (Bayesian, poisson)</span></span>
 <span><span class="co">#&gt;   Treatment effects: random (noncentered)</span></span>
 <span><span class="co">#&gt;   Effect modifiers: eos [normal], freqex [bernoulli]</span></span>
-<span><span class="co">#&gt;   Provenance: cpaic 0.1.0, CmdStan 2.39.0, Stan md5 f235167d, seed 3</span></span>
+<span><span class="co">#&gt;   Provenance: cpaic 0.1.0, rstan 2.36.0.9000, Stan md5 f235167d, seed 3</span></span>
 <span><span class="co">#&gt;   Component effects below are at the covariate origin (x = 0).</span></span>
 <span><span class="co">#&gt;   For a target population use relative_effects(fit, newdata = ...).</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt;  component estimate    se  lower upper</span></span>
-<span><span class="co">#&gt;        ICS       NA    NA     NA    NA</span></span>
-<span><span class="co">#&gt;       LABA   -0.133 0.099 -0.319 0.046</span></span>
-<span><span class="co">#&gt;       LAMA       NA    NA     NA    NA</span></span>
-<span><span class="co">#&gt;        ROF       NA    NA     NA    NA</span></span></code></pre></div>
+<span><span class="co">#&gt;  component estimate  se  lower upper</span></span>
+<span><span class="co">#&gt;        ICS       NA  NA     NA    NA</span></span>
+<span><span class="co">#&gt;       LABA    -0.14 0.1 -0.324 0.062</span></span>
+<span><span class="co">#&gt;       LAMA       NA  NA     NA    NA</span></span>
+<span><span class="co">#&gt;        ROF       NA  NA     NA    NA</span></span></code></pre></div>
 <p>The <code>[bernoulli]</code> and <code>[normal]</code> tags in the
 print output are the integration margins cpaic chose. It guessed them
 from the IPD (<code>freqex</code> is 0/1, <code>eos</code> is not);
@@ -1132,19 +1132,19 @@ below.</p>
 <span>  divergences   <span class="op">=</span> <span class="va">fit</span><span class="op">$</span><span class="va">diagnostics</span><span class="op">$</span><span class="va">divergences</span>,</span>
 <span>  max_treedepth <span class="op">=</span> <span class="va">fit</span><span class="op">$</span><span class="va">diagnostics</span><span class="op">$</span><span class="va">max_treedepth</span>,</span>
 <span>  max_rhat      <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">diagnostics</span><span class="op">$</span><span class="va">max_rhat</span>, <span class="fl">4</span><span class="op">)</span>,</span>
-<span>  min_ess_bulk  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">fit</span><span class="op">$</span><span class="fu">summary</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"beta"</span>, <span class="st">"gamma"</span>, <span class="st">"mu"</span>,</span>
-<span>                                              <span class="st">"tau"</span><span class="op">)</span><span class="op">)</span><span class="op">$</span><span class="va">ess_bulk</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span></span>
+<span>  min_ess_bulk  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="fu"><a href="../reference/posterior_summary.html">posterior_summary</a></span><span class="op">(</span></span>
+<span>    <span class="va">fit</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"beta"</span>, <span class="st">"gamma"</span>, <span class="st">"mu"</span>, <span class="st">"tau"</span><span class="op">)</span><span class="op">)</span><span class="op">$</span><span class="va">ess_bulk</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="co">#&gt;   divergences max_treedepth max_rhat min_ess_bulk</span></span>
-<span><span class="co">#&gt; 1           4             1   1.0145          396</span></span></code></pre></div>
+<span><span class="co">#&gt; 1           1             6   1.0125          441</span></span></code></pre></div>
 <p>No divergences, and
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>R</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat R</annotation></semantics></math>
 and the effective sample sizes are fine. A handful of iterations
 saturate the maximum tree depth, which costs efficiency rather than
 correctness; it is the signature of the mild funnel that any
 random-effects model has when <code>tau</code> is only weakly informed.
-Raising <code>max_treedepth</code> (passed through <code>...</code> to
-<code>cmdstanr</code>) removes it at the cost of runtime.</p>
+Raising <code>max_treedepth</code>, an argument of <code><a href="../reference/cmlnmr.html">cmlnmr()</a></code>
+itself, removes it at the cost of runtime.</p>
 <p>The same conclusion, drawn rather than tabulated. <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code>
 on a <code><a href="../reference/cmlnmr.html">cmlnmr()</a></code> fit hands the draws to
 <code>bayesplot</code>; <code>type = "trace"</code> shows the four
@@ -1354,7 +1354,7 @@ estimability is what an aggregate two-arm trial buys you.</p>
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/component_effects.html">component_effects</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="va">target</span><span class="op">)</span></span>
 <span><span class="co">#&gt;   component   estimate        se      lower      upper</span></span>
 <span><span class="co">#&gt; 1       ICS         NA        NA         NA         NA</span></span>
-<span><span class="co">#&gt; 2      LABA -0.1474449 0.1058796 -0.3378115 0.03994639</span></span>
+<span><span class="co">#&gt; 2      LABA -0.1427196 0.1076843 -0.3448784 0.07102677</span></span>
 <span><span class="co">#&gt; 3      LAMA         NA        NA         NA         NA</span></span>
 <span><span class="co">#&gt; 4       ROF         NA        NA         NA         NA</span></span></code></pre></div>
 <p><code>LABA</code> is identified. <code>ICS</code>, <code>LAMA</code>
@@ -1391,8 +1391,8 @@ network could not answer.</p>
 <span><span class="co">#&gt;   Conditional effect at covariate profile: eos = 1.5, freqex = 0.55</span></span>
 <span><span class="co">#&gt;      treatment comparator estimate    se lower upper pr_gt0          basis</span></span>
 <span><span class="co">#&gt;           LABA       LAMA       NA    NA    NA    NA     NA not identified</span></span>
-<span><span class="co">#&gt;       LABA+ICS       LAMA    0.711 0.154 0.528 0.911  0.009          exact</span></span>
-<span><span class="co">#&gt;      LABA+LAMA       LAMA    0.868 0.106 0.713 1.041  0.054          exact</span></span>
+<span><span class="co">#&gt;       LABA+ICS       LAMA    0.717 0.151 0.536 0.951  0.012          exact</span></span>
+<span><span class="co">#&gt;      LABA+LAMA       LAMA    0.872 0.108 0.708 1.074  0.074          exact</span></span>
 <span><span class="co">#&gt;  LABA+LAMA+ROF       LAMA       NA    NA    NA    NA     NA not identified</span></span>
 <span><span class="co">#&gt;            PBO       LAMA       NA    NA    NA    NA     NA not identified</span></span>
 <span><span class="co">#&gt;   NA = not uniquely estimable from this component design (see estimable_effects()).</span></span>
@@ -1419,8 +1419,8 @@ identifies and the other does not.</p>
 <span><span class="co">#&gt;   Conditional effect at covariate profile: eos = -0.5, freqex = 0.2</span></span>
 <span><span class="co">#&gt;      treatment comparator estimate    se lower upper pr_gt0          basis</span></span>
 <span><span class="co">#&gt;           LABA       LAMA       NA    NA    NA    NA     NA not identified</span></span>
-<span><span class="co">#&gt;       LABA+ICS       LAMA    1.009 0.158 0.728 1.318  0.505          exact</span></span>
-<span><span class="co">#&gt;      LABA+LAMA       LAMA    0.882 0.097 0.731 1.050  0.064          exact</span></span>
+<span><span class="co">#&gt;       LABA+ICS       LAMA    1.002 0.160 0.724 1.343  0.469          exact</span></span>
+<span><span class="co">#&gt;      LABA+LAMA       LAMA    0.877 0.098 0.728 1.059  0.059          exact</span></span>
 <span><span class="co">#&gt;  LABA+LAMA+ROF       LAMA       NA    NA    NA    NA     NA not identified</span></span>
 <span><span class="co">#&gt;            PBO       LAMA       NA    NA    NA    NA     NA not identified</span></span>
 <span><span class="co">#&gt;   NA = not uniquely estimable from this component design (see estimable_effects()).</span></span>
@@ -1488,8 +1488,8 @@ truth</caption>
 <td align="right">0.790</td>
 <td align="left">yes</td>
 <td align="right">0.803</td>
-<td align="right">0.711</td>
-<td align="left">(0.53, 0.91)</td>
+<td align="right">0.717</td>
+<td align="left">(0.54, 0.95)</td>
 <td align="left">yes</td>
 </tr>
 <tr class="even">
@@ -1498,8 +1498,8 @@ truth</caption>
 <td align="right">0.873</td>
 <td align="left">yes</td>
 <td align="right">0.870</td>
-<td align="right">0.868</td>
-<td align="left">(0.71, 1.04)</td>
+<td align="right">0.872</td>
+<td align="left">(0.71, 1.07)</td>
 <td align="left">yes</td>
 </tr>
 </tbody>
@@ -1561,24 +1561,24 @@ Blank cells are not identified at this target.</caption>
 <td align="left"></td>
 <td align="left"></td>
 <td align="left"></td>
-<td align="left">0.87 (0.71, 1.04)</td>
+<td align="left">0.87 (0.71, 1.07)</td>
 </tr>
 <tr class="even">
 <td align="left">LABA+ICS</td>
 <td align="left"></td>
 <td align="left">LABA+ICS</td>
-<td align="left">0.82 (0.66, 0.98)</td>
+<td align="left">0.82 (0.66, 1.01)</td>
 <td align="left"></td>
-<td align="left">0.71 (0.53, 0.91)</td>
+<td align="left">0.72 (0.54, 0.95)</td>
 <td align="left"></td>
 </tr>
 <tr class="odd">
 <td align="left">LABA+LAMA</td>
 <td align="left"></td>
-<td align="left">1.23 (1.02, 1.51)</td>
+<td align="left">1.23 (0.99, 1.51)</td>
 <td align="left">LABA+LAMA</td>
 <td align="left"></td>
-<td align="left">0.87 (0.71, 1.04)</td>
+<td align="left">0.87 (0.71, 1.07)</td>
 <td align="left"></td>
 </tr>
 <tr class="even">
@@ -1593,15 +1593,15 @@ Blank cells are not identified at this target.</caption>
 <tr class="odd">
 <td align="left">LAMA</td>
 <td align="left"></td>
-<td align="left">1.44 (1.10, 1.89)</td>
-<td align="left">1.17 (0.96, 1.40)</td>
+<td align="left">1.43 (1.05, 1.87)</td>
+<td align="left">1.16 (0.93, 1.41)</td>
 <td align="left"></td>
 <td align="left">LAMA</td>
 <td align="left"></td>
 </tr>
 <tr class="even">
 <td align="left">PBO</td>
-<td align="left">1.17 (0.96, 1.40)</td>
+<td align="left">1.16 (0.93, 1.41)</td>
 <td align="left"></td>
 <td align="left"></td>
 <td align="left"></td>
@@ -1824,8 +1824,9 @@ component-implied effects. With seven contrasts and four components
 there are three degrees of freedom for it, so it is informed, but not
 richly.</p>
 <div class="sourceCode" id="cb38"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">fit</span><span class="op">$</span><span class="fu">summary</span><span class="op">(</span><span class="st">"tau"</span><span class="op">)</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"variable"</span>, <span class="st">"mean"</span>, <span class="st">"sd"</span>, <span class="st">"q5"</span>, <span class="st">"q95"</span>,</span>
-<span>                                        <span class="st">"rhat"</span>, <span class="st">"ess_bulk"</span><span class="op">)</span><span class="op">]</span>, digits <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="fu"><a href="../reference/posterior_summary.html">posterior_summary</a></span><span class="op">(</span><span class="va">fit</span>, <span class="st">"tau"</span><span class="op">)</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"variable"</span>, <span class="st">"mean"</span>, <span class="st">"sd"</span>, <span class="st">"q5"</span>,</span>
+<span>                                               <span class="st">"q95"</span>, <span class="st">"rhat"</span>, <span class="st">"ess_bulk"</span><span class="op">)</span><span class="op">]</span>,</span>
+<span>             digits <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span></code></pre></div>
 <table class="table">
 <thead><tr class="header">
 <th align="left">variable</th>
@@ -1838,12 +1839,12 @@ richly.</p>
 </tr></thead>
 <tbody><tr class="odd">
 <td align="left">tau[1]</td>
-<td align="right">0.082</td>
-<td align="right">0.094</td>
-<td align="right">0.006</td>
-<td align="right">0.25</td>
-<td align="right">1.015</td>
-<td align="right">396.395</td>
+<td align="right">0.089</td>
+<td align="right">0.109</td>
+<td align="right">0.005</td>
+<td align="right">0.275</td>
+<td align="right">1.012</td>
+<td align="right">441.11</td>
 </tr></tbody>
 </table>
 <p>Compare against a fixed-effect fit by leave-one-out cross-validation
@@ -1855,12 +1856,12 @@ richly.</p>
 <span>                    family <span class="op">=</span> <span class="st">"poisson"</span>, exposure <span class="op">=</span> <span class="st">".exposure"</span>,</span>
 <span>                    trt_effects <span class="op">=</span> <span class="st">"fixed"</span>,</span>
 <span>                    chains <span class="op">=</span> <span class="fl">4</span>, iter_warmup <span class="op">=</span> <span class="fl">500</span>, iter_sampling <span class="op">=</span> <span class="fl">500</span>,</span>
-<span>                    n_int <span class="op">=</span> <span class="fl">64</span>, seed <span class="op">=</span> <span class="fl">3</span>, show_exceptions <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span>                    n_int <span class="op">=</span> <span class="fl">64</span>, seed <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">loo</span><span class="fu">::</span><span class="fu"><a href="https://mc-stan.org/loo/reference/loo_compare.html" class="external-link">loo_compare</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>random <span class="op">=</span> <span class="fu">loo</span><span class="fu">::</span><span class="fu"><a href="https://mc-stan.org/loo/reference/loo.html" class="external-link">loo</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span>, fixed <span class="op">=</span> <span class="fu">loo</span><span class="fu">::</span><span class="fu"><a href="https://mc-stan.org/loo/reference/loo.html" class="external-link">loo</a></span><span class="op">(</span><span class="va">fit_fixed</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;   model elpd_diff se_diff p_worse       diag_diff      diag_elpd</span></span>
-<span><span class="co">#&gt;   fixed       0.0     0.0      NA                 4 k_psis &gt; 0.7</span></span>
-<span><span class="co">#&gt;  random      -1.1     0.7    0.94 |elpd_diff| &lt; 4 8 k_psis &gt; 0.7</span></span>
+<span><span class="co">#&gt;   fixed       0.0     0.0      NA                 7 k_psis &gt; 0.7</span></span>
+<span><span class="co">#&gt;  random      -0.5     1.0    0.71 |elpd_diff| &lt; 4 9 k_psis &gt; 0.7</span></span>
 <span></span>
 <span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  model <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"random"</span>, <span class="st">"fixed"</span><span class="op">)</span>,</span>
@@ -1877,13 +1878,13 @@ richly.</p>
 <tbody>
 <tr class="odd">
 <td align="left">random</td>
-<td align="right">6244.1</td>
-<td align="right">20.4</td>
+<td align="right">6245.2</td>
+<td align="right">21.2</td>
 </tr>
 <tr class="even">
 <td align="left">fixed</td>
-<td align="right">6241.0</td>
-<td align="right">17.3</td>
+<td align="right">6244.1</td>
+<td align="right">20.3</td>
 </tr>
 </tbody>
 </table>
@@ -1986,11 +1987,11 @@ taking it on trust.</p>
 <span><span class="va">ps</span></span>
 <span><span class="co">#&gt; cML-NMR prior sensitivity: gamma prior</span></span>
 <span><span class="co">#&gt;      treatment comparator estimate tighter looser move_tighter move_looser max_movement estimable</span></span>
-<span><span class="co">#&gt;           LABA       LAMA    0.130   0.120  0.152        0.010       0.023        0.023     FALSE</span></span>
-<span><span class="co">#&gt;       LABA+ICS       LAMA   -0.353  -0.328 -0.335        0.025       0.018        0.025      TRUE</span></span>
-<span><span class="co">#&gt;      LABA+LAMA       LAMA   -0.147  -0.138 -0.141        0.010       0.007        0.010      TRUE</span></span>
-<span><span class="co">#&gt;  LABA+LAMA+ROF       LAMA   -0.742  -0.380 -1.967        0.362       1.225        1.225     FALSE</span></span>
-<span><span class="co">#&gt;            PBO       LAMA    0.277   0.258  0.293        0.020       0.016        0.020     FALSE</span></span></code></pre></div>
+<span><span class="co">#&gt;           LABA       LAMA    0.155   0.150  0.146        0.005       0.009        0.009     FALSE</span></span>
+<span><span class="co">#&gt;       LABA+ICS       LAMA   -0.345  -0.351 -0.353        0.006       0.008        0.008      TRUE</span></span>
+<span><span class="co">#&gt;      LABA+LAMA       LAMA   -0.143  -0.140 -0.146        0.003       0.004        0.004      TRUE</span></span>
+<span><span class="co">#&gt;  LABA+LAMA+ROF       LAMA   -0.739  -0.345 -1.661        0.394       0.922        0.922     FALSE</span></span>
+<span><span class="co">#&gt;            PBO       LAMA    0.298   0.290  0.293        0.008       0.005        0.008     FALSE</span></span></code></pre></div>
 <p>Read <code>max_movement</code> against <code>estimable</code>. The
 estimable contrasts barely move. The non-estimable ones move with the
 prior, and <code>LABA+LAMA+ROF</code> moves <em>enormously</em>:

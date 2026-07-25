@@ -170,7 +170,7 @@ prior.
 
 ``` r
 
-# Requires cmdstanr; see ?cmlnmr.
+# Fits with rstan by default; backend = "cmdstanr" is the alternative.
 fit <- cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "Placebo",
               family = "binomial")
 component_effects(fit)

@@ -109,10 +109,13 @@ network is connected by construction.</p>
 <span>  prior_tau_scale <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  prior_tau_df <span class="op">=</span> <span class="fl">4</span>,</span>
 <span>  prior_predictive <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  backend <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"rstan"</span>, <span class="st">"cmdstanr"</span><span class="op">)</span>,</span>
 <span>  chains <span class="op">=</span> <span class="fl">4L</span>,</span>
 <span>  iter_warmup <span class="op">=</span> <span class="fl">500L</span>,</span>
 <span>  iter_sampling <span class="op">=</span> <span class="fl">500L</span>,</span>
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  adapt_delta <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  max_treedepth <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -298,17 +301,39 @@ observed likelihood. Replicated outcomes remain available for
 <code><a href="prior_predictive_check.html">prior_predictive_check()</a></code>.</p></dd>
 
 
+<dt id="arg-backend">backend<a class="anchor" aria-label="anchor" href="#arg-backend"></a></dt>
+<dd><p>Sampler engine: <code>"rstan"</code> (default) or <code>"cmdstanr"</code>. The two
+fit the same Stan models and are interchangeable; see the section below.</p></dd>
+
+
 <dt id="arg-chains-iter-warmup-iter-sampling-seed">chains, iter_warmup, iter_sampling, seed<a class="anchor" aria-label="anchor" href="#arg-chains-iter-warmup-iter-sampling-seed"></a></dt>
-<dd><p>Passed to <code>cmdstanr</code>.</p></dd>
+<dd><p>Sampler settings. <code>iter_warmup</code>
+and <code>iter_sampling</code> are counted separately whichever backend is used; the
+translation to rstan's combined <code>iter</code> is handled internally.</p></dd>
+
+
+<dt id="arg-adapt-delta-max-treedepth">adapt_delta, max_treedepth<a class="anchor" aria-label="anchor" href="#arg-adapt-delta-max-treedepth"></a></dt>
+<dd><p>Sampler tuning, or <code>NULL</code> for the engine
+default. These are named arguments rather than left to <code>...</code> because the two
+backends take them in different places.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
-<dd><p>Passed to the <code>cmdstanr</code> sampler (e.g. <code>adapt_delta</code>).</p></dd>
+<dd><p>Further arguments for the sampler. These are passed through
+untouched and are therefore <strong>backend-specific</strong>: they reach
+<code><a href="https://mc-stan.org/rstan/reference/stanmodel-method-sampling.html" class="external-link">rstan::sampling()</a></code> or the <code>cmdstanr</code> <code>$sample()</code> method as given. Prefer
+the named arguments above for anything that has one.</p>
+<p>Under <code>backend = "rstan"</code> an argument rstan does not accept is rejected by
+name before the fit, rather than being handed to <code><a href="https://mc-stan.org/rstan/reference/stanmodel-method-sampling.html" class="external-link">rstan::sampling()</a></code> to
+kill every chain with a message that names nothing. About twenty cmdstanr
+sampler arguments have no rstan equivalent (<code>step_size</code>, <code>metric</code>,
+<code>inv_metric</code>, <code>adapt_engaged</code>, <code>parallel_chains</code>, <code>save_latent_dynamics</code>,
+and so on), and a misspelled argument is caught the same way.</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>An object of class <code>cpaic_mlnmr</code> with the <code>cmdstanr</code> fit, the
+    <p>An object of class <code>cpaic_mlnmr</code> with the fitted Stan object, the
 component design, and a tidy table of component effects.</p>
     </div>
     <div class="section level2">
@@ -486,6 +511,30 @@ variation on the contrasts that involve it, and interactions informed only
 by aggregate arms are weakly identified (<code>prior_gamma_scale</code> regularizes).</p>
     </div>
     <div class="section level2">
+    <h2 id="backends">Backends<a class="anchor" aria-label="anchor" href="#backends"></a></h2>
+
+
+<p><code>backend = "rstan"</code> is the default. Its models are compiled when cpaic is
+installed, so nothing else is needed and the examples and tests run anywhere.
+<code>backend = "cmdstanr"</code> fits the identical models with CmdStan, which tracks
+Stan releases more closely and is often faster, but it needs the <code>cmdstanr</code>
+package and a separate CmdStan installation.</p>
+<p>The two are interchangeable, not identical: they do not share a random number
+stream, so the same <code>seed</code> gives different draws on each. Convergence
+diagnostics are computed the same way for both (through <code>posterior</code>), so
+<code>rhat</code>, <code>ess_bulk</code>, and <code>ess_tail</code> mean the same thing whichever produced the
+fit, and everything downstream of the fit works on either.</p>
+<p>They also differ in how they run chains. cmdstanr runs all <code>chains</code> at once.
+rstan follows the R convention of taking its core count from
+<code>getOption("mc.cores")</code>, which is 1 unless you set it, so on the default
+backend the chains run one after another until you do:</p>
+<p></p><div class="sourceCode"><pre><code><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">options</span>(<span class="at">mc.cores =</span> parallel<span class="sc">::</span><span class="fu">detectCores</span>())</span></code></pre><p></p></div>
+<p>Do not reach into <code>fit$fit</code> to summarize parameters. That slot holds whatever
+the backend returned, an S4 <code>stanfit</code> or an R6 CmdStan object, and the two
+share no accessors, so code written against one fails on the other. Use
+<code><a href="posterior_summary.html">posterior_summary()</a></code>, which returns the same table either way.</p>
+    </div>
+    <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
     <p>Phillippo DM, Dias S, Ades AE, et al. (2020). Multilevel network
 meta-regression for population-adjusted treatment comparisons. <em>JRSS A</em>,
@@ -500,8 +549,7 @@ Component Hierarchies in Component Network Meta-Analysis.</p>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># requireNamespace("cmdstanr", quietly = TRUE) &amp;&amp; !inherits(try(cmdstanr::cmdstan_path(), silent = TRUE), "try-error")</span></span></span>
-<span class="r-in"><span><span class="co"># \donttest{</span></span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># \donttest{</span></span></span>
 <span class="r-in"><span><span class="va">ipd</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>.study <span class="op">=</span> <span class="st">"S1"</span>,</span></span>
 <span class="r-in"><span>                  .trt <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Placebo"</span>, <span class="st">"A"</span><span class="op">)</span>, each <span class="op">=</span> <span class="fl">100</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>                  .y <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="fl">200</span>, <span class="fl">1</span>, <span class="fl">0.5</span><span class="op">)</span>, x1 <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">200</span><span class="op">)</span><span class="op">)</span></span></span>
@@ -510,10 +558,24 @@ Component Hierarchies in Component Network Meta-Analysis.</p>
 <span class="r-in"><span>                  x1_mean <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.2</span>, <span class="fl">0.2</span><span class="op">)</span>, x1_sd <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu">cmlnmr</span><span class="op">(</span><span class="va">ipd</span>, <span class="va">agd</span>, effect_modifiers <span class="op">=</span> <span class="st">"x1"</span>, inactive <span class="op">=</span> <span class="st">"Placebo"</span>,</span></span>
 <span class="r-in"><span>              chains <span class="op">=</span> <span class="fl">2</span>, iter_warmup <span class="op">=</span> <span class="fl">200</span>, iter_sampling <span class="op">=</span> <span class="fl">200</span><span class="op">)</span></span></span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable.</span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> Running the chains for more iterations may help. See</span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> https://mc-stan.org/misc/warnings.html#bulk-ess</span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.</span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> Running the chains for more iterations may help. See</span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> https://mc-stan.org/misc/warnings.html#tail-ess</span>
 <span class="r-in"><span><span class="co"># Effects in a named target population (x1 = 0.2), not at the origin:</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>x1 <span class="op">=</span> <span class="fl">0.2</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Relative effects (OR, back-transformed)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Conditional effect at covariate profile: x1 = 0.2</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  treatment comparator estimate    se lower upper pr_gt0              basis</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>          A    Placebo    2.121 0.286 1.141 3.557  0.995              exact</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>        A+B    Placebo    2.020 0.312 1.037 3.438  0.975 first-order screen</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   `se` is on the link (log) scale; the interval is back-transformed.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   basis "first-order screen" = estimable by the row-space criterion but leaning</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   on aggregate arms or a survival baseline, so it can be optimistic; check</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   with prior_sensitivity() / estimable_effects_at().</span>
 <span class="r-in"><span><span class="co"># }</span></span></span>
-<span class="r-in"><span><span class="op">}</span></span></span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

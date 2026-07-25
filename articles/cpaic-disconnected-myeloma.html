@@ -560,9 +560,9 @@ number for the one that is, which is exactly the behavior you want.</p>
 <span><span class="co">#&gt;   Conditional effect at covariate profile: hr = 0.15</span></span>
 <span><span class="co">#&gt;  treatment comparator estimate    se lower upper pr_gt0          basis</span></span>
 <span><span class="co">#&gt;        Obs          R       NA    NA    NA    NA     NA not identified</span></span>
-<span><span class="co">#&gt;        R+D          R    1.557 0.135 1.186 2.001      1          exact</span></span>
+<span><span class="co">#&gt;        R+D          R    1.558 0.140 1.171 2.046  0.999          exact</span></span>
 <span><span class="co">#&gt;        R+I          R       NA    NA    NA    NA     NA not identified</span></span>
-<span><span class="co">#&gt;        R+V          R    1.741 0.084 1.474 2.047      1          exact</span></span>
+<span><span class="co">#&gt;        R+V          R    1.746 0.088 1.470 2.074  1.000          exact</span></span>
 <span><span class="co">#&gt;          V          R       NA    NA    NA    NA     NA not identified</span></span>
 <span><span class="co">#&gt;   NA = not uniquely estimable from this component design (see estimable_effects()).</span></span>
 <span><span class="co">#&gt;   `se` is on the link (log) scale; the interval is back-transformed.</span></span>
@@ -571,9 +571,9 @@ number for the one that is, which is exactly the behavior you want.</p>
 <span><span class="co">#&gt;   Conditional effect at covariate profile: hr = 0.6</span></span>
 <span><span class="co">#&gt;  treatment comparator estimate    se lower upper pr_gt0          basis</span></span>
 <span><span class="co">#&gt;        Obs          R       NA    NA    NA    NA     NA not identified</span></span>
-<span><span class="co">#&gt;        R+D          R    2.134 0.141 1.617 2.798  1.000          exact</span></span>
+<span><span class="co">#&gt;        R+D          R    2.131 0.141 1.609 2.785      1          exact</span></span>
 <span><span class="co">#&gt;        R+I          R       NA    NA    NA    NA     NA not identified</span></span>
-<span><span class="co">#&gt;        R+V          R    1.356 0.097 1.112 1.648  0.999          exact</span></span>
+<span><span class="co">#&gt;        R+V          R    1.357 0.098 1.123 1.656      1          exact</span></span>
 <span><span class="co">#&gt;          V          R       NA    NA    NA    NA     NA not identified</span></span>
 <span><span class="co">#&gt;   NA = not uniquely estimable from this component design (see estimable_effects()).</span></span>
 <span><span class="co">#&gt;   `se` is on the link (log) scale; the interval is back-transformed.</span></span></code></pre></div>
@@ -644,7 +644,7 @@ estimable as population-adjusted effects.</caption>
 <td align="left"></td>
 <td align="left"></td>
 <td align="left"></td>
-<td align="left">0.74 (0.61, 0.90)</td>
+<td align="left">0.74 (0.60, 0.89)</td>
 </tr>
 <tr class="even">
 <td align="left">R</td>
@@ -652,16 +652,16 @@ estimable as population-adjusted effects.</caption>
 <td align="left">R</td>
 <td align="left">0.48 (0.36, 0.62)</td>
 <td align="left"></td>
-<td align="left">0.74 (0.61, 0.90)</td>
+<td align="left">0.74 (0.60, 0.89)</td>
 <td align="left"></td>
 </tr>
 <tr class="odd">
 <td align="left">R+D</td>
 <td align="left"></td>
-<td align="left">2.13 (1.62, 2.80)</td>
+<td align="left">2.13 (1.61, 2.78)</td>
 <td align="left">R+D</td>
 <td align="left"></td>
-<td align="left">1.57 (1.29, 1.91)</td>
+<td align="left">1.57 (1.29, 1.90)</td>
 <td align="left"></td>
 </tr>
 <tr class="even">
@@ -676,15 +676,15 @@ estimable as population-adjusted effects.</caption>
 <tr class="odd">
 <td align="left">R+V</td>
 <td align="left"></td>
-<td align="left">1.36 (1.11, 1.65)</td>
-<td align="left">0.64 (0.52, 0.78)</td>
+<td align="left">1.36 (1.12, 1.66)</td>
+<td align="left">0.64 (0.53, 0.77)</td>
 <td align="left"></td>
 <td align="left">R+V</td>
 <td align="left"></td>
 </tr>
 <tr class="even">
 <td align="left">V</td>
-<td align="left">1.36 (1.11, 1.65)</td>
+<td align="left">1.36 (1.12, 1.66)</td>
 <td align="left"></td>
 <td align="left"></td>
 <td align="left"></td>
@@ -719,22 +719,22 @@ the components with unidentified interactions cancel.</p>
 <strong>“which component is best in this population?”</strong> <span class="citation">(Wigle et al. 2026)</span>.</p>
 <div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/cpaic_ranks.html">cpaic_ranks</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>hr <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span>, what <span class="op">=</span> <span class="st">"component"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Warning: Dropped from the hierarchy as not estimable in this target population: I, R.</span></span>
-<span><span class="co">#&gt; Ranking them would rank the prior. See estimable_effects_at().</span></span>
+<span><span class="co">#&gt; Warning: Dropped from the hierarchy as not estimable in this target population:</span></span>
+<span><span class="co">#&gt; I, R. Ranking them would rank the prior. See estimable_effects_at().</span></span>
 <span><span class="co">#&gt; Population-adjusted component hierarchy</span></span>
 <span><span class="co">#&gt;   Target population: hr = 0.05</span></span>
 <span><span class="co">#&gt;  element estimate p_best median_rank mean_rank sucra</span></span>
-<span><span class="co">#&gt;        V    0.607  0.979           1     1.021 0.979</span></span>
-<span><span class="co">#&gt;        D    0.364  0.021           2     1.979 0.021</span></span>
+<span><span class="co">#&gt;        V    0.610  0.978           1     1.022 0.978</span></span>
+<span><span class="co">#&gt;        D    0.364  0.022           2     1.978 0.022</span></span>
 <span><span class="co">#&gt;   Not estimable in this population, so not ranked: I, R</span></span>
 <span><span class="co">#&gt;   Ranking metrics depend on the set ranked; report them with the effects, not instead.</span></span>
 <span><span class="fu"><a href="../reference/cpaic_ranks.html">cpaic_ranks</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>hr <span class="op">=</span> <span class="fl">0.80</span><span class="op">)</span>, what <span class="op">=</span> <span class="st">"component"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Warning: Dropped from the hierarchy as not estimable in this target population: I, R.</span></span>
-<span><span class="co">#&gt; Ranking them would rank the prior. See estimable_effects_at().</span></span>
+<span><span class="co">#&gt; Warning: Dropped from the hierarchy as not estimable in this target population:</span></span>
+<span><span class="co">#&gt; I, R. Ranking them would rank the prior. See estimable_effects_at().</span></span>
 <span><span class="co">#&gt; Population-adjusted component hierarchy</span></span>
 <span><span class="co">#&gt;   Target population: hr = 0.8</span></span>
 <span><span class="co">#&gt;  element estimate p_best median_rank mean_rank sucra</span></span>
-<span><span class="co">#&gt;        D    0.888      1           1         1     1</span></span>
+<span><span class="co">#&gt;        D    0.886      1           1         1     1</span></span>
 <span><span class="co">#&gt;        V    0.188      0           2         2     0</span></span>
 <span><span class="co">#&gt;   Not estimable in this population, so not ranked: I, R</span></span>
 <span><span class="co">#&gt;   Ranking metrics depend on the set ranked; report them with the effects, not instead.</span></span></code></pre></div>
@@ -773,8 +773,9 @@ places completely.</p>
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="../reference/rank_probs.html">rank_probs</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>hr <span class="op">=</span> <span class="fl">0.30</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>  error <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">e</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"rank_probs() refused:\n "</span>, <span class="fu"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">conditionMessage</a></span><span class="op">(</span><span class="va">e</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Warning: Dropped from the hierarchy as not estimable in this target population: R, R+D,</span></span>
-<span><span class="co">#&gt; R+I, R+V. Ranking them would rank the prior. See estimable_effects_at().</span></span>
+<span><span class="co">#&gt; Warning: Dropped from the hierarchy as not estimable in this target population:</span></span>
+<span><span class="co">#&gt; R, R+D, R+I, R+V. Ranking them would rank the prior. See</span></span>
+<span><span class="co">#&gt; estimable_effects_at().</span></span>
 <span><span class="co">#&gt; rank_probs() refused:</span></span>
 <span><span class="co">#&gt;   Fewer than two elements are estimable (excluding elements identified only by aggregate arms) in this target population, so no hierarchy can be formed. See estimable_effects_at().</span></span></code></pre></div>
 <p>The refusal is the correct answer, and it is deliberate. Of the five

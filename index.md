@@ -57,8 +57,8 @@ additivity.
   outcomes.
 - **Bayesian
   [`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md)**
-  (component-additive ML-NMR), fitted with `cmdstanr`. Binary,
-  continuous, count, and survival outcomes.
+  (component-additive ML-NMR), fitted with rstan by default or with
+  cmdstanr on request. Binary, continuous, count, and survival outcomes.
 
 This is research software under active development. Read the Limitations
 section before using it for a decision.
@@ -95,10 +95,24 @@ remotes::install_github("choxos/cpaic")
 `cpaic` builds on `netmeta` for the component-NMA engine and `maicplus`
 for the MAIC weights, both on CRAN. The component-additive ML-NMR models
 and their quasi-Monte-Carlo integration are implemented in the package
-itself, following Phillippo et al. (2020);
-[`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md) fits
-them with `cmdstanr`, which is installed from
-<https://stan-dev.r-universe.dev>.
+itself, following Phillippo et al. (2020).
+
+Those models are compiled when cpaic is installed, so
+[`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md) works
+with no further setup. It fits through **rstan** by default; pass
+`backend = "cmdstanr"` to use CmdStan instead, which tracks Stan
+releases more closely and is often faster, and which needs the
+`cmdstanr` package from <https://stan-dev.r-universe.dev> plus a CmdStan
+installation. The two fit the same models and agree up to Monte Carlo
+error; they do not share a random number stream, so the same `seed`
+gives different draws on each. Under rstan the chains run one after
+another unless you set `options(mc.cores = ...)`, as usual for R.
+
+Summarize a fit with
+[`posterior_summary()`](https://choxos.github.io/cpaic/reference/posterior_summary.md)
+rather than the sampler object under `fit$fit`: that slot is an S4
+`stanfit` on one backend and an R6 object on the other, and they share
+no accessors.
 
 ## Quick start
 

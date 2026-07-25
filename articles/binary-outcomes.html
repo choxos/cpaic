@@ -951,20 +951,20 @@ not forced to fit every trial exactly.</p>
 <span>              inactive <span class="op">=</span> <span class="st">"UC"</span>, family <span class="op">=</span> <span class="st">"binomial"</span>,</span>
 <span>              trt_effects <span class="op">=</span> <span class="st">"random"</span>,</span>
 <span>              chains <span class="op">=</span> <span class="fl">4</span>, iter_warmup <span class="op">=</span> <span class="fl">500</span>, iter_sampling <span class="op">=</span> <span class="fl">500</span>,</span>
-<span>              n_int <span class="op">=</span> <span class="fl">64</span>, seed <span class="op">=</span> <span class="fl">1</span>, show_exceptions <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span>              n_int <span class="op">=</span> <span class="fl">64</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">fit</span></span>
 <span><span class="co">#&gt; cpaic: component-additive ML-NMR (Bayesian, binomial)</span></span>
 <span><span class="co">#&gt;   Treatment effects: random (noncentered)</span></span>
 <span><span class="co">#&gt;   Effect modifiers: cpd [normal]</span></span>
-<span><span class="co">#&gt;   Provenance: cpaic 0.1.0, CmdStan 2.39.0, Stan md5 0a55fe50, seed 1</span></span>
+<span><span class="co">#&gt;   Provenance: cpaic 0.1.0, rstan 2.36.0.9000, Stan md5 0a55fe50, seed 1</span></span>
 <span><span class="co">#&gt;   Component effects below are at the covariate origin (x = 0).</span></span>
 <span><span class="co">#&gt;   For a target population use relative_effects(fit, newdata = ...).</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt;  component estimate    se lower upper</span></span>
-<span><span class="co">#&gt;        BUP       NA    NA    NA    NA</span></span>
-<span><span class="co">#&gt;        CBT    0.484 0.121 0.213 0.699</span></span>
-<span><span class="co">#&gt;        NRT       NA    NA    NA    NA</span></span>
-<span><span class="co">#&gt;        VAR       NA    NA    NA    NA</span></span></code></pre></div>
+<span><span class="co">#&gt;  component estimate   se lower upper</span></span>
+<span><span class="co">#&gt;        BUP       NA   NA    NA    NA</span></span>
+<span><span class="co">#&gt;        CBT    0.484 0.13 0.165 0.694</span></span>
+<span><span class="co">#&gt;        NRT       NA   NA    NA    NA</span></span>
+<span><span class="co">#&gt;        VAR       NA   NA    NA    NA</span></span></code></pre></div>
 <p>Note what the print method insists on: those component effects are at
 the covariate <strong>origin</strong>, not in any population you care
 about.</p>
@@ -1075,11 +1075,11 @@ below.</p>
 <span>  divergences   <span class="op">=</span> <span class="va">fit</span><span class="op">$</span><span class="va">diagnostics</span><span class="op">$</span><span class="va">divergences</span>,</span>
 <span>  max_treedepth <span class="op">=</span> <span class="va">fit</span><span class="op">$</span><span class="va">diagnostics</span><span class="op">$</span><span class="va">max_treedepth</span>,</span>
 <span>  max_rhat      <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">diagnostics</span><span class="op">$</span><span class="va">max_rhat</span>, <span class="fl">4</span><span class="op">)</span>,</span>
-<span>  min_ess_bulk  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">fit</span><span class="op">$</span><span class="fu">summary</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"beta"</span>, <span class="st">"gamma"</span>, <span class="st">"mu"</span>,</span>
-<span>                                              <span class="st">"tau"</span><span class="op">)</span><span class="op">)</span><span class="op">$</span><span class="va">ess_bulk</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span></span>
+<span>  min_ess_bulk  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="fu"><a href="../reference/posterior_summary.html">posterior_summary</a></span><span class="op">(</span></span>
+<span>    <span class="va">fit</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"beta"</span>, <span class="st">"gamma"</span>, <span class="st">"mu"</span>, <span class="st">"tau"</span><span class="op">)</span><span class="op">)</span><span class="op">$</span><span class="va">ess_bulk</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="co">#&gt;   divergences max_treedepth max_rhat min_ess_bulk</span></span>
-<span><span class="co">#&gt; 1           2             0   1.0168          425</span></span></code></pre></div>
+<span><span class="co">#&gt; 1           2             0   1.0122          528</span></span></code></pre></div>
 <p>The trace plot shows the same thing chain by chain.</p>
 <div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">fit</span>, type <span class="op">=</span> <span class="st">"trace"</span><span class="op">)</span></span></code></pre></div>
@@ -1276,11 +1276,11 @@ population, only <code>CBT</code> is separately identified; even
 <em>against</em> nicotine replacement:</p>
 <div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/component_effects.html">component_effects</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="va">target</span><span class="op">)</span></span>
-<span><span class="co">#&gt;   component estimate        se    lower     upper</span></span>
-<span><span class="co">#&gt; 1       BUP       NA        NA       NA        NA</span></span>
-<span><span class="co">#&gt; 2       CBT 0.406458 0.1309455 0.122849 0.6495137</span></span>
-<span><span class="co">#&gt; 3       NRT       NA        NA       NA        NA</span></span>
-<span><span class="co">#&gt; 4       VAR       NA        NA       NA        NA</span></span></code></pre></div>
+<span><span class="co">#&gt;   component estimate        se      lower     upper</span></span>
+<span><span class="co">#&gt; 1       BUP       NA        NA         NA        NA</span></span>
+<span><span class="co">#&gt; 2       CBT 0.407785 0.1383116 0.08066389 0.6410474</span></span>
+<span><span class="co">#&gt; 3       NRT       NA        NA         NA        NA</span></span>
+<span><span class="co">#&gt; 4       VAR       NA        NA         NA        NA</span></span></code></pre></div>
 <p><code><a href="../reference/forest.html">forest()</a></code> renders the same table, and renders the
 <code>NA</code>s as what they are.</p>
 <div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
@@ -1357,8 +1357,8 @@ against <code>NRT</code>:</p>
 <span><span class="co">#&gt;  treatment comparator estimate    se lower upper pr_gt0          basis</span></span>
 <span><span class="co">#&gt;        CBT        NRT       NA    NA    NA    NA     NA not identified</span></span>
 <span><span class="co">#&gt;    CBT+BUP        NRT       NA    NA    NA    NA     NA not identified</span></span>
-<span><span class="co">#&gt;    CBT+NRT        NRT    1.514 0.131 1.131 1.915  0.992          exact</span></span>
-<span><span class="co">#&gt;    CBT+VAR        NRT    2.820 0.193 1.860 3.956  1.000          exact</span></span>
+<span><span class="co">#&gt;    CBT+NRT        NRT    1.518 0.138 1.084 1.898  0.988          exact</span></span>
+<span><span class="co">#&gt;    CBT+VAR        NRT    2.831 0.201 1.799 4.032  0.999          exact</span></span>
 <span><span class="co">#&gt;         UC        NRT       NA    NA    NA    NA     NA not identified</span></span>
 <span><span class="co">#&gt;   NA = not uniquely estimable from this component design (see estimable_effects()).</span></span>
 <span><span class="co">#&gt;   `se` is on the link (log) scale; the interval is back-transformed.</span></span></code></pre></div>
@@ -1384,8 +1384,8 @@ Same network, same target, same question.</p>
 <span><span class="co">#&gt;  treatment comparator estimate    se lower upper pr_gt0          basis</span></span>
 <span><span class="co">#&gt;        CBT        NRT       NA    NA    NA    NA     NA not identified</span></span>
 <span><span class="co">#&gt;    CBT+BUP        NRT       NA    NA    NA    NA     NA not identified</span></span>
-<span><span class="co">#&gt;    CBT+NRT        NRT    1.818 0.137 1.324 2.298  0.997          exact</span></span>
-<span><span class="co">#&gt;    CBT+VAR        NRT    2.220 0.231 1.359 3.323  0.997          exact</span></span>
+<span><span class="co">#&gt;    CBT+NRT        NRT    1.815 0.144 1.287 2.310  0.999          exact</span></span>
+<span><span class="co">#&gt;    CBT+VAR        NRT    2.236 0.240 1.331 3.426  0.994          exact</span></span>
 <span><span class="co">#&gt;         UC        NRT       NA    NA    NA    NA     NA not identified</span></span>
 <span><span class="co">#&gt;   NA = not uniquely estimable from this component design (see estimable_effects()).</span></span>
 <span><span class="co">#&gt;   `se` is on the link (log) scale; the interval is back-transformed.</span></span></code></pre></div>
@@ -1435,16 +1435,16 @@ truth</caption>
 <td align="right">1.63</td>
 <td align="right">1.66</td>
 <td align="right">1.68</td>
-<td align="right">1.51</td>
-<td align="left">(1.13, 1.91)</td>
+<td align="right">1.52</td>
+<td align="left">(1.08, 1.90)</td>
 </tr>
 <tr class="even">
 <td align="left">CBT+VAR vs NRT</td>
 <td align="right">3.21</td>
 <td align="right">3.23</td>
 <td align="right">3.25</td>
-<td align="right">2.82</td>
-<td align="left">(1.86, 3.96)</td>
+<td align="right">2.83</td>
+<td align="left">(1.80, 4.03)</td>
 </tr>
 </tbody>
 </table>
@@ -1493,7 +1493,7 @@ not estimable.</caption>
 <td align="left"></td>
 <td align="left"></td>
 <td align="left"></td>
-<td align="left">1.51 (1.13, 1.91)</td>
+<td align="left">1.52 (1.08, 1.90)</td>
 </tr>
 <tr class="even">
 <td align="left">CBT+BUP</td>
@@ -1509,31 +1509,31 @@ not estimable.</caption>
 <td align="left"></td>
 <td align="left"></td>
 <td align="left">CBT+NRT</td>
-<td align="left">0.55 (0.41, 0.73)</td>
-<td align="left">1.51 (1.13, 1.91)</td>
+<td align="left">0.55 (0.40, 0.72)</td>
+<td align="left">1.52 (1.08, 1.90)</td>
 <td align="left"></td>
 </tr>
 <tr class="even">
 <td align="left">CBT+VAR</td>
 <td align="left"></td>
 <td align="left"></td>
-<td align="left">1.86 (1.37, 2.43)</td>
+<td align="left">1.86 (1.39, 2.52)</td>
 <td align="left">CBT+VAR</td>
-<td align="left">2.82 (1.86, 3.96)</td>
+<td align="left">2.83 (1.80, 4.03)</td>
 <td align="left"></td>
 </tr>
 <tr class="odd">
 <td align="left">NRT</td>
 <td align="left"></td>
 <td align="left"></td>
-<td align="left">0.67 (0.52, 0.88)</td>
-<td align="left">0.37 (0.25, 0.54)</td>
+<td align="left">0.67 (0.53, 0.92)</td>
+<td align="left">0.37 (0.25, 0.56)</td>
 <td align="left">NRT</td>
 <td align="left"></td>
 </tr>
 <tr class="even">
 <td align="left">UC</td>
-<td align="left">0.67 (0.52, 0.88)</td>
+<td align="left">0.67 (0.53, 0.92)</td>
 <td align="left"></td>
 <td align="left"></td>
 <td align="left"></td>
@@ -1594,8 +1594,8 @@ performs those steps and reports what it had to discard.</p>
 <span><span class="co">#&gt; Population-adjusted treatment hierarchy</span></span>
 <span><span class="co">#&gt;   Target population: cpd = 0.3</span></span>
 <span><span class="co">#&gt;  element estimate p_best median_rank mean_rank sucra</span></span>
-<span><span class="co">#&gt;      CBT    0.406  0.992           1     1.008 0.992</span></span>
-<span><span class="co">#&gt;       UC    0.000  0.008           2     1.992 0.008</span></span>
+<span><span class="co">#&gt;      CBT    0.408  0.988           1     1.012 0.988</span></span>
+<span><span class="co">#&gt;       UC    0.000  0.013           2     1.988 0.012</span></span>
 <span><span class="co">#&gt;   Not estimable in this population, so not ranked: CBT+BUP, CBT+NRT, CBT+VAR, NRT</span></span>
 <span><span class="co">#&gt;   Ranking metrics depend on the set ranked; report them with the effects, not instead.</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">rk</span><span class="op">)</span></span></code></pre></div>
@@ -1639,8 +1639,8 @@ plot of chunk rank-curve
 </div>
 <p>Two cautions in one figure. First, the curves do not cross here, so
 counseling beats usual care in every target population; but the margin
-erodes steadily, and <code>CBT</code>’s SUCRA falls from 0.997 in the
-lightest-smoking population to 0.863 in the heaviest, which is what a
+erodes steadily, and <code>CBT</code>’s SUCRA falls from 0.998 in the
+lightest-smoking population to 0.877 in the heaviest, which is what a
 component whose interaction with <code>cpd</code> is negative should do.
 In a network with more estimable contrasts the curves generally
 <em>do</em> cross, and a hierarchy quoted without a population is then
@@ -1711,7 +1711,7 @@ populations</strong>. Nothing warns you. Compare against
 <td align="left">(1.43, 1.92)</td>
 <td align="left">yes</td>
 <td align="right">1.68</td>
-<td align="right">1.51</td>
+<td align="right">1.52</td>
 </tr>
 <tr class="odd">
 <td align="left">CBT+NRT vs UC</td>
@@ -1787,8 +1787,9 @@ contrasts and four components there is very little information about
 <code>tau</code>, so its posterior leans on the half-normal(0, 1) prior.
 Say so, rather than reporting it as a finding.</p>
 <div class="sourceCode" id="cb39"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="va">fit</span><span class="op">$</span><span class="va">fit</span><span class="op">$</span><span class="fu">summary</span><span class="op">(</span><span class="st">"tau"</span><span class="op">)</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"variable"</span>, <span class="st">"mean"</span>, <span class="st">"sd"</span>, <span class="st">"q5"</span>, <span class="st">"q95"</span>,</span>
-<span>                                        <span class="st">"rhat"</span>, <span class="st">"ess_bulk"</span><span class="op">)</span><span class="op">]</span>, digits <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="fu"><a href="../reference/posterior_summary.html">posterior_summary</a></span><span class="op">(</span><span class="va">fit</span>, <span class="st">"tau"</span><span class="op">)</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"variable"</span>, <span class="st">"mean"</span>, <span class="st">"sd"</span>, <span class="st">"q5"</span>,</span>
+<span>                                               <span class="st">"q95"</span>, <span class="st">"rhat"</span>, <span class="st">"ess_bulk"</span><span class="op">)</span><span class="op">]</span>,</span>
+<span>             digits <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span></code></pre></div>
 <table class="table">
 <thead><tr class="header">
 <th align="left">variable</th>
@@ -1801,12 +1802,12 @@ Say so, rather than reporting it as a finding.</p>
 </tr></thead>
 <tbody><tr class="odd">
 <td align="left">tau[1]</td>
-<td align="right">0.126</td>
-<td align="right">0.121</td>
-<td align="right">0.009</td>
-<td align="right">0.352</td>
-<td align="right">1.008</td>
-<td align="right">442.099</td>
+<td align="right">0.125</td>
+<td align="right">0.127</td>
+<td align="right">0.008</td>
+<td align="right">0.386</td>
+<td align="right">1.007</td>
+<td align="right">528.038</td>
 </tr></tbody>
 </table>
 <p>Compare the random-effects fit against a fixed-effect one by
@@ -1816,12 +1817,12 @@ al. 2002</a>)</span>:</p>
 <code class="sourceCode R"><span><span class="va">fit_fixed</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cmlnmr.html">cmlnmr</a></span><span class="op">(</span><span class="va">ipd</span>, <span class="va">agd</span>, effect_modifiers <span class="op">=</span> <span class="st">"cpd"</span>, inactive <span class="op">=</span> <span class="st">"UC"</span>,</span>
 <span>                    family <span class="op">=</span> <span class="st">"binomial"</span>, trt_effects <span class="op">=</span> <span class="st">"fixed"</span>,</span>
 <span>                    chains <span class="op">=</span> <span class="fl">4</span>, iter_warmup <span class="op">=</span> <span class="fl">500</span>, iter_sampling <span class="op">=</span> <span class="fl">500</span>,</span>
-<span>                    n_int <span class="op">=</span> <span class="fl">64</span>, seed <span class="op">=</span> <span class="fl">1</span>, show_exceptions <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span>                    n_int <span class="op">=</span> <span class="fl">64</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">loo</span><span class="fu">::</span><span class="fu"><a href="https://mc-stan.org/loo/reference/loo_compare.html" class="external-link">loo_compare</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>random <span class="op">=</span> <span class="fu">loo</span><span class="fu">::</span><span class="fu"><a href="https://mc-stan.org/loo/reference/loo.html" class="external-link">loo</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span>, fixed <span class="op">=</span> <span class="fu">loo</span><span class="fu">::</span><span class="fu"><a href="https://mc-stan.org/loo/reference/loo.html" class="external-link">loo</a></span><span class="op">(</span><span class="va">fit_fixed</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;   model elpd_diff se_diff p_worse       diag_diff      diag_elpd</span></span>
-<span><span class="co">#&gt;   fixed       0.0     0.0      NA                 6 k_psis &gt; 0.7</span></span>
-<span><span class="co">#&gt;  random      -1.7     0.7    0.99 |elpd_diff| &lt; 4 8 k_psis &gt; 0.7</span></span>
+<span><span class="co">#&gt;  random       0.0     0.0      NA                 5 k_psis &gt; 0.7</span></span>
+<span><span class="co">#&gt;   fixed      -0.3     0.8    0.64 |elpd_diff| &lt; 4 6 k_psis &gt; 0.7</span></span>
 <span></span>
 <span><span class="fu">knitr</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">kable</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  model <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"random"</span>, <span class="st">"fixed"</span><span class="op">)</span>,</span>
@@ -1838,13 +1839,13 @@ al. 2002</a>)</span>:</p>
 <tbody>
 <tr class="odd">
 <td align="left">random</td>
-<td align="right">3019.4</td>
-<td align="right">16.3</td>
+<td align="right">3019.0</td>
+<td align="right">16.1</td>
 </tr>
 <tr class="even">
 <td align="left">fixed</td>
-<td align="right">3017.1</td>
-<td align="right">14.7</td>
+<td align="right">3017.8</td>
+<td align="right">15.2</td>
 </tr>
 </tbody>
 </table>
@@ -1956,11 +1957,11 @@ see the mechanism rather than take it on trust.</p>
 <span><span class="va">ps</span></span>
 <span><span class="co">#&gt; cML-NMR prior sensitivity: gamma prior</span></span>
 <span><span class="co">#&gt;  treatment comparator estimate tighter looser move_tighter move_looser max_movement estimable</span></span>
-<span><span class="co">#&gt;        CBT        NRT   -0.076  -0.087 -0.066        0.012       0.010        0.012     FALSE</span></span>
-<span><span class="co">#&gt;    CBT+BUP        NRT    0.294   0.366  0.158        0.073       0.135        0.135     FALSE</span></span>
-<span><span class="co">#&gt;    CBT+NRT        NRT    0.406   0.405  0.416        0.001       0.009        0.009      TRUE</span></span>
-<span><span class="co">#&gt;    CBT+VAR        NRT    1.018   1.022  1.026        0.004       0.008        0.008      TRUE</span></span>
-<span><span class="co">#&gt;         UC        NRT   -0.482  -0.493 -0.482        0.010       0.001        0.010     FALSE</span></span></code></pre></div>
+<span><span class="co">#&gt;        CBT        NRT   -0.105  -0.062 -0.129        0.042       0.024        0.042     FALSE</span></span>
+<span><span class="co">#&gt;    CBT+BUP        NRT    0.301   0.379  0.236        0.078       0.065        0.078     FALSE</span></span>
+<span><span class="co">#&gt;    CBT+NRT        NRT    0.408   0.441  0.399        0.034       0.009        0.034      TRUE</span></span>
+<span><span class="co">#&gt;    CBT+VAR        NRT    1.021   1.056  1.004        0.036       0.017        0.036      TRUE</span></span>
+<span><span class="co">#&gt;         UC        NRT   -0.512  -0.504 -0.527        0.009       0.015        0.015     FALSE</span></span></code></pre></div>
 <p>Read the <code>max_movement</code> column against
 <code>estimable</code>. Every contrast the criterion calls estimable is
 prior-insensitive; every contrast it rejects moves with the prior. That

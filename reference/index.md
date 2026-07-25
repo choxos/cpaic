@@ -123,6 +123,8 @@ the target population.
 
 ## Bayesian diagnostics
 
+- [`posterior_summary()`](https://choxos.github.io/cpaic/reference/posterior_summary.md)
+  : Posterior summary of a component ML-NMR fit
 - [`dic()`](https://choxos.github.io/cpaic/reference/dic.md) : Deviance
   information criterion
 - [`loo(`*`<cpaic_mlnmr>`*`)`](https://choxos.github.io/cpaic/reference/loo.cpaic_mlnmr.md)
