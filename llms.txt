@@ -2,11 +2,18 @@
 
 **Component-Based Population-Adjusted Indirect Comparison**
 
-`cpaic` extends component network meta-analysis (cNMA) to
-population-adjusted indirect comparison (PAIC), so that a
-**disconnected** treatment network can be *reconnected* through shared
-treatment components and, at the same time, *adjusted* for between-study
-differences in effect modifiers.
+`cpaic` is experimental research software for combining component
+network meta-analysis (cNMA) with population-adjusted indirect
+comparison (PAIC) in a **disconnected** treatment network. Shared
+treatment components can identify a bridge across the disconnection.
+IPD-bearing comparisons can then be adjusted for differences in measured
+effect modifiers, subject to the restrictions below.
+
+> **Research use only.** The methodology and implementation have not
+> been validated for clinical, regulatory, reimbursement, or other
+> decision use. A successful fit and clean sampler diagnostics do not
+> validate the cross-sub-network additivity or transportability
+> assumptions.
 
 Standard network meta-analysis needs a connected network. When the
 network is disconnected (no common comparator links two sub-networks),
@@ -21,8 +28,14 @@ problem:
   using individual patient data (IPD), but assumes the network is
   already connected.
 
-`cpaic` composes them: the component structure supplies the bridge, and
-STC / MAIC / ML-NMR supply the population adjustment.
+`cpaic` implements experimental ways to combine these ideas. The
+one-stage
+[`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md) model
+and the two-stage
+[`cstc()`](https://choxos.github.io/cpaic/reference/cstc.md) /
+[`cmaic()`](https://choxos.github.io/cpaic/reference/cmaic.md) bridge
+have different estimands and different failure modes. They should not be
+described as interchangeable whole-network population adjustments.
 
 ## Two senses of “anchored”
 
@@ -60,8 +73,9 @@ additivity.
   (component-additive ML-NMR), fitted with rstan by default or with
   cmdstanr on request. Binary, continuous, count, and survival outcomes.
 
-This is research software under active development. Read the Limitations
-section before using it for a decision.
+The four outcome-family implementations are under active development.
+They are not decision validated. Read the estimand and bridge
+limitations before interpreting a result.
 
 ## Estimability
 
@@ -133,22 +147,41 @@ estimable_effects(net)
 # 1. Connect only (aggregate component NMA)
 cnma_bridge(net)
 
-# 2. Connect and population-adjust via anchored STC
-cstc(net, target = c(x1 = 0), effect_modifiers = "x1")
+# 2. Experimental two-stage STC bridge. This network retains AgD edges, so
+#    explicit opt-in is required because the bridge mixes populations.
+cstc(net, target = c(x1 = 0), effect_modifiers = "x1",
+     allow_experimental_bridge = TRUE)
 
-# 3. Connect and population-adjust via anchored MAIC
-cmaic(net, target = c(x1 = 0), effect_modifiers = "x1")
+# 3. Experimental two-stage MAIC bridge. On the OR scale, marginal weighted
+#    contrasts also need not obey component additivity.
+cmaic(net, target = c(x1 = 0), effect_modifiers = "x1",
+      allow_experimental_bridge = TRUE)
 ```
 
-For the Bayesian model, relative effects are **population-specific**:
-the model contains component by effect-modifier interactions, so
-`theta_t(x) = C_t' (beta + Gamma x)`. You must name the target
+By default, [`cstc()`](https://choxos.github.io/cpaic/reference/cstc.md)
+and [`cmaic()`](https://choxos.github.io/cpaic/reference/cmaic.md) stop
+when retained aggregate contrasts would be combined with target-specific
+adjusted contrasts.
+[`cmaic()`](https://choxos.github.io/cpaic/reference/cmaic.md) also
+stops by default for non-Gaussian families because a marginal weighted
+contrast is not generally additive across components on a nonlinear
+scale. `allow_experimental_bridge = TRUE` records the override in the
+fitted object and emits a warning. It does not make the estimands
+coherent.
+
+For the Bayesian model, conditional relative effects vary with the
+effect modifiers because `theta_t(x) = C_t' (beta + Gamma x)`. A one-row
+`newdata` value is interpreted as a vector of target covariate means.
+Because this contrast is linear in `x` on the link scale, it is an
+average conditional link-scale effect at those means. It is not a
+marginally standardized odds, rate, or hazard ratio over a target
 population.
 
 ``` r
 
 fit <- cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "Placebo")
-relative_effects(fit, newdata = data.frame(x1 = 0.3))   # effects at x1 = 0.3
+# Average conditional link-scale effects at target mean x1 = 0.3
+relative_effects(fit, newdata = data.frame(x1 = 0.3))
 component_effects(fit, newdata = data.frame(x1 = 0.3))
 ```
 
@@ -162,53 +195,15 @@ component_effects(fit, newdata = data.frame(x1 = 0.3))
 [`plot()`](https://rdrr.io/r/graphics/plot.default.html) summarize and
 visualize a fit.
 
-## Simulation evidence
+## Validation status
 
-A factorial simulation evaluates the **cross-gap** contrast on a
-disconnected network, i.e. the comparison no trial makes. The simulation
-code and outputs currently live in the local `documentation/` tree,
-which is not part of the public repository, so the figures below are
-indicative rather than independently reproducible; a tracked,
-reproducible validation pipeline is planned.
-
-**Population adjustment is effective.** Without it, the naive bridge
-reaches a bias of +0.60 log-OR and 38% coverage under severe imbalance
-with poor overlap. cSTC’s bias stays flat at -0.01 to -0.04 *regardless*
-of imbalance and overlap, with 94 to 96% coverage and well-calibrated
-standard errors.
-
-The simulation also identifies four limitations.
-
-- **Additivity violation is invisible, and it is the largest error.**
-  With a moderate violation of cross-sub-network additivity, cSTC’s
-  coverage falls to **0.50**, while
-  [`additivity_test()`](https://choxos.github.io/cpaic/reference/additivity_test.md)
-  reports a *perfect* fit (Q = 0 on 0 degrees of freedom). No diagnostic
-  fires, because none can: there is no cross-gap evidence to test
-  against. cpaic now reports the statistic as vacuous rather than
-  printing a value that reads as a good fit.
-- **Errors can offset.** Under severe imbalance combined with an
-  additivity violation, the naive analysis outperformed both adjusted
-  methods because its two biases cancelled. Agreement between methods is
-  therefore not evidence of validity.
-- **Marginal effects do not add.** On a non-collapsible scale,
-  `marginal(A) + marginal(B)` is not `marginal(A+B)`: in one target
-  population, 0.6615 versus 0.6411. So
-  [`cmaic()`](https://choxos.github.io/cpaic/reference/cmaic.md), which
-  targets a marginal effect, carries a small **irreducible** bias that
-  survives perfect matching and infinite data. The conditional log-odds
-  scale is the only one on which the additive component model is
-  coherent. Prefer
-  [`cstc()`](https://choxos.github.io/cpaic/reference/cstc.md) or
-  [`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md) if
-  this matters.
-- **The effective sample size is not a validity diagnostic.** Individual
-  patient data placed on an edge that does not carry the requested
-  contrast leave the estimate identical to the unadjusted one, while the
-  effective sample size reports 999 of 1000.
-  [`edge_influence()`](https://choxos.github.io/cpaic/reference/edge_influence.md)
-  reports whether the individual patient data inform the contrast at
-  all.
+The package does not yet have a tracked, independently reproducible
+validation suite that supports decision use. Local exploratory
+simulations are useful for finding failure modes, but they are not
+release evidence and are not summarized as performance claims here. At
+minimum, future validation must cover overlap, model misspecification,
+partial IPD coverage, nonlinear estimands, multi-arm studies, survival
+reconstruction, and violations of cross-sub-network additivity.
 
 ## Limitations
 
@@ -221,21 +216,32 @@ The following apply to any result produced by this package.
   this against.
   [`additivity_test()`](https://choxos.github.io/cpaic/reference/additivity_test.md)
   reports the fit of the additive model *within* the observed evidence;
-  a large p-value is not a licence to bridge.
-- **Only IPD edges are adjusted.**
+  a large p-value is not a license to bridge.
+- **A two-stage bridge can mix populations.**
   [`cmaic()`](https://choxos.github.io/cpaic/reference/cmaic.md) and
   [`cstc()`](https://choxos.github.io/cpaic/reference/cstc.md) adjust
-  the edges that have IPD; aggregate contrasts enter the bridge as
-  published, in their own study populations. The pooled result is
-  therefore fully adjusted to a single target only if the retained
-  aggregate effects are themselves transportable.
+  the edges that have IPD. Retained aggregate contrasts remain on their
+  original study-population estimands. Combining both types does not
+  produce a coherent single-target network merely because the component
+  model can solve the algebra. The default is to stop;
+  `allow_experimental_bridge = TRUE` is an explicit research override,
+  not a validity correction.
 - **Estimands differ across the methods.**
   [`cstc()`](https://choxos.github.io/cpaic/reference/cstc.md) returns a
-  conditional effect at the target covariate values;
+  conditional effect on the link scale at the target covariate means;
   [`cmaic()`](https://choxos.github.io/cpaic/reference/cmaic.md) returns
-  a marginal weighted effect in the target population. On
-  non-collapsible scales (odds ratios, hazard ratios) these differ even
-  when both are correct.
+  a marginal weighted contrast. On a nonlinear scale a marginal contrast
+  is not generally component-additive, so feeding cMAIC edges into an
+  additive bridge can be methodologically incoherent even with perfect
+  matching. Non-Gaussian cMAIC bridges therefore require the
+  experimental override.
+- **cML-NMR target summaries are not marginal standardized effects.**
+  For a one-row `newdata`,
+  [`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md)
+  reports the average conditional link-scale contrast evaluated at the
+  supplied covariate means. Exponentiating it does not turn it into a
+  population-marginal odds ratio, rate ratio, or hazard ratio. A full
+  covariate distribution is not accepted for standardization.
 - **Survival conditions on the supplied rows.**
   [`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md)
   evaluates the exact analytic individual survival likelihood (events
@@ -247,6 +253,15 @@ The following apply to any result produced by this package.
   the finite numerical integration; uncertainty from reconstructing
   pseudo-IPD out of a published Kaplan-Meier curve is not propagated,
   and proportional hazards is assumed.
+- **Survival interfaces have different status contracts.** The two-stage
+  [`cstc()`](https://choxos.github.io/cpaic/reference/cstc.md) and
+  [`cmaic()`](https://choxos.github.io/cpaic/reference/cmaic.md) network
+  input accepts only `0` for right censoring and `1` for an event.
+  [`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md)
+  separately uses `0` right-censored, `1` event, `2` left-censored, and
+  `3` interval-censored rows, with reconstructed rows required for
+  aggregate survival arms. The package reports proportional-hazard
+  contrasts; it does not estimate restricted mean survival time.
 - **[`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md)
   treatment effects may be fixed or random.** `trt_effects = "random"`
   adds study-arm heterogeneity with a single common `tau`, which is one
@@ -255,9 +270,11 @@ The following apply to any result produced by this package.
 
 ## Documentation
 
-Mathematical foundations, the methods manual, and the validation study
-live in the local `documentation/` folder. User-facing vignettes ship
-with the package.
+The introductory and methods vignettes ship with the package. Five
+archived outcome examples are excluded until they are regenerated
+against the current estimand labels, safeguards, and API. The standalone
+manual in the development-only `documentation/` tree is not public
+package guidance.
 
 ## References
 
@@ -305,8 +322,7 @@ information.
   : Which relative effects of a component network are uniquely
   estimable?
 - [`estimable_effects_at()`](https://choxos.github.io/cpaic/reference/estimable_effects_at.md)
-  : Which population-adjusted contrasts are estimable at a target
-  population?
+  : Which average conditional contrasts are estimable at target means?
 
 ## Connection layer
 
@@ -319,7 +335,10 @@ Reconnect a disconnected network through shared components.
 
 ## Population adjustment
 
-Anchored, population-adjusted indirect comparison across the network.
+Experimental population-adjustment methods. Two-stage cSTC/cMAIC bridges
+stop by default when they would mix target-specific IPD contrasts with
+retained AgD contrasts, and nonlinear cMAIC bridges require explicit
+experimental opt-in.
 
 - [`cmaic()`](https://choxos.github.io/cpaic/reference/cmaic.md) :
   Component matching-adjusted indirect comparison (cMAIC)
@@ -336,16 +355,16 @@ Anchored, population-adjusted indirect comparison across the network.
 
 ## Hierarchies
 
-Rank treatments or components IN A TARGET POPULATION. Because component
-effects are population-specific under population adjustment, so are the
-rankings: a component can lead in one population and trail in another.
+Rank treatments or components by average conditional link-scale effects
+at supplied target covariate means. These are not marginally
+standardized population rankings.
 
 - [`cpaic_ranks()`](https://choxos.github.io/cpaic/reference/cpaic_ranks.md)
-  : Population-adjusted treatment and component hierarchies
+  : Treatment and component hierarchies at target covariate means
 - [`rank_curve()`](https://choxos.github.io/cpaic/reference/rank_curve.md)
-  : How a hierarchy changes across target populations
+  : How a hierarchy changes across target effect-modifier means
 - [`rank_probs()`](https://choxos.github.io/cpaic/reference/rank_probs.md)
-  : Posterior rank probabilities in a target population
+  : Posterior rank probabilities at target effect-modifier means
 
 ## Reporting
 
@@ -365,9 +384,9 @@ Every plot returns a ggplot object, so it can be modified with the usual
 ggplot2 verbs. The network, forest, rankogram, deviance,
 prior-posterior, integration-error, MCMC, and survival plots are ported
 from multinma (Phillippo et al. 2020). The rank curve, the estimability
-map, and the edge-influence plot are specific to cpaic: under population
-adjustment the hierarchy, and the estimable set itself, are functions of
-the target population.
+map, and the edge-influence plot are specific to cpaic. Under effect
+modification the hierarchy, and the estimable set itself, are functions
+of the supplied target covariate means.
 
 - [`plot(`*`<cpaic_network>`*`)`](https://choxos.github.io/cpaic/reference/plot.cpaic_network.md)
   : Plot the component network
@@ -377,16 +396,16 @@ the target population.
   [`plot(`*`<cpaic_fit>`*`)`](https://choxos.github.io/cpaic/reference/forest.md)
   : Forest plot of relative or component effects
 - [`plot_rank_curve()`](https://choxos.github.io/cpaic/reference/plot_rank_curve.md)
-  : How the hierarchy changes across target populations
+  : How the hierarchy changes across target effect-modifier means
 - [`plot_estimability()`](https://choxos.github.io/cpaic/reference/plot_estimability.md)
   : Map which contrasts are estimable, and on what evidence, across
-  populations
+  target means
 - [`plot_edge_influence()`](https://choxos.github.io/cpaic/reference/plot_edge_influence.md)
   : Plot how much each edge informs a chosen contrast
 - [`plot(`*`<cpaic_rank_probs>`*`)`](https://choxos.github.io/cpaic/reference/plot.cpaic_rank_probs.md)
   : Rankogram and cumulative rank plot
 - [`plot(`*`<cpaic_ranks>`*`)`](https://choxos.github.io/cpaic/reference/plot.cpaic_ranks.md)
-  : Plot a population-adjusted hierarchy
+  : Plot an average conditional hierarchy at target means
 - [`plot(`*`<cpaic_dic>`*`)`](https://choxos.github.io/cpaic/reference/plot.cpaic_dic.md)
   : Deviance and dev-dev plots
 - [`plot_leverage()`](https://choxos.github.io/cpaic/reference/plot_leverage.md)
@@ -434,23 +453,3 @@ the target population.
   cpaic](https://choxos.github.io/cpaic/articles/cpaic-intro.md):
 - [The cpaic statistical
   framework](https://choxos.github.io/cpaic/articles/cpaic-methods.md):
-
-### Worked examples, by outcome type
-
-Each example plants a known truth, then asks whether the method recovers
-it. All four fit Stan models and are pre-rendered, so they are not
-re-run at build time.
-
-- [Binary outcomes: a disconnected smoking-cessation
-  network](https://choxos.github.io/cpaic/articles/binary-outcomes.md):
-- [Continuous outcomes: bridging a disconnected network with a mean
-  difference](https://choxos.github.io/cpaic/articles/continuous-outcomes.md):
-- [Count outcomes: a disconnected COPD exacerbation
-  network](https://choxos.github.io/cpaic/articles/count-outcomes.md):
-- [Survival outcomes: a disconnected network under proportional
-  hazards](https://choxos.github.io/cpaic/articles/survival-outcomes.md):
-
-### Disconnected networks
-
-- [A disconnected network: NMA, ML-NMR, and cML-NMR
-  compared](https://choxos.github.io/cpaic/articles/cpaic-disconnected-myeloma.md):

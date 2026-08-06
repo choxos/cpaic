@@ -173,9 +173,10 @@ cmlnmr(
   random-effects survival model can still produce a few divergent
   transitions and occasional rejected simplex proposals; inspect the
   diagnostics rather than assuming they are clean. If a survival fit is
-  slow, reduce `n_int` before suspecting the geometry, and confirm the
-  answer is stable with
-  [`plot_integration_error()`](https://choxos.github.io/cpaic/reference/plot_integration_error.md).
+  slow, reduce `n_int` before suspecting the geometry. Refit at several
+  `n_int` values and compare the requested effects.
+  [`plot_integration_error()`](https://choxos.github.io/cpaic/reference/plot_integration_error.md)
+  does not support survival likelihoods.
 
 - QR:
 
@@ -287,14 +288,15 @@ component design, and a tidy table of component effects.
 ## Details
 
 The model includes component x effect-modifier interactions `gamma`, so
-the treatment effect is **population-specific**: \$\$\theta_t(x) = C_t'
-(\beta + \Gamma x).\$\$ The component main effects `beta` are the
-effects at the covariate origin (`x = 0`) and are *not* by themselves a
-population-adjusted quantity. Use `newdata` in
+the average conditional link-scale treatment effect depends on target
+means: \$\$\theta_t(x) = C_t' (\beta + \Gamma x).\$\$ The component main
+effects `beta` are the effects at the covariate origin (`x = 0`) and are
+not marginally standardized quantities. Use `newdata` in
 [`relative_effects()`](https://choxos.github.io/cpaic/reference/relative_effects.md)
 /
 [`component_effects()`](https://choxos.github.io/cpaic/reference/component_effects.md)
-to obtain effects in a named target population.
+to obtain average conditional link-scale effects at named target
+effect-modifier means.
 
 Supported families: `"binomial"` (logit), `"gaussian"` (identity),
 `"poisson"` (log), and `"survival"`.
@@ -402,9 +404,9 @@ arms is an **ecological** association being read as effect modification.
 separates the two in its `identified_by` column (`"IPD"` versus
 `"aggregate"`) and marks the latter `basis = "first-order screen"`;
 [`cpaic_ranks()`](https://choxos.github.io/cpaic/reference/cpaic_ranks.md)
-drops such elements from a hierarchy by default. Treat a
-target-population effect that leans on aggregate-identified interactions
-as exploratory, and check it with
+drops such elements from a hierarchy by default. Treat a target-mean
+effect that leans on aggregate-identified interactions as exploratory,
+and check it with
 [`prior_sensitivity()`](https://choxos.github.io/cpaic/reference/prior_sensitivity.md).
 
 ## Survival status coding
@@ -413,26 +415,21 @@ as exploratory, and check it with
 observed event, `2` left-censored, `3` interval-censored. This is
 **not** the coding
 [`cstc()`](https://choxos.github.io/cpaic/reference/cstc.md) and
-[`cmaic()`](https://choxos.github.io/cpaic/reference/cmaic.md) use:
-those pass the column straight to
-[`survival::Surv()`](https://rdrr.io/pkg/survival/man/Surv.html), which
-reads `0`/`1` or `1`/`2`, so a `2` there is an event rather than a
-left-censored observation. Do not reuse one status column across the two
-layers without recoding it.
+[`cmaic()`](https://choxos.github.io/cpaic/reference/cmaic.md) use. The
+two-stage network constructor accepts only `0` for right censoring and
+`1` for an event, and rejects all other codes. Do not reuse one status
+column across the two layers without recoding it.
 
 ## Scope and current limitations
 
 Two gaps are worth naming for anyone comparing this with `multinma`.
 
-- **Effects are reported as conditional contrasts at a covariate
-  value**, `(C_t - C_u)'(beta + Gamma x)`, on the linear-predictor
-  scale.
-  [`relative_effects()`](https://choxos.github.io/cpaic/reference/relative_effects.md)
-  evaluates this at the target in `newdata`. There is no marginal
-  (population-standardized) effect path yet: on a non-collapsible scale
-  the conditional effect at a point differs from the average effect over
-  a population with a distribution of covariates, and only the former is
-  returned.
+- **Effects are reported as average conditional link-scale contrasts at
+  target means**, `(C_t - C_u)'(beta + Gamma x)`. Linearity in `x` makes
+  evaluation at `E[X]` equal to the average conditional link-scale
+  contrast. There is no marginal population-standardized effect path.
+  For nonlinear links, averaging absolute outcomes first and then
+  forming an odds, rate, or hazard ratio gives a different quantity.
 
 - **Every effect modifier enters both the prognostic terms and the full
   set of component interactions.** There is no prognostic-only covariate
@@ -542,14 +539,17 @@ fit <- cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "Placebo",
 #> Warning: Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.
 #> Running the chains for more iterations may help. See
 #> https://mc-stan.org/misc/warnings.html#tail-ess
-# Effects in a named target population (x1 = 0.2), not at the origin:
+# Average conditional link-scale effects at target mean x1 = 0.2:
 relative_effects(fit, newdata = data.frame(x1 = 0.2))
 #> Relative effects (OR, back-transformed)
-#>   Conditional effect at covariate profile: x1 = 0.2
-#>  treatment comparator estimate    se lower upper pr_gt0              basis
-#>          A    Placebo    2.121 0.286 1.141 3.557  0.995              exact
-#>        A+B    Placebo    2.020 0.312 1.037 3.438  0.975 first-order screen
-#>   `se` is on the link (log) scale; the interval is back-transformed.
+#>   Average conditional link-scale effect at target means: x1 = 0.2
+#>  treatment comparator estimate estimate_link se_link lower upper   scale pr_gt0
+#>          A    Placebo    2.121         0.711   0.286 1.141 3.557 natural  0.995
+#>        A+B    Placebo    2.020         0.656   0.312 1.037 3.438 natural  0.975
+#>               basis
+#>               exact
+#>  first-order screen
+#>   `se_link` is on the link (log) scale; the interval is back-transformed.
 #>   basis "first-order screen" = estimable by the row-space criterion but leaning
 #>   on aggregate arms or a survival baseline, so it can be optimistic; check
 #>   with prior_sensitivity() / estimable_effects_at().

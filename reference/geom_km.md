@@ -37,9 +37,11 @@ A list of ggplot2 layers.
 
 ## Details
 
-Only status `1` counts as an event; statuses `0`, `2`, and `3` (right,
-left, and interval censoring) are treated as censored for the empirical
-curve.
+Only right-censored survival data are supported: status `1` is an event
+and status `0` is right censoring. Delayed entry is honored when
+configured on the fitted model. Curves reconstructed from aggregate
+event/censoring rows are labeled as reconstructed AgD and must not be
+read as observed IPD.
 
 ## See also
 

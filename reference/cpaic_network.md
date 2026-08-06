@@ -86,7 +86,9 @@ cpaic_network(
 
 - ipd_time, ipd_status:
 
-  Time and event-indicator column names in `ipd` (survival family).
+  Time and event-indicator column names in `ipd` (survival family). The
+  event indicator must be coded `0` for censored and `1` for an event.
+  Missing values are not permitted.
 
 - ipd_exposure:
 

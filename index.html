@@ -11,8 +11,8 @@
 <script src="deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="Component-Based Population-Adjusted Indirect Comparison">
-<meta name="description" content="Extends component network meta-analysis (cNMA) to population-adjusted indirect comparison (PAIC) methods so that disconnected treatment networks can be both reconnected and adjusted for between-study differences in effect modifiers. The additive component structure of cNMA (Ruecker et al. 2020 &lt;doi:10.1002/bimj.201800167&gt;) is used to bridge otherwise disconnected sub-networks that share treatment components, while anchored simulated treatment comparison (STC), matching-adjusted indirect comparison (MAIC), and multilevel network meta-regression (ML-NMR; Phillippo et al. 2020 &lt;doi:10.1111/rssa.12579&gt;) provide the population adjustment using individual patient data. Supports binary, continuous, count, and time-to-event outcomes. The component network meta-analysis engine is netmeta and the matching weights come from maicplus; the component-additive ML-NMR models are written in Stan and fitted with rstan by default, or with cmdstanr on request.">
-<meta property="og:description" content="Extends component network meta-analysis (cNMA) to population-adjusted indirect comparison (PAIC) methods so that disconnected treatment networks can be both reconnected and adjusted for between-study differences in effect modifiers. The additive component structure of cNMA (Ruecker et al. 2020 &lt;doi:10.1002/bimj.201800167&gt;) is used to bridge otherwise disconnected sub-networks that share treatment components, while anchored simulated treatment comparison (STC), matching-adjusted indirect comparison (MAIC), and multilevel network meta-regression (ML-NMR; Phillippo et al. 2020 &lt;doi:10.1111/rssa.12579&gt;) provide the population adjustment using individual patient data. Supports binary, continuous, count, and time-to-event outcomes. The component network meta-analysis engine is netmeta and the matching weights come from maicplus; the component-additive ML-NMR models are written in Stan and fitted with rstan by default, or with cmdstanr on request.">
+<meta name="description" content="Experimental research software that combines component network meta-analysis (cNMA) with population-adjusted indirect comparison (PAIC) methods for disconnected treatment networks. The additive component structure of cNMA (Ruecker et al. 2020 &lt;doi:10.1002/bimj.201800167&gt;) can bridge sub-networks that share treatment components. Anchored simulated treatment comparison (STC) and matching-adjusted indirect comparison (MAIC) adjust individual-patient-data contrasts before a two-stage component bridge. This can mix target-specific contrasts with retained aggregate contrasts from different study populations; marginal contrasts on nonlinear scales also need not be component-additive, so affected bridges require explicit experimental opt-in. Component-additive multilevel network meta-regression (ML-NMR; Phillippo et al. 2020 &lt;doi:10.1111/rssa.12579&gt;) jointly models individual and aggregate data. Its target summaries are average conditional effects on the link scale evaluated at supplied covariate means, not marginally standardized odds, rate, or hazard ratios. Models are implemented for binary, continuous, count, and time-to-event outcomes. This methodology and implementation have not been validated for clinical, regulatory, reimbursement, or other decision use.">
+<meta property="og:description" content="Experimental research software that combines component network meta-analysis (cNMA) with population-adjusted indirect comparison (PAIC) methods for disconnected treatment networks. The additive component structure of cNMA (Ruecker et al. 2020 &lt;doi:10.1002/bimj.201800167&gt;) can bridge sub-networks that share treatment components. Anchored simulated treatment comparison (STC) and matching-adjusted indirect comparison (MAIC) adjust individual-patient-data contrasts before a two-stage component bridge. This can mix target-specific contrasts with retained aggregate contrasts from different study populations; marginal contrasts on nonlinear scales also need not be component-additive, so affected bridges require explicit experimental opt-in. Component-additive multilevel network meta-regression (ML-NMR; Phillippo et al. 2020 &lt;doi:10.1111/rssa.12579&gt;) jointly models individual and aggregate data. Its target summaries are average conditional effects on the link scale evaluated at supplied covariate means, not marginally standardized odds, rate, or hazard ratios. Models are implemented for binary, continuous, count, and time-to-event outcomes. This methodology and implementation have not been validated for clinical, regulatory, reimbursement, or other decision use.">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -37,13 +37,6 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><a class="dropdown-item" href="articles/cpaic-intro.html">Getting started with cpaic</a></li>
     <li><a class="dropdown-item" href="articles/cpaic-methods.html">The cpaic statistical framework</a></li>
-    <li><hr class="dropdown-divider"></li>
-    <li><h6 class="dropdown-header" data-toc-skip>Outcomes</h6></li>
-    <li><a class="dropdown-item" href="articles/binary-outcomes.html">Binary outcomes: a disconnected smoking-cessation network</a></li>
-    <li><a class="dropdown-item" href="articles/continuous-outcomes.html">Continuous outcomes: bridging a disconnected network with a mean difference</a></li>
-    <li><a class="dropdown-item" href="articles/count-outcomes.html">Count outcomes: a disconnected COPD exacerbation network</a></li>
-    <li><a class="dropdown-item" href="articles/survival-outcomes.html">Survival outcomes: a disconnected network under proportional hazards</a></li>
-    <li><a class="dropdown-item" href="articles/cpaic-disconnected-myeloma.html">A disconnected network: NMA, ML-NMR, and cML-NMR compared</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="news/index.html">Changelog</a></li>
@@ -64,7 +57,10 @@
 <div class="page-header"><h1 id="cpaic">cpaic<a class="anchor" aria-label="anchor" href="#cpaic"></a>
 </h1></div>
 <p><strong>Component-Based Population-Adjusted Indirect Comparison</strong></p>
-<p><code>cpaic</code> extends component network meta-analysis (cNMA) to population-adjusted indirect comparison (PAIC), so that a <strong>disconnected</strong> treatment network can be <em>reconnected</em> through shared treatment components and, at the same time, <em>adjusted</em> for between-study differences in effect modifiers.</p>
+<p><code>cpaic</code> is experimental research software for combining component network meta-analysis (cNMA) with population-adjusted indirect comparison (PAIC) in a <strong>disconnected</strong> treatment network. Shared treatment components can identify a bridge across the disconnection. IPD-bearing comparisons can then be adjusted for differences in measured effect modifiers, subject to the restrictions below.</p>
+<blockquote>
+<p><strong>Research use only.</strong> The methodology and implementation have not been validated for clinical, regulatory, reimbursement, or other decision use. A successful fit and clean sampler diagnostics do not validate the cross-sub-network additivity or transportability assumptions.</p>
+</blockquote>
 <p>Standard network meta-analysis needs a connected network. When the network is disconnected (no common comparator links two sub-networks), it cannot be analyzed directly. Two ideas each solve half of the problem:</p>
 <ul>
 <li>
@@ -72,7 +68,7 @@
 <li>
 <strong>PAIC</strong> (STC, MAIC, ML-NMR) adjusts for effect-modifier imbalance using individual patient data (IPD), but assumes the network is already connected.</li>
 </ul>
-<p><code>cpaic</code> composes them: the component structure supplies the bridge, and STC / MAIC / ML-NMR supply the population adjustment.</p>
+<p><code>cpaic</code> implements experimental ways to combine these ideas. The one-stage <code><a href="reference/cmlnmr.html">cmlnmr()</a></code> model and the two-stage <code><a href="reference/cstc.html">cstc()</a></code> / <code><a href="reference/cmaic.html">cmaic()</a></code> bridge have different estimands and different failure modes. They should not be described as interchangeable whole-network population adjustments.</p>
 <div class="section level2">
 <h2 id="two-senses-of-anchored">Two senses of “anchored”<a class="anchor" aria-label="anchor" href="#two-senses-of-anchored"></a>
 </h2>
@@ -94,7 +90,7 @@
 <li>
 <strong>Bayesian <code><a href="reference/cmlnmr.html">cmlnmr()</a></code></strong> (component-additive ML-NMR), fitted with rstan by default or with cmdstanr on request. Binary, continuous, count, and survival outcomes.</li>
 </ul>
-<p>This is research software under active development. Read the Limitations section before using it for a decision.</p>
+<p>The four outcome-family implementations are under active development. They are not decision validated. Read the estimand and bridge limitations before interpreting a result.</p>
 </div>
 <div class="section level2">
 <h2 id="estimability">Estimability<a class="anchor" aria-label="anchor" href="#estimability"></a>
@@ -134,34 +130,28 @@
 <span><span class="co"># 1. Connect only (aggregate component NMA)</span></span>
 <span><span class="fu"><a href="reference/cnma_bridge.html">cnma_bridge</a></span><span class="op">(</span><span class="va">net</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># 2. Connect and population-adjust via anchored STC</span></span>
-<span><span class="fu"><a href="reference/cstc.html">cstc</a></span><span class="op">(</span><span class="va">net</span>, target <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>x1 <span class="op">=</span> <span class="fl">0</span><span class="op">)</span>, effect_modifiers <span class="op">=</span> <span class="st">"x1"</span><span class="op">)</span></span>
+<span><span class="co"># 2. Experimental two-stage STC bridge. This network retains AgD edges, so</span></span>
+<span><span class="co">#    explicit opt-in is required because the bridge mixes populations.</span></span>
+<span><span class="fu"><a href="reference/cstc.html">cstc</a></span><span class="op">(</span><span class="va">net</span>, target <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>x1 <span class="op">=</span> <span class="fl">0</span><span class="op">)</span>, effect_modifiers <span class="op">=</span> <span class="st">"x1"</span>,</span>
+<span>     allow_experimental_bridge <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># 3. Connect and population-adjust via anchored MAIC</span></span>
-<span><span class="fu"><a href="reference/cmaic.html">cmaic</a></span><span class="op">(</span><span class="va">net</span>, target <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>x1 <span class="op">=</span> <span class="fl">0</span><span class="op">)</span>, effect_modifiers <span class="op">=</span> <span class="st">"x1"</span><span class="op">)</span></span></code></pre></div>
-<p>For the Bayesian model, relative effects are <strong>population-specific</strong>: the model contains component by effect-modifier interactions, so <code>theta_t(x) = C_t' (beta + Gamma x)</code>. You must name the target population.</p>
+<span><span class="co"># 3. Experimental two-stage MAIC bridge. On the OR scale, marginal weighted</span></span>
+<span><span class="co">#    contrasts also need not obey component additivity.</span></span>
+<span><span class="fu"><a href="reference/cmaic.html">cmaic</a></span><span class="op">(</span><span class="va">net</span>, target <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>x1 <span class="op">=</span> <span class="fl">0</span><span class="op">)</span>, effect_modifiers <span class="op">=</span> <span class="st">"x1"</span>,</span>
+<span>      allow_experimental_bridge <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+<p>By default, <code><a href="reference/cstc.html">cstc()</a></code> and <code><a href="reference/cmaic.html">cmaic()</a></code> stop when retained aggregate contrasts would be combined with target-specific adjusted contrasts. <code><a href="reference/cmaic.html">cmaic()</a></code> also stops by default for non-Gaussian families because a marginal weighted contrast is not generally additive across components on a nonlinear scale. <code>allow_experimental_bridge = TRUE</code> records the override in the fitted object and emits a warning. It does not make the estimands coherent.</p>
+<p>For the Bayesian model, conditional relative effects vary with the effect modifiers because <code>theta_t(x) = C_t' (beta + Gamma x)</code>. A one-row <code>newdata</code> value is interpreted as a vector of target covariate means. Because this contrast is linear in <code>x</code> on the link scale, it is an average conditional link-scale effect at those means. It is not a marginally standardized odds, rate, or hazard ratio over a target population.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/cmlnmr.html">cmlnmr</a></span><span class="op">(</span><span class="va">ipd</span>, <span class="va">agd</span>, effect_modifiers <span class="op">=</span> <span class="st">"x1"</span>, inactive <span class="op">=</span> <span class="st">"Placebo"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="reference/relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>x1 <span class="op">=</span> <span class="fl">0.3</span><span class="op">)</span><span class="op">)</span>   <span class="co"># effects at x1 = 0.3</span></span>
+<span><span class="co"># Average conditional link-scale effects at target mean x1 = 0.3</span></span>
+<span><span class="fu"><a href="reference/relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>x1 <span class="op">=</span> <span class="fl">0.3</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/component_effects.html">component_effects</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>x1 <span class="op">=</span> <span class="fl">0.3</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <p><code><a href="reference/relative_effects.html">relative_effects()</a></code>, <code><a href="reference/league_table.html">league_table()</a></code>, <code><a href="reference/component_effects.html">component_effects()</a></code>, <code><a href="reference/estimable_effects.html">estimable_effects()</a></code>, <code><a href="reference/additivity_test.html">additivity_test()</a></code>, <code><a href="reference/effective_sample_size.html">effective_sample_size()</a></code>, <code><a href="reference/forest.html">forest()</a></code> and <code><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot()</a></code> summarize and visualize a fit.</p>
 </div>
 <div class="section level2">
-<h2 id="simulation-evidence">Simulation evidence<a class="anchor" aria-label="anchor" href="#simulation-evidence"></a>
+<h2 id="validation-status">Validation status<a class="anchor" aria-label="anchor" href="#validation-status"></a>
 </h2>
-<p>A factorial simulation evaluates the <strong>cross-gap</strong> contrast on a disconnected network, i.e. the comparison no trial makes. The simulation code and outputs currently live in the local <code>documentation/</code> tree, which is not part of the public repository, so the figures below are indicative rather than independently reproducible; a tracked, reproducible validation pipeline is planned.</p>
-<p><strong>Population adjustment is effective.</strong> Without it, the naive bridge reaches a bias of +0.60 log-OR and 38% coverage under severe imbalance with poor overlap. cSTC’s bias stays flat at -0.01 to -0.04 <em>regardless</em> of imbalance and overlap, with 94 to 96% coverage and well-calibrated standard errors.</p>
-<p>The simulation also identifies four limitations.</p>
-<ul>
-<li>
-<strong>Additivity violation is invisible, and it is the largest error.</strong> With a moderate violation of cross-sub-network additivity, cSTC’s coverage falls to <strong>0.50</strong>, while <code><a href="reference/additivity_test.html">additivity_test()</a></code> reports a <em>perfect</em> fit (Q = 0 on 0 degrees of freedom). No diagnostic fires, because none can: there is no cross-gap evidence to test against. cpaic now reports the statistic as vacuous rather than printing a value that reads as a good fit.</li>
-<li>
-<strong>Errors can offset.</strong> Under severe imbalance combined with an additivity violation, the naive analysis outperformed both adjusted methods because its two biases cancelled. Agreement between methods is therefore not evidence of validity.</li>
-<li>
-<strong>Marginal effects do not add.</strong> On a non-collapsible scale, <code>marginal(A) + marginal(B)</code> is not <code>marginal(A+B)</code>: in one target population, 0.6615 versus 0.6411. So <code><a href="reference/cmaic.html">cmaic()</a></code>, which targets a marginal effect, carries a small <strong>irreducible</strong> bias that survives perfect matching and infinite data. The conditional log-odds scale is the only one on which the additive component model is coherent. Prefer <code><a href="reference/cstc.html">cstc()</a></code> or <code><a href="reference/cmlnmr.html">cmlnmr()</a></code> if this matters.</li>
-<li>
-<strong>The effective sample size is not a validity diagnostic.</strong> Individual patient data placed on an edge that does not carry the requested contrast leave the estimate identical to the unadjusted one, while the effective sample size reports 999 of 1000. <code><a href="reference/edge_influence.html">edge_influence()</a></code> reports whether the individual patient data inform the contrast at all.</li>
-</ul>
+<p>The package does not yet have a tracked, independently reproducible validation suite that supports decision use. Local exploratory simulations are useful for finding failure modes, but they are not release evidence and are not summarized as performance claims here. At minimum, future validation must cover overlap, model misspecification, partial IPD coverage, nonlinear estimands, multi-arm studies, survival reconstruction, and violations of cross-sub-network additivity.</p>
 </div>
 <div class="section level2">
 <h2 id="limitations">Limitations<a class="anchor" aria-label="anchor" href="#limitations"></a>
@@ -169,13 +159,17 @@
 <p>The following apply to any result produced by this package.</p>
 <ul>
 <li>
-<strong>The bridging assumption is untestable.</strong> Reconnecting a disconnected network requires component effects (and, under population adjustment, component by effect-modifier interactions) to be <em>constant across sub-networks</em>. There is by construction no cross-gap evidence to test this against. <code><a href="reference/additivity_test.html">additivity_test()</a></code> reports the fit of the additive model <em>within</em> the observed evidence; a large p-value is not a licence to bridge.</li>
+<strong>The bridging assumption is untestable.</strong> Reconnecting a disconnected network requires component effects (and, under population adjustment, component by effect-modifier interactions) to be <em>constant across sub-networks</em>. There is by construction no cross-gap evidence to test this against. <code><a href="reference/additivity_test.html">additivity_test()</a></code> reports the fit of the additive model <em>within</em> the observed evidence; a large p-value is not a license to bridge.</li>
 <li>
-<strong>Only IPD edges are adjusted.</strong> <code><a href="reference/cmaic.html">cmaic()</a></code> and <code><a href="reference/cstc.html">cstc()</a></code> adjust the edges that have IPD; aggregate contrasts enter the bridge as published, in their own study populations. The pooled result is therefore fully adjusted to a single target only if the retained aggregate effects are themselves transportable.</li>
+<strong>A two-stage bridge can mix populations.</strong> <code><a href="reference/cmaic.html">cmaic()</a></code> and <code><a href="reference/cstc.html">cstc()</a></code> adjust the edges that have IPD. Retained aggregate contrasts remain on their original study-population estimands. Combining both types does not produce a coherent single-target network merely because the component model can solve the algebra. The default is to stop; <code>allow_experimental_bridge = TRUE</code> is an explicit research override, not a validity correction.</li>
 <li>
-<strong>Estimands differ across the methods.</strong> <code><a href="reference/cstc.html">cstc()</a></code> returns a conditional effect at the target covariate values; <code><a href="reference/cmaic.html">cmaic()</a></code> returns a marginal weighted effect in the target population. On non-collapsible scales (odds ratios, hazard ratios) these differ even when both are correct.</li>
+<strong>Estimands differ across the methods.</strong> <code><a href="reference/cstc.html">cstc()</a></code> returns a conditional effect on the link scale at the target covariate means; <code><a href="reference/cmaic.html">cmaic()</a></code> returns a marginal weighted contrast. On a nonlinear scale a marginal contrast is not generally component-additive, so feeding cMAIC edges into an additive bridge can be methodologically incoherent even with perfect matching. Non-Gaussian cMAIC bridges therefore require the experimental override.</li>
+<li>
+<strong>cML-NMR target summaries are not marginal standardized effects.</strong> For a one-row <code>newdata</code>, <code><a href="reference/cmlnmr.html">cmlnmr()</a></code> reports the average conditional link-scale contrast evaluated at the supplied covariate means. Exponentiating it does not turn it into a population-marginal odds ratio, rate ratio, or hazard ratio. A full covariate distribution is not accepted for standardization.</li>
 <li>
 <strong>Survival conditions on the supplied rows.</strong> <code><a href="reference/cmlnmr.html">cmlnmr()</a></code> evaluates the exact analytic individual survival likelihood (events plus right, left, and interval censoring, and delayed entry), integrated over each aggregate arm’s covariate distribution, with a study-specific piecewise-exponential or continuous cubic M-spline baseline. It is exact only <em>conditional on</em> the supplied (or reconstructed) pseudo-individual rows, the chosen baseline basis, and the finite numerical integration; uncertainty from reconstructing pseudo-IPD out of a published Kaplan-Meier curve is not propagated, and proportional hazards is assumed.</li>
+<li>
+<strong>Survival interfaces have different status contracts.</strong> The two-stage <code><a href="reference/cstc.html">cstc()</a></code> and <code><a href="reference/cmaic.html">cmaic()</a></code> network input accepts only <code>0</code> for right censoring and <code>1</code> for an event. <code><a href="reference/cmlnmr.html">cmlnmr()</a></code> separately uses <code>0</code> right-censored, <code>1</code> event, <code>2</code> left-censored, and <code>3</code> interval-censored rows, with reconstructed rows required for aggregate survival arms. The package reports proportional-hazard contrasts; it does not estimate restricted mean survival time.</li>
 <li>
 <strong><code><a href="reference/cmlnmr.html">cmlnmr()</a></code> treatment effects may be fixed or random.</strong> <code>trt_effects = "random"</code> adds study-arm heterogeneity with a single common <code>tau</code>, which is one exchangeability assumption, not a component-, sub-network-, or era-specific heterogeneity structure.</li>
 </ul>
@@ -183,7 +177,7 @@
 <div class="section level2">
 <h2 id="documentation">Documentation<a class="anchor" aria-label="anchor" href="#documentation"></a>
 </h2>
-<p>Mathematical foundations, the methods manual, and the validation study live in the local <code>documentation/</code> folder. User-facing vignettes ship with the package.</p>
+<p>The introductory and methods vignettes ship with the package. Five archived outcome examples are excluded until they are regenerated against the current estimand labels, safeguards, and API. The standalone manual in the development-only <code>documentation/</code> tree is not public package guidance.</p>
 </div>
 <div class="section level2">
 <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a>

@@ -24,13 +24,6 @@ plot_survival() overlays the observed data on the fitted survival curves."></hea
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/cpaic-intro.html">Getting started with cpaic</a></li>
     <li><a class="dropdown-item" href="../articles/cpaic-methods.html">The cpaic statistical framework</a></li>
-    <li><hr class="dropdown-divider"></li>
-    <li><h6 class="dropdown-header" data-toc-skip>Outcomes</h6></li>
-    <li><a class="dropdown-item" href="../articles/binary-outcomes.html">Binary outcomes: a disconnected smoking-cessation network</a></li>
-    <li><a class="dropdown-item" href="../articles/continuous-outcomes.html">Continuous outcomes: bridging a disconnected network with a mean difference</a></li>
-    <li><a class="dropdown-item" href="../articles/count-outcomes.html">Count outcomes: a disconnected COPD exacerbation network</a></li>
-    <li><a class="dropdown-item" href="../articles/survival-outcomes.html">Survival outcomes: a disconnected network under proportional hazards</a></li>
-    <li><a class="dropdown-item" href="../articles/cpaic-disconnected-myeloma.html">A disconnected network: NMA, ML-NMR, and cML-NMR compared</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -84,8 +77,10 @@ curves (<code><a href="https://ggplot2.tidyverse.org/reference/geom_path.html" c
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>Only status <code>1</code> counts as an event; statuses <code>0</code>, <code>2</code>, and <code>3</code> (right, left,
-and interval censoring) are treated as censored for the empirical curve.</p>
+    <p>Only right-censored survival data are supported: status <code>1</code> is an event and
+status <code>0</code> is right censoring. Delayed entry is honored when configured on
+the fitted model. Curves reconstructed from aggregate event/censoring rows
+are labeled as reconstructed AgD and must not be read as observed IPD.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>

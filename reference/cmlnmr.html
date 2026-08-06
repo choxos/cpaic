@@ -32,13 +32,6 @@ network is connected by construction."></head><body>
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/cpaic-intro.html">Getting started with cpaic</a></li>
     <li><a class="dropdown-item" href="../articles/cpaic-methods.html">The cpaic statistical framework</a></li>
-    <li><hr class="dropdown-divider"></li>
-    <li><h6 class="dropdown-header" data-toc-skip>Outcomes</h6></li>
-    <li><a class="dropdown-item" href="../articles/binary-outcomes.html">Binary outcomes: a disconnected smoking-cessation network</a></li>
-    <li><a class="dropdown-item" href="../articles/continuous-outcomes.html">Continuous outcomes: bridging a disconnected network with a mean difference</a></li>
-    <li><a class="dropdown-item" href="../articles/count-outcomes.html">Count outcomes: a disconnected COPD exacerbation network</a></li>
-    <li><a class="dropdown-item" href="../articles/survival-outcomes.html">Survival outcomes: a disconnected network under proportional hazards</a></li>
-    <li><a class="dropdown-item" href="../articles/cpaic-disconnected-myeloma.html">A disconnected network: NMA, ML-NMR, and cML-NMR compared</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -229,8 +222,9 @@ the fixed-effects model (no divergences in the fixed-effects checks here),
 though the random-effects survival model can still produce a few divergent
 transitions and occasional rejected simplex proposals; inspect the
 diagnostics rather than assuming they are clean. If a survival
-fit is slow, reduce <code>n_int</code> before suspecting the geometry, and confirm the
-answer is stable with <code><a href="plot_integration_error.html">plot_integration_error()</a></code>.</p></dd>
+fit is slow, reduce <code>n_int</code> before suspecting the geometry. Refit at several
+<code>n_int</code> values and compare the requested effects. <code><a href="plot_integration_error.html">plot_integration_error()</a></code>
+does not support survival likelihoods.</p></dd>
 
 
 <dt id="arg-qr">QR<a class="anchor" aria-label="anchor" href="#arg-qr"></a></dt>
@@ -339,12 +333,12 @@ component design, and a tidy table of component effects.</p>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>The model includes component x effect-modifier interactions <code>gamma</code>, so the
-treatment effect is <strong>population-specific</strong>:
+average conditional link-scale treatment effect depends on target means:
 $$\theta_t(x) = C_t' (\beta + \Gamma x).$$
 The component main effects <code>beta</code> are the effects at the covariate origin
-(<code>x = 0</code>) and are <em>not</em> by themselves a population-adjusted quantity. Use
-<code>newdata</code> in <code><a href="relative_effects.html">relative_effects()</a></code> / <code><a href="component_effects.html">component_effects()</a></code> to obtain effects
-in a named target population.</p>
+(<code>x = 0</code>) and are not marginally standardized quantities. Use <code>newdata</code> in
+<code><a href="relative_effects.html">relative_effects()</a></code> / <code><a href="component_effects.html">component_effects()</a></code> to obtain average conditional
+link-scale effects at named target effect-modifier means.</p>
 <p>Supported families: <code>"binomial"</code> (logit), <code>"gaussian"</code> (identity),
 <code>"poisson"</code> (log), and <code>"survival"</code>.</p>
     </div>
@@ -447,7 +441,7 @@ between-study gradient is confounded in a way a within-study slope is not
 an <strong>ecological</strong> association being read as effect modification.
 <code><a href="estimable_effects_at.html">estimable_effects_at()</a></code> separates the two in its <code>identified_by</code> column
 (<code>"IPD"</code> versus <code>"aggregate"</code>) and marks the latter <code>basis = "first-order screen"</code>; <code><a href="cpaic_ranks.html">cpaic_ranks()</a></code> drops such elements from a hierarchy by default.
-Treat a target-population effect that leans on aggregate-identified
+Treat a target-mean effect that leans on aggregate-identified
 interactions as exploratory, and check it with <code><a href="prior_sensitivity.html">prior_sensitivity()</a></code>.</p>
     </div>
     <div class="section level2">
@@ -456,22 +450,20 @@ interactions as exploratory, and check it with <code><a href="prior_sensitivity.
 
 <p><code>cmlnmr()</code> uses the four-level convention <code>0</code> right-censored, <code>1</code> observed
 event, <code>2</code> left-censored, <code>3</code> interval-censored. This is <strong>not</strong> the coding
-<code><a href="cstc.html">cstc()</a></code> and <code><a href="cmaic.html">cmaic()</a></code> use: those pass the column straight to
-<code><a href="https://rdrr.io/pkg/survival/man/Surv.html" class="external-link">survival::Surv()</a></code>, which reads <code>0</code>/<code>1</code> or <code>1</code>/<code>2</code>, so a <code>2</code> there is an event
-rather than a left-censored observation. Do not reuse one status column across
-the two layers without recoding it.</p>
+<code><a href="cstc.html">cstc()</a></code> and <code><a href="cmaic.html">cmaic()</a></code> use. The two-stage network constructor accepts only
+<code>0</code> for right censoring and <code>1</code> for an event, and rejects all other codes.
+Do not reuse one status column across the two layers without recoding it.</p>
     </div>
     <div class="section level2">
     <h2 id="scope-and-current-limitations">Scope and current limitations<a class="anchor" aria-label="anchor" href="#scope-and-current-limitations"></a></h2>
 
 
-<p>Two gaps are worth naming for anyone comparing this with <code>multinma</code>.</p><ul><li><p><strong>Effects are reported as conditional contrasts at a covariate value</strong>,
-<code>(C_t - C_u)'(beta + Gamma x)</code>, on the linear-predictor scale.
-<code><a href="relative_effects.html">relative_effects()</a></code> evaluates this at the target in <code>newdata</code>. There is no
-marginal (population-standardized) effect path yet: on a non-collapsible
-scale the conditional effect at a point differs from the average effect over
-a population with a distribution of covariates, and only the former is
-returned.</p></li>
+<p>Two gaps are worth naming for anyone comparing this with <code>multinma</code>.</p><ul><li><p><strong>Effects are reported as average conditional link-scale contrasts at
+target means</strong>, <code>(C_t - C_u)'(beta + Gamma x)</code>. Linearity in <code>x</code> makes
+evaluation at <code>E[X]</code> equal to the average conditional link-scale contrast.
+There is no marginal population-standardized effect path. For nonlinear
+links, averaging absolute outcomes first and then forming an odds, rate, or
+hazard ratio gives a different quantity.</p></li>
 <li><p><strong>Every effect modifier enters both the prognostic terms and the full set of
 component interactions.</strong> There is no prognostic-only covariate role (unlike
 <code><a href="cstc.html">cstc()</a></code>, which separates <code>prognostics</code>), so a covariate that shifts outcomes
@@ -564,14 +556,17 @@ Component Hierarchies in Component Network Meta-Analysis.</p>
 <span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.</span>
 <span class="r-wrn co"><span class="r-pr">#&gt;</span> Running the chains for more iterations may help. See</span>
 <span class="r-wrn co"><span class="r-pr">#&gt;</span> https://mc-stan.org/misc/warnings.html#tail-ess</span>
-<span class="r-in"><span><span class="co"># Effects in a named target population (x1 = 0.2), not at the origin:</span></span></span>
+<span class="r-in"><span><span class="co"># Average conditional link-scale effects at target mean x1 = 0.2:</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>x1 <span class="op">=</span> <span class="fl">0.2</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Relative effects (OR, back-transformed)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Conditional effect at covariate profile: x1 = 0.2</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  treatment comparator estimate    se lower upper pr_gt0              basis</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>          A    Placebo    2.121 0.286 1.141 3.557  0.995              exact</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>        A+B    Placebo    2.020 0.312 1.037 3.438  0.975 first-order screen</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   `se` is on the link (log) scale; the interval is back-transformed.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Average conditional link-scale effect at target means: x1 = 0.2</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  treatment comparator estimate estimate_link se_link lower upper   scale pr_gt0</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>          A    Placebo    2.121         0.711   0.286 1.141 3.557 natural  0.995</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>        A+B    Placebo    2.020         0.656   0.312 1.037 3.438 natural  0.975</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>               basis</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>               exact</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  first-order screen</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   `se_link` is on the link (log) scale; the interval is back-transformed.</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   basis "first-order screen" = estimable by the row-space criterion but leaning</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   on aggregate arms or a survival baseline, so it can be optimistic; check</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   with prior_sensitivity() / estimable_effects_at().</span>

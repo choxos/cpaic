@@ -4,8 +4,8 @@ Individual patient data for studies `S3` (`A+B+C` vs `A+B`) and `S4`
 (`A+B+D` vs `A+B`) of the
 [cpaic_bin_agd](https://choxos.github.io/cpaic/reference/cpaic_bin_agd.md)
 network. A single effect modifier `x1` is imbalanced relative to the
-target population (`x1 = 0`), so population adjustment changes the `C`
-and `D` component effects.
+target mean (`x1 = 0`), so target-moment adjustment changes the `C` and
+`D` component effects.
 
 ## Usage
 

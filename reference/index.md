@@ -24,8 +24,7 @@ information.
   : Which relative effects of a component network are uniquely
   estimable?
 - [`estimable_effects_at()`](https://choxos.github.io/cpaic/reference/estimable_effects_at.md)
-  : Which population-adjusted contrasts are estimable at a target
-  population?
+  : Which average conditional contrasts are estimable at target means?
 
 ## Connection layer
 
@@ -38,7 +37,10 @@ Reconnect a disconnected network through shared components.
 
 ## Population adjustment
 
-Anchored, population-adjusted indirect comparison across the network.
+Experimental population-adjustment methods. Two-stage cSTC/cMAIC bridges
+stop by default when they would mix target-specific IPD contrasts with
+retained AgD contrasts, and nonlinear cMAIC bridges require explicit
+experimental opt-in.
 
 - [`cmaic()`](https://choxos.github.io/cpaic/reference/cmaic.md) :
   Component matching-adjusted indirect comparison (cMAIC)
@@ -55,16 +57,16 @@ Anchored, population-adjusted indirect comparison across the network.
 
 ## Hierarchies
 
-Rank treatments or components IN A TARGET POPULATION. Because component
-effects are population-specific under population adjustment, so are the
-rankings: a component can lead in one population and trail in another.
+Rank treatments or components by average conditional link-scale effects
+at supplied target covariate means. These are not marginally
+standardized population rankings.
 
 - [`cpaic_ranks()`](https://choxos.github.io/cpaic/reference/cpaic_ranks.md)
-  : Population-adjusted treatment and component hierarchies
+  : Treatment and component hierarchies at target covariate means
 - [`rank_curve()`](https://choxos.github.io/cpaic/reference/rank_curve.md)
-  : How a hierarchy changes across target populations
+  : How a hierarchy changes across target effect-modifier means
 - [`rank_probs()`](https://choxos.github.io/cpaic/reference/rank_probs.md)
-  : Posterior rank probabilities in a target population
+  : Posterior rank probabilities at target effect-modifier means
 
 ## Reporting
 
@@ -84,9 +86,9 @@ Every plot returns a ggplot object, so it can be modified with the usual
 ggplot2 verbs. The network, forest, rankogram, deviance,
 prior-posterior, integration-error, MCMC, and survival plots are ported
 from multinma (Phillippo et al. 2020). The rank curve, the estimability
-map, and the edge-influence plot are specific to cpaic: under population
-adjustment the hierarchy, and the estimable set itself, are functions of
-the target population.
+map, and the edge-influence plot are specific to cpaic. Under effect
+modification the hierarchy, and the estimable set itself, are functions
+of the supplied target covariate means.
 
 - [`plot(`*`<cpaic_network>`*`)`](https://choxos.github.io/cpaic/reference/plot.cpaic_network.md)
   : Plot the component network
@@ -96,16 +98,16 @@ the target population.
   [`plot(`*`<cpaic_fit>`*`)`](https://choxos.github.io/cpaic/reference/forest.md)
   : Forest plot of relative or component effects
 - [`plot_rank_curve()`](https://choxos.github.io/cpaic/reference/plot_rank_curve.md)
-  : How the hierarchy changes across target populations
+  : How the hierarchy changes across target effect-modifier means
 - [`plot_estimability()`](https://choxos.github.io/cpaic/reference/plot_estimability.md)
   : Map which contrasts are estimable, and on what evidence, across
-  populations
+  target means
 - [`plot_edge_influence()`](https://choxos.github.io/cpaic/reference/plot_edge_influence.md)
   : Plot how much each edge informs a chosen contrast
 - [`plot(`*`<cpaic_rank_probs>`*`)`](https://choxos.github.io/cpaic/reference/plot.cpaic_rank_probs.md)
   : Rankogram and cumulative rank plot
 - [`plot(`*`<cpaic_ranks>`*`)`](https://choxos.github.io/cpaic/reference/plot.cpaic_ranks.md)
-  : Plot a population-adjusted hierarchy
+  : Plot an average conditional hierarchy at target means
 - [`plot(`*`<cpaic_dic>`*`)`](https://choxos.github.io/cpaic/reference/plot.cpaic_dic.md)
   : Deviance and dev-dev plots
 - [`plot_leverage()`](https://choxos.github.io/cpaic/reference/plot_leverage.md)

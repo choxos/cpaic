@@ -43,7 +43,7 @@ Studies `S3` and `S4` also have individual patient data
 their rows here are the *unadjusted* contrasts, which
 [`cmaic()`](https://choxos.github.io/cpaic/reference/cmaic.md) /
 [`cstc()`](https://choxos.github.io/cpaic/reference/cstc.md) replace
-with population-adjusted versions.
+with target-matched versions.
 
 ## See also
 

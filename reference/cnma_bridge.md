@@ -74,11 +74,17 @@ component_effects(br)
 #> 4         D 0.3250136 0.9728622 -1.581761 2.231788 0.3340798 0.7383193
 relative_effects(br)
 #> Relative effects (OR, back-transformed)
-#>  treatment comparator estimate    se lower   upper     z     p
-#>          A    Placebo    1.649 1.192 0.159  17.059 0.419 0.675
-#>        A+B    Placebo    2.460 1.686 0.090  66.993 0.534 0.593
-#>      A+B+C    Placebo    5.038 1.947 0.111 228.801 0.831 0.406
-#>      A+B+D    Placebo    3.404 1.947 0.075 154.510 0.629 0.529
-#>          B    Placebo    1.492 1.192 0.144  15.436 0.336 0.737
-#>   `se` is on the link (log) scale; the interval is back-transformed.
+#>  treatment comparator estimate estimate_link se_link lower   upper   scale
+#>          A    Placebo    1.649         0.500   1.192 0.159  17.059 natural
+#>        A+B    Placebo    2.460         0.900   1.686 0.090  66.993 natural
+#>      A+B+C    Placebo    5.038         1.617   1.947 0.111 228.801 natural
+#>      A+B+D    Placebo    3.404         1.225   1.947 0.075 154.510 natural
+#>          B    Placebo    1.492         0.400   1.192 0.144  15.436 natural
+#>      z     p
+#>  0.419 0.675
+#>  0.534 0.593
+#>  0.831 0.406
+#>  0.629 0.529
+#>  0.336 0.737
+#>   `se_link` is on the link (log) scale; the interval is back-transformed.
 ```

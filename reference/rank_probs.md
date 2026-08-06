@@ -1,12 +1,13 @@
-# Posterior rank probabilities in a target population
+# Posterior rank probabilities at target effect-modifier means
 
 The full rank distribution behind
 [`cpaic_ranks()`](https://choxos.github.io/cpaic/reference/cpaic_ranks.md):
 the posterior probability that each treatment (or component) takes each
-rank, **in a named target population**. Ported from multinma's
-`posterior_rank_probs()` (Phillippo et al. 2020) and extended, because
-under population adjustment the hierarchy is a function of the target:
-the component effects are `beta + Gamma x`, so the ranks move with `x`.
+rank, using average conditional link-scale effects evaluated at target
+means. Ported from multinma's `posterior_rank_probs()` (Phillippo et al.
+2020) and extended because the component effects are `beta + Gamma x`,
+so the ranks move with `x`. These are not ranks of marginal standardized
+ORs, RRs, or HRs.
 
 ## Usage
 
@@ -15,9 +16,11 @@ rank_probs(
   object,
   newdata = NULL,
   what = c("treatment", "component"),
+  set = NULL,
   lower_is_better = FALSE,
   cumulative = FALSE,
   include_screen_only = FALSE,
+  estimand = "average_conditional_link",
   ...
 )
 ```
@@ -31,12 +34,18 @@ rank_probs(
 
 - newdata:
 
-  A one-row data frame giving the target population's effect-modifier
-  values.
+  A one-row data frame giving target effect-modifier means.
 
 - what:
 
   `"treatment"` (default) or `"component"`.
+
+- set:
+
+  Optional character vector restricting the elements to rank, as in
+  [`cpaic_ranks()`](https://choxos.github.io/cpaic/reference/cpaic_ranks.md).
+  Defaults to all treatments, including the reference, or all
+  components.
 
 - lower_is_better:
 
@@ -53,6 +62,11 @@ rank_probs(
   first-order screen) are excluded, as in
   [`cpaic_ranks()`](https://choxos.github.io/cpaic/reference/cpaic_ranks.md).
 
+- estimand:
+
+  The only implemented value is `"average_conditional_link"`. Marginal
+  standardized ranks are rejected.
+
 - ...:
 
   Unused.
@@ -64,8 +78,8 @@ rank) and columns `element`, `rank_position`, and `probability`.
 
 ## Details
 
-Elements that are not estimable at the target population are dropped
-from the ranking set rather than ranked from the prior, exactly as in
+Elements that are not estimable at the target means are dropped from the
+ranking set rather than ranked from the prior, exactly as in
 [`cpaic_ranks()`](https://choxos.github.io/cpaic/reference/cpaic_ranks.md)
 (Step 3 of Wigle et al. 2026); they are listed in the `dropped`
 attribute.

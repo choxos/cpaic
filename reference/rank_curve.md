@@ -1,10 +1,10 @@
-# How a hierarchy changes across target populations
+# How a hierarchy changes across target effect-modifier means
 
 Recomputes
 [`cpaic_ranks()`](https://choxos.github.io/cpaic/reference/cpaic_ranks.md)
-over a grid of target populations, so that the population dependence of
-the hierarchy is visible. Under population adjustment a component's rank
-is a function of the target, and this is the object that shows it.
+over a grid of target means. This exposes how the hierarchy of average
+conditional link-scale effects changes with the chosen mean. It does not
+standardize effects over a sequence of target distributions.
 
 ## Usage
 
@@ -53,7 +53,9 @@ rank_curve(
 ## Value
 
 A data frame with one row per (element, target value), giving `sucra`,
-`mean_rank`, `p_best` and `estimate`, plus `estimable`.
+`mean_rank`, `p_best`, and `estimate`. Failed target values are retained
+as one `status = "failed"` row with `NA` metrics and an explanatory
+`error`.
 
 ## See also
 

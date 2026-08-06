@@ -1,11 +1,11 @@
-# How the hierarchy changes across target populations
+# How the hierarchy changes across target effect-modifier means
 
-**The headline figure of cpaic.** Under population adjustment the
-component effects are `beta + Gamma x`, so a component's rank is a
-function of the target population `x` and components **cross**: the
-component that leads in one population can trail in another. A single
-hierarchy, quoted without a population, is therefore not a well-posed
-answer. This plot shows the whole family of hierarchies at once.
+The component effects are `beta + Gamma x`, so a component's rank is a
+function of the target means `x` and components can cross. A single
+hierarchy quoted without its target means is therefore incomplete. This
+plot shows the family of average conditional link-scale hierarchies
+across a mean grid. It does not standardize over different population
+distributions.
 
 ## Usage
 

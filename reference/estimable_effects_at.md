@@ -1,7 +1,7 @@
-# Which population-adjusted contrasts are estimable at a target population?
+# Which average conditional contrasts are estimable at target means?
 
 Extends the row-space criterion of Wigle et al. (2026) from the
-component main effects to the population-adjusted estimand
+component main effects to the average conditional link-scale estimand
 `theta_t(x) = C_t' (beta + Gamma x)`. A relative effect is identified by
 the first-order information if and only if its augmented contrast vector
 `(1, x) %x% (C_t - C_u)` lies in the row space of the information design
@@ -22,8 +22,8 @@ estimable_effects_at(object, newdata = NULL, reference = NULL, ...)
 
 - newdata:
 
-  A one-row data frame giving the target population's effect-modifier
-  values. Defaults to the covariate origin.
+  A one-row data frame giving target effect-modifier means. Defaults to
+  the covariate origin.
 
 - reference:
 
@@ -43,9 +43,10 @@ section below.
 ## Details
 
 Because the criterion depends on `x`, **the estimable set can depend on
-the target population**: a contrast estimable at the covariate origin
-need not be estimable in a target population where the component by
-effect-modifier interactions are not identified.
+the target means**. A contrast estimable at the covariate origin need
+not be estimable at means where the component by effect-modifier
+interactions are not identified. This does not assess a marginal
+standardized estimand.
 
 ## Strength of the guarantee
 

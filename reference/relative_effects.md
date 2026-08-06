@@ -15,6 +15,7 @@ relative_effects(
   backtransf = TRUE,
   level = 0.95,
   newdata = NULL,
+  estimand = NULL,
   ...
 )
 ```
@@ -47,8 +48,14 @@ relative_effects(
 - newdata:
 
   For [`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md)
-  fits: a one-row data frame giving the target population's
-  effect-modifier values. Required when the model has effect modifiers.
+  fits: a one-row data frame giving target effect-modifier means.
+  Required when the model has effect modifiers.
+
+- estimand:
+
+  For [`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md)
+  fits, the only implemented value is `"average_conditional_link"`.
+  Requests for `"marginal"` fail explicitly.
 
 - ...:
 
@@ -56,8 +63,11 @@ relative_effects(
 
 ## Value
 
-A data frame with columns `treatment`, `comparator`, `estimate`, `se`
-(link scale), `lower`, `upper`, and `z`/`p` for frequentist fits. For
+A data frame with columns `treatment`, `comparator`, `estimate`,
+`estimate_link`, `se_link`, `lower`, `upper`, `scale`, and `z`/`p` for
+frequentist fits. `estimate_link` and `se_link` are always on the
+model's link scale. `estimate`, `lower`, and `upper` use the scale named
+in `scale`. For
 [`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md)
 (Bayesian) fits the intervals are credible intervals and the final
 column is `pr_gt0`, the posterior probability that the effect (on the
@@ -73,20 +83,21 @@ See
 
 For [`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md)
 fits the model contains component x effect-modifier interactions, so
-relative effects are **population-specific**:
-`theta_t(x) = C_t' (beta + gamma x)`. You must name the target
-population through `newdata`; there is no population-free relative
-effect.
+relative effects depend on the supplied covariate means:
+`theta_t(x) = C_t' (beta + gamma x)`. Because this expression is linear
+in `x`, evaluating it at `E[X]` gives the average conditional link-scale
+effect. It is not a marginal standardized OR, RR, or HR.
 
 Two things this returns are narrower than they may look, both documented
 in full under
 [`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md). The
-value is the **conditional** contrast at the covariate profile `x`, not
-the marginal effect standardized over a population with a distribution
-of covariates; on a non-collapsible scale (odds ratio, hazard ratio)
-those differ, so `newdata = <a study's covariate means>` does not give
-that study's population-average effect. And where the interactions are
-informed only by aggregate arms, `x` is being applied to an ecological
-gradient rather than to within-study effect modification; see
+value is the **average conditional link-scale** contrast at target means
+`x`, not the marginal effect standardized over a population with a
+distribution of covariates; on a non-collapsible scale (odds ratio,
+hazard ratio) those differ, so `newdata = <a study's covariate means>`
+does not give that study's population-average effect. And where the
+interactions are informed only by aggregate arms, `x` is being applied
+to an ecological gradient rather than to within-study effect
+modification; see
 [`estimable_effects_at()`](https://choxos.github.io/cpaic/reference/estimable_effects_at.md),
 whose `identified_by` column separates the two.

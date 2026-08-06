@@ -20,13 +20,6 @@
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/cpaic-intro.html">Getting started with cpaic</a></li>
     <li><a class="dropdown-item" href="../articles/cpaic-methods.html">The cpaic statistical framework</a></li>
-    <li><hr class="dropdown-divider"></li>
-    <li><h6 class="dropdown-header" data-toc-skip>Outcomes</h6></li>
-    <li><a class="dropdown-item" href="../articles/binary-outcomes.html">Binary outcomes: a disconnected smoking-cessation network</a></li>
-    <li><a class="dropdown-item" href="../articles/continuous-outcomes.html">Continuous outcomes: bridging a disconnected network with a mean difference</a></li>
-    <li><a class="dropdown-item" href="../articles/count-outcomes.html">Count outcomes: a disconnected COPD exacerbation network</a></li>
-    <li><a class="dropdown-item" href="../articles/survival-outcomes.html">Survival outcomes: a disconnected network under proportional hazards</a></li>
-    <li><a class="dropdown-item" href="../articles/cpaic-disconnected-myeloma.html">A disconnected network: NMA, ML-NMR, and cML-NMR compared</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -95,7 +88,7 @@
           <code><a href="estimable_effects_at.html">estimable_effects_at()</a></code>
 
         </dt>
-        <dd>Which population-adjusted contrasts are estimable at a target population?</dd>
+        <dd>Which average conditional contrasts are estimable at target means?</dd>
       </dl></div><div class="section level2">
       <h2 id="connection-layer">Connection layer<a class="anchor" aria-label="anchor" href="#connection-layer"></a></h2>
 
@@ -122,7 +115,7 @@
       </dl></div><div class="section level2">
       <h2 id="population-adjustment">Population adjustment<a class="anchor" aria-label="anchor" href="#population-adjustment"></a></h2>
 
-      <div class="section-desc"><p>Anchored, population-adjusted indirect comparison across the network.</p></div>
+      <div class="section-desc"><p>Experimental population-adjustment methods. Two-stage cSTC/cMAIC bridges stop by default when they would mix target-specific IPD contrasts with retained AgD contrasts, and nonlinear cMAIC bridges require explicit experimental opt-in.</p></div>
 
       <dl></dl></div><div class="section level2">
 
@@ -173,7 +166,7 @@
       </dl></div><div class="section level2">
       <h2 id="hierarchies">Hierarchies<a class="anchor" aria-label="anchor" href="#hierarchies"></a></h2>
 
-      <div class="section-desc"><p>Rank treatments or components IN A TARGET POPULATION. Because component effects are population-specific under population adjustment, so are the rankings: a component can lead in one population and trail in another.</p></div>
+      <div class="section-desc"><p>Rank treatments or components by average conditional link-scale effects at supplied target covariate means. These are not marginally standardized population rankings.</p></div>
 
       <dl></dl></div><div class="section level2">
 
@@ -185,21 +178,21 @@
           <code><a href="cpaic_ranks.html">cpaic_ranks()</a></code>
 
         </dt>
-        <dd>Population-adjusted treatment and component hierarchies</dd>
+        <dd>Treatment and component hierarchies at target covariate means</dd>
 
         <dt>
 
           <code><a href="rank_curve.html">rank_curve()</a></code>
 
         </dt>
-        <dd>How a hierarchy changes across target populations</dd>
+        <dd>How a hierarchy changes across target effect-modifier means</dd>
 
         <dt>
 
           <code><a href="rank_probs.html">rank_probs()</a></code>
 
         </dt>
-        <dd>Posterior rank probabilities in a target population</dd>
+        <dd>Posterior rank probabilities at target effect-modifier means</dd>
       </dl></div><div class="section level2">
       <h2 id="reporting">Reporting<a class="anchor" aria-label="anchor" href="#reporting"></a></h2>
 
@@ -240,7 +233,7 @@
       </dl></div><div class="section level2">
       <h2 id="plots">Plots<a class="anchor" aria-label="anchor" href="#plots"></a></h2>
 
-      <div class="section-desc"><p>Every plot returns a ggplot object, so it can be modified with the usual ggplot2 verbs. The network, forest, rankogram, deviance, prior-posterior, integration-error, MCMC, and survival plots are ported from multinma (Phillippo et al. 2020). The rank curve, the estimability map, and the edge-influence plot are specific to cpaic: under population adjustment the hierarchy, and the estimable set itself, are functions of the target population.</p></div>
+      <div class="section-desc"><p>Every plot returns a ggplot object, so it can be modified with the usual ggplot2 verbs. The network, forest, rankogram, deviance, prior-posterior, integration-error, MCMC, and survival plots are ported from multinma (Phillippo et al. 2020). The rank curve, the estimability map, and the edge-influence plot are specific to cpaic. Under effect modification the hierarchy, and the estimable set itself, are functions of the supplied target covariate means.</p></div>
 
       <dl></dl></div><div class="section level2">
 
@@ -266,14 +259,14 @@
           <code><a href="plot_rank_curve.html">plot_rank_curve()</a></code>
 
         </dt>
-        <dd>How the hierarchy changes across target populations</dd>
+        <dd>How the hierarchy changes across target effect-modifier means</dd>
 
         <dt>
 
           <code><a href="plot_estimability.html">plot_estimability()</a></code>
 
         </dt>
-        <dd>Map which contrasts are estimable, and on what evidence, across populations</dd>
+        <dd>Map which contrasts are estimable, and on what evidence, across target means</dd>
 
         <dt>
 
@@ -294,7 +287,7 @@
           <code><a href="plot.cpaic_ranks.html">plot(<i>&lt;cpaic_ranks&gt;</i>)</a></code>
 
         </dt>
-        <dd>Plot a population-adjusted hierarchy</dd>
+        <dd>Plot an average conditional hierarchy at target means</dd>
 
         <dt>
 

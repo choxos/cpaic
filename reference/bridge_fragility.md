@@ -33,8 +33,10 @@ bridge_fragility(
 
 - newdata:
 
-  A one-row data frame giving the target population's effect-modifier
-  values (required when the model has effect modifiers).
+  A one-row data frame giving target effect-modifier means (required
+  when the model has effect modifiers). The assessed contrast is the
+  average conditional link-scale effect at those means, not a marginal
+  standardized effect.
 
 - threshold:
 

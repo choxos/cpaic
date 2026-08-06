@@ -35,13 +35,6 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><a class="dropdown-item" href="../articles/cpaic-intro.html">Getting started with cpaic</a></li>
     <li><a class="dropdown-item" href="../articles/cpaic-methods.html">The cpaic statistical framework</a></li>
-    <li><hr class="dropdown-divider"></li>
-    <li><h6 class="dropdown-header" data-toc-skip>Outcomes</h6></li>
-    <li><a class="dropdown-item" href="../articles/binary-outcomes.html">Binary outcomes: a disconnected smoking-cessation network</a></li>
-    <li><a class="dropdown-item" href="../articles/continuous-outcomes.html">Continuous outcomes: bridging a disconnected network with a mean difference</a></li>
-    <li><a class="dropdown-item" href="../articles/count-outcomes.html">Count outcomes: a disconnected COPD exacerbation network</a></li>
-    <li><a class="dropdown-item" href="../articles/survival-outcomes.html">Survival outcomes: a disconnected network under proportional hazards</a></li>
-    <li><a class="dropdown-item" href="../articles/cpaic-disconnected-myeloma.html">A disconnected network: NMA, ML-NMR, and cML-NMR compared</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -73,6 +66,11 @@
 
     
     
+<blockquote>
+<p><strong>Research use only.</strong> cpaic is experimental. Its
+methodology and implementation have not been validated for clinical,
+regulatory, reimbursement, or other decision use.</p>
+</blockquote>
 <p>This vignette describes the statistical framework behind cpaic. The
 companion mathematical-foundations document (shipped with the
 development sources) gives the full derivations; here we summarize the
@@ -96,8 +94,11 @@ individual patient data (IPD) are available, each evidence edge is
 corrected for between-study imbalance in effect modifiers, using
 anchored STC, MAIC, or ML-NMR.</li>
 </ol>
-<p>The output is an indirect comparison that is both connected and
-population-adjusted.</p>
+<p>The component model can identify a cross-gap contrast, but scientific
+transportability is an additional assumption. A two-stage result is not
+a coherent single-target population adjustment when target-specific IPD
+contrasts are mixed with retained AgD contrasts from their original
+study populations.</p>
 </div>
 <div class="section level2">
 <h2 id="the-additive-component-model">The additive component model<a class="anchor" aria-label="anchor" href="#the-additive-component-model"></a>
@@ -138,12 +139,15 @@ around <code><a href="https://rdrr.io/pkg/netmeta/man/discomb.html" class="exter
 <div class="section level2">
 <h2 id="connecting-a-disconnected-network">Connecting a disconnected network<a class="anchor" aria-label="anchor" href="#connecting-a-disconnected-network"></a>
 </h2>
-<p>A disconnected network can be bridged only if the shared components
-make the component effects identifiable, that is
+<p>A full set of component effects is identifiable when
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">r</mi><mi mathvariant="normal">a</mi><mi mathvariant="normal">n</mi><mi mathvariant="normal">k</mi></mrow><mo stretchy="false" form="prefix">(</mo><mi>X</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mi>K</mi></mrow><annotation encoding="application/x-tex">\mathrm{rank}(X) = K</annotation></semantics></math>,
-the number of components. <code><a href="../reference/cpaic_connectivity.html">cpaic_connectivity()</a></code> detects the
-sub-networks, lists the bridging components, and reports
-identifiability.</p>
+the number of components. Even in a rank-deficient design, a particular
+contrast can be identifiable when its contrast vector lies in the row
+space of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>.
+<code><a href="../reference/cpaic_connectivity.html">cpaic_connectivity()</a></code> detects the sub-networks and reports
+the component-design diagnostics; <code><a href="../reference/estimable_effects.html">estimable_effects()</a></code>
+checks the requested contrasts.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">net</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cpaic_network.html">cpaic_network</a></span><span class="op">(</span><span class="va">cpaic_bin_agd</span>, sm <span class="op">=</span> <span class="st">"OR"</span>, inactive <span class="op">=</span> <span class="st">"Placebo"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/cpaic_connectivity.html">cpaic_connectivity</a></span><span class="op">(</span><span class="va">net</span><span class="op">)</span></span>
@@ -173,22 +177,28 @@ relative effects across the gap from the component effects.</p>
 <p>For each IPD study, <code><a href="../reference/cstc.html">cstc()</a></code> fits an outcome regression
 with treatment main effects, prognostic main effects, and
 treatment-by-effect-modifier interactions, with the effect modifiers
-centered at a target population. On the link scale,
+centered at supplied target covariate means. On the link scale,
 <math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>g</mi><mo stretchy="false" form="prefix">{</mo><mi>E</mi><mo stretchy="false" form="prefix">(</mo><mi>y</mi><mo>∣</mo><mrow><mtext mathvariant="normal">arm </mtext><mspace width="0.333em"></mspace></mrow><mi>t</mi><mo>,</mo><mi>x</mi><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">}</mo><mo>=</mo><mi>μ</mi><mo>+</mo><msub><mi>β</mi><mi>t</mi></msub><mo>+</mo><msubsup><mi>γ</mi><mi>t</mi><mi>⊤</mi></msubsup><mo stretchy="false" form="prefix">(</mo><mi>x</mi><mo>−</mo><msub><mover><mi>x</mi><mo accent="true">‾</mo></mover><mtext mathvariant="normal">target</mtext></msub><mo stretchy="false" form="postfix">)</mo><mo>+</mo><mi>…</mi></mrow><annotation encoding="application/x-tex"> g\{E(y \mid \text{arm } t, x)\}
    = \mu + \beta_t + \gamma_t^\top (x - \bar x_{\text{target}}) + \dots </annotation></semantics></math>
 so the treatment coefficient
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>β</mi><mi>t</mi></msub><annotation encoding="application/x-tex">\beta_t</annotation></semantics></math>
-is the population-adjusted contrast at the target (the interaction term
-vanishes at
+is the conditional link-scale contrast at the supplied target covariate
+means (the interaction term vanishes at
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi><mo>=</mo><msub><mover><mi>x</mi><mo accent="true">‾</mo></mover><mtext mathvariant="normal">target</mtext></msub></mrow><annotation encoding="application/x-tex">x = \bar x_{\text{target}}</annotation></semantics></math>).
-This is the anchored generalization of regression-based standardization;
-it is implemented natively because the <code>stc()</code> function in
-mlumr targets the unanchored two-trial case.</p>
+Because this contrast is linear in the effect modifiers on the link
+scale, it is also the average conditional link-scale contrast at those
+means. It is not an outcome-scale marginal standardization. The model is
+implemented natively.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">net_ipd</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cpaic_network.html">cpaic_network</a></span><span class="op">(</span><span class="va">cpaic_bin_agd</span>, ipd <span class="op">=</span> <span class="va">cpaic_bin_ipd</span>, sm <span class="op">=</span> <span class="st">"OR"</span>,</span>
 <span>                         family <span class="op">=</span> <span class="st">"binomial"</span>, ipd_covariates <span class="op">=</span> <span class="st">"x1"</span>,</span>
 <span>                         inactive <span class="op">=</span> <span class="st">"Placebo"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/component_effects.html">component_effects</a></span><span class="op">(</span><span class="fu"><a href="../reference/cstc.html">cstc</a></span><span class="op">(</span><span class="va">net_ipd</span>, target <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>x1 <span class="op">=</span> <span class="fl">0</span><span class="op">)</span>, effect_modifiers <span class="op">=</span> <span class="st">"x1"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/component_effects.html">component_effects</a></span><span class="op">(</span><span class="fu"><a href="../reference/cstc.html">cstc</a></span><span class="op">(</span><span class="va">net_ipd</span>, target <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>x1 <span class="op">=</span> <span class="fl">0</span><span class="op">)</span>,</span>
+<span>                       effect_modifiers <span class="op">=</span> <span class="st">"x1"</span>,</span>
+<span>                       allow_experimental_bridge <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Warning: cstc() cannot form a decision-grade component bridge:</span></span>
+<span><span class="co">#&gt;   - retained aggregate-only edge(s) remain in their own study populations: S1: A vs Placebo; S2: B vs Placebo; S5: A+B+C vs A+B+D</span></span>
+<span><span class="co">#&gt; Use cmlnmr() for a joint model, restrict the analysis to a design in which every edge is adjusted and the estimand is additive, or set `allow_experimental_bridge = TRUE` only for explicitly exploratory sensitivity work.</span></span>
 <span><span class="co">#&gt;   component  estimate        se        lower     upper statistic        pval</span></span>
 <span><span class="co">#&gt; 1         A 0.5000000 0.2563324 -0.002402322 1.0024023  1.950592 0.051105590</span></span>
 <span><span class="co">#&gt; 2         B 0.4000000 0.2563324 -0.102402322 0.9024023  1.560474 0.118647988</span></span>
@@ -199,7 +209,7 @@ mlumr targets the unanchored two-trial case.</p>
 <h2 id="anchored-matching-adjusted-indirect-comparison-cmaic">Anchored matching-adjusted indirect comparison (cMAIC)<a class="anchor" aria-label="anchor" href="#anchored-matching-adjusted-indirect-comparison-cmaic"></a>
 </h2>
 <p><code><a href="../reference/cmaic.html">cmaic()</a></code> reweights each IPD study so that its
-effect-modifier distribution matches the target population, using
+effect-modifier moments match the supplied target moments, using
 entropy-balancing weights
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>w</mi><mi>i</mi></msub><mo>=</mo><mrow><mi mathvariant="normal">exp</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">(</mo><msubsup><mover><mi>x</mi><mo accent="true">̃</mo></mover><mi>i</mi><mi>⊤</mi></msubsup><mi>α</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">w_i = \exp(\tilde x_i^\top \alpha)</annotation></semantics></math>
 with
@@ -210,9 +220,21 @@ sample size is
 The weighted within-study contrasts, with bootstrap standard errors that
 propagate the weighting uncertainty, are then combined through the
 component model.</p>
+<p>That last step is an additional methodology constraint. A marginal
+weighted contrast is not generally additive across treatment components
+on a nonlinear link scale. Also, if AgD-only edges remain, those
+contrasts still refer to their original study populations. cMAIC
+therefore stops by default outside the Gaussian identity-link case and
+whenever retained AgD edges would be mixed in. The experimental override
+does not repair either estimand mismatch.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit_maic</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cmaic.html">cmaic</a></span><span class="op">(</span><span class="va">net_ipd</span>, target <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>x1 <span class="op">=</span> <span class="fl">0</span><span class="op">)</span>, effect_modifiers <span class="op">=</span> <span class="st">"x1"</span>,</span>
-<span>                  n_boot <span class="op">=</span> <span class="fl">100</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span>                  n_boot <span class="op">=</span> <span class="fl">100</span>, seed <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>                  allow_experimental_bridge <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Warning: cmaic() cannot form a decision-grade component bridge:</span></span>
+<span><span class="co">#&gt;   - retained aggregate-only edge(s) remain in their own study populations: S1: A vs Placebo; S2: B vs Placebo; S5: A+B+C vs A+B+D</span></span>
+<span><span class="co">#&gt;   - cMAIC estimates marginal binomial contrasts, which are not generally additive in the component design on a nonlinear link scale</span></span>
+<span><span class="co">#&gt; Use cmlnmr() for a joint model, restrict the analysis to a design in which every edge is adjusted and the estimand is additive, or set `allow_experimental_bridge = TRUE` only for explicitly exploratory sensitivity work.</span></span>
 <span><span class="fu"><a href="../reference/effective_sample_size.html">effective_sample_size</a></span><span class="op">(</span><span class="va">fit_maic</span><span class="op">)</span></span>
 <span><span class="co">#&gt;       S3       S4 </span></span>
 <span><span class="co">#&gt; 207.4202 358.1461</span></span></code></pre></div>
@@ -220,15 +242,13 @@ component model.</p>
 <div class="section level2">
 <h2 id="the-unification">The unification<a class="anchor" aria-label="anchor" href="#the-unification"></a>
 </h2>
-<p>For a single IPD edge anchored on a common comparator, combining the
-adjusted contrast with the aggregate comparator contrast through the
-component model is exactly a Bucher indirect comparison. The component
-model generalizes this to a network: many adjusted and unadjusted
-contrasts are combined simultaneously through
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo>=</mo><mo stretchy="false" form="prefix">(</mo><msup><mi>X</mi><mi>⊤</mi></msup><mi>W</mi><mi>X</mi><msup><mo stretchy="false" form="postfix">)</mo><mo>+</mo></msup><msup><mi>X</mi><mi>⊤</mi></msup><mi>W</mi><mi>d</mi></mrow><annotation encoding="application/x-tex">\hat\beta = (X^\top W X)^{+} X^\top W d</annotation></semantics></math>,
-and the bridge supplies the contrasts that are otherwise unavailable
-across the disconnection. The key assumption is that component effects
-(and their effect-modifier interactions) are constant across
+<p>For a single anchored comparison, the contrast algebra resembles a
+Bucher indirect comparison. A network bridge combines many adjusted and
+unadjusted contrasts through
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>β</mi><mo accent="true">̂</mo></mover><mo>=</mo><mo stretchy="false" form="prefix">(</mo><msup><mi>X</mi><mi>⊤</mi></msup><mi>W</mi><mi>X</mi><msup><mo stretchy="false" form="postfix">)</mo><mo>+</mo></msup><msup><mi>X</mi><mi>⊤</mi></msup><mi>W</mi><mi>d</mi></mrow><annotation encoding="application/x-tex">\hat\beta = (X^\top W X)^{+} X^\top W d</annotation></semantics></math>.
+That algebra does not establish that every input contrast shares the
+same target estimand. It also does not test the required constancy of
+component effects and effect-modifier interactions across disconnected
 sub-networks <span class="citation">(Rücker et al. 2021)</span>.</p>
 </div>
 <div class="section level2">
@@ -244,11 +264,26 @@ so the network is connected by construction. All four outcome families
 are supported; survival uses a proportional-hazards model with a
 flexible baseline (piecewise-exponential by default, or a smooth
 M-spline), set through <code>cut_points</code> and
-<code>baseline</code>. Aggregate covariates are integrated with a
-Gaussian copula whose correlation is estimated from the individual
-patient data. A component whose effect-modifier interaction is informed
-only by aggregate data is weakly identified and relies on the regression
+<code>baseline</code>. Its analytic row-level likelihood handles events,
+right/left/interval censoring, and delayed entry. Aggregate survival
+arms require reconstructed event and censoring rows; event counts plus
+person-time are rejected. The finite quasi-Monte Carlo covariate
+integration is approximate. Restricted mean survival time is not
+implemented. Aggregate covariates are integrated with a Gaussian copula
+whose correlation is estimated from the individual patient data. A
+component whose effect-modifier interaction is informed only by
+aggregate data is weakly identified and relies on the regression
 prior.</p>
+<p>Reporting methods evaluate
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>C</mi><mi>t</mi></msub><mo>−</mo><msub><mi>C</mi><mi>u</mi></msub><msup><mo stretchy="false" form="postfix">)</mo><mo>′</mo></msup><mo stretchy="false" form="prefix">(</mo><mi>β</mi><mo>+</mo><mi mathvariant="normal">Γ</mi><mi>x</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(C_t-C_u)'(\beta + \Gamma x)</annotation></semantics></math>
+at a one-row vector of supplied covariate means. Since this expression
+is linear in
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>x</mi><annotation encoding="application/x-tex">x</annotation></semantics></math>,
+it is an average conditional link-scale effect at those means. It is not
+a marginally standardized odds, rate, or hazard ratio. The aggregate
+likelihood integrates outcomes over covariate distributions for model
+fitting, but that integration does not turn the reporting function into
+marginal standardization.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Fits with rstan by default; backend = "cmdstanr" is the alternative.</span></span>
 <span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cmlnmr.html">cmlnmr</a></span><span class="op">(</span><span class="va">ipd</span>, <span class="va">agd</span>, effect_modifiers <span class="op">=</span> <span class="st">"x1"</span>, inactive <span class="op">=</span> <span class="st">"Placebo"</span>,</span>
@@ -260,8 +295,9 @@ prior.</p>
 </h2>
 <ul>
 <li>
-<strong>Additivity</strong> of component effects (test with
-<code><a href="../reference/additivity_test.html">additivity_test()</a></code>; add interaction terms if violated).</li>
+<strong>Additivity</strong> of component effects.
+<code><a href="../reference/additivity_test.html">additivity_test()</a></code> can diagnose lack of fit where evidence
+exists, but it cannot validate an unobserved cross-gap bridge.</li>
 <li>
 <strong>Identifiability</strong>: a disconnected network is
 bridgeable only when <code><a href="../reference/cpaic_connectivity.html">cpaic_connectivity()</a></code> reports
@@ -271,9 +307,19 @@ bridgeable only when <code><a href="../reference/cpaic_connectivity.html">cpaic_
 modifiers (the standard population-adjustment assumption), here extended
 to constancy of component effects across sub-networks.</li>
 <li>
-<strong>Non-collapsibility</strong>: MAIC targets a marginal effect
-and STC a conditional effect, so for noncollapsible measures they answer
-slightly different questions.</li>
+<strong>Two-stage estimand mixing</strong>: retained AgD contrasts
+remain tied to their study populations. The default gate stops this
+mixed bridge unless the caller explicitly opts into research-only
+behavior.</li>
+<li>
+<strong>Nonlinearity and non-collapsibility</strong>: MAIC targets a
+marginal weighted contrast and STC a conditional link-scale contrast.
+Marginal contrasts are not generally component-additive on nonlinear
+links.</li>
+<li>
+<strong>cML-NMR reporting</strong>: target summaries are average
+conditional link-scale effects at covariate means, not marginally
+standardized effects.</li>
 </ul>
 </div>
 <div class="section level2 unnumbered">

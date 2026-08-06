@@ -4,7 +4,9 @@
 the observed likelihood. This helper compares a simple statistic of the
 observed outcomes with the corresponding replicated outcomes. Survival
 replications are event-by-observed-time indicators because the censoring
-process is not modeled.
+process is not modeled. For Poisson models, the check stops if any
+generated count exceeded Stan's safe random-number range. Affected
+values are explicit sentinels and are never summarized as data.
 
 ## Usage
 

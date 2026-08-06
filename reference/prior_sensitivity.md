@@ -2,8 +2,7 @@
 
 Prior movement is an empirical identification diagnostic. Contrasts that
 move substantially when a weakly identified prior is changed should not
-be interpreted as data-driven. This helper reuses the principle in
-`documentation/validation/estimability_gamma.R`.
+be interpreted as data-driven.
 
 ## Usage
 
@@ -28,7 +27,7 @@ prior_sensitivity(
 
 - newdata:
 
-  One target population, as for
+  One row of target effect-modifier means, as for
   [`relative_effects()`](https://choxos.github.io/cpaic/reference/relative_effects.md).
 
 - prior:

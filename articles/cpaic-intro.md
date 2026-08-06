@@ -5,6 +5,10 @@
 library(cpaic)
 ```
 
+> **Research use only.** cpaic is experimental. Its methodology and
+> implementation have not been validated for clinical, regulatory,
+> reimbursement, or other decision use.
+
 ## The problem
 
 Network meta-analysis needs a *connected* network. When the evidence
@@ -12,12 +16,11 @@ splits into two or more sub-networks with no common comparator, the
 network is **disconnected** and the treatments in different sub-networks
 cannot be compared directly.
 
-`cpaic` reconnects such a network through the *additive component*
-structure of the treatments (component network meta-analysis), and then
-adjusts the comparisons for between-study differences in effect
-modifiers using anchored population-adjustment methods (STC, MAIC, and
-ML-NMR). The result is an indirect comparison that is both connected and
-population-adjusted.
+`cpaic` can reconnect such a network through the *additive component*
+structure of the treatments. It also implements experimental adjustment
+for between-study differences in effect modifiers using anchored STC,
+MAIC, and ML-NMR. Algebraic reconnection does not by itself make the
+result transportable to one population.
 
 ## A disconnected example
 
@@ -98,13 +101,18 @@ component_effects(br)
 ## Step 2: adjust for effect modifiers
 
 Components `C` and `D` come from the IPD studies, whose effect modifier
-`x1` is imbalanced relative to the target population (`x1 = 0`).
-Anchored STC fits an outcome regression with treatment-by-`x1`
-interactions and reads off the treatment effect at the target.
+`x1` is imbalanced relative to the target mean (`x1 = 0`). Anchored STC
+fits an outcome regression with treatment-by-`x1` interactions and
+evaluates the conditional link-scale treatment effect at that target
+mean.
 
 ``` r
 
-fit_stc <- cstc(net, target = c(x1 = 0), effect_modifiers = "x1")
+fit_stc <- cstc(net, target = c(x1 = 0), effect_modifiers = "x1",
+                allow_experimental_bridge = TRUE)
+#> Warning: cstc() cannot form a decision-grade component bridge:
+#>   - retained aggregate-only edge(s) remain in their own study populations: S1: A vs Placebo; S2: B vs Placebo; S5: A+B+C vs A+B+D
+#> Use cmlnmr() for a joint model, restrict the analysis to a design in which every edge is adjusted and the estimand is additive, or set `allow_experimental_bridge = TRUE` only for explicitly exploratory sensitivity work.
 component_effects(fit_stc)
 #>   component  estimate        se        lower     upper statistic        pval
 #> 1         A 0.5000000 0.2563324 -0.002402322 1.0024023  1.950592 0.051105590
@@ -113,20 +121,33 @@ component_effects(fit_stc)
 #> 4         D 0.6408956 0.2317142  0.186744196 1.0950470  2.765889 0.005676788
 ```
 
-Anchored MAIC instead reweights each IPD study to the target population.
+Anchored MAIC instead reweights each IPD study to the target moments.
+Its marginal weighted contrast is not generally component-additive on a
+nonlinear scale such as the log odds scale.
 
 ``` r
 
 fit_maic <- cmaic(net, target = c(x1 = 0), effect_modifiers = "x1",
-                  n_boot = 100, seed = 1)
+                  n_boot = 100, seed = 1,
+                  allow_experimental_bridge = TRUE)
+#> Warning: cmaic() cannot form a decision-grade component bridge:
+#>   - retained aggregate-only edge(s) remain in their own study populations: S1: A vs Placebo; S2: B vs Placebo; S5: A+B+C vs A+B+D
+#>   - cMAIC estimates marginal binomial contrasts, which are not generally additive in the component design on a nonlinear link scale
+#> Use cmlnmr() for a joint model, restrict the analysis to a design in which every edge is adjusted and the estimand is additive, or set `allow_experimental_bridge = TRUE` only for explicitly exploratory sensitivity work.
 effective_sample_size(fit_maic)
 #>       S3       S4 
 #> 207.4202 358.1461
 ```
 
-Population adjustment moves the `C` and `D` effects relative to the
-unadjusted (naive) bridge, while the placebo-anchored components `A` and
-`B` are unchanged:
+Both calls require explicit opt-in because this example retains
+unadjusted AgD edges from their original study populations. The fitted
+objects record the override. It is not a claim that the resulting
+network has one coherent target estimand.
+
+Adjusting the IPD edges moves the `C` and `D` estimates relative to the
+unadjusted bridge, while the estimates driven by retained aggregate
+edges are unchanged. This comparison is descriptive because the opt-in
+bridge mixes study-population and target-specific contrasts:
 
 ``` r
 
@@ -149,13 +170,19 @@ data.frame(
 
 relative_effects(fit_stc)
 #> Relative effects (OR, back-transformed)
-#>  treatment comparator estimate    se lower  upper     z     p
-#>          A    Placebo    1.649 0.256 0.998  2.725 1.951 0.051
-#>        A+B    Placebo    2.460 0.363 1.209  5.005 2.483 0.013
-#>      A+B+C    Placebo    4.014 0.435 1.711  9.416 3.194 0.001
-#>      A+B+D    Placebo    4.669 0.430 2.009 10.850 3.582 0.000
-#>          B    Placebo    1.492 0.256 0.903  2.466 1.560 0.119
-#>   `se` is on the link (log) scale; the interval is back-transformed.
+#>  treatment comparator estimate estimate_link se_link lower  upper   scale     z
+#>          A    Placebo    1.649         0.500   0.256 0.998  2.725 natural 1.951
+#>        A+B    Placebo    2.460         0.900   0.363 1.209  5.005 natural 2.483
+#>      A+B+C    Placebo    4.014         1.390   0.435 1.711  9.416 natural 3.194
+#>      A+B+D    Placebo    4.669         1.541   0.430 2.009 10.850 natural 3.582
+#>          B    Placebo    1.492         0.400   0.256 0.903  2.466 natural 1.560
+#>      p
+#>  0.051
+#>  0.013
+#>  0.001
+#>  0.000
+#>  0.119
+#>   `se_link` is on the link (log) scale; the interval is back-transformed.
 additivity_test(fit_stc)
 #> Additive component model: fit statistics
 #>   Total lack of fit (Q.additive): Q = 2.669, df = 1, p = 0.102

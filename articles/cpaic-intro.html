@@ -35,13 +35,6 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><a class="dropdown-item" href="../articles/cpaic-intro.html">Getting started with cpaic</a></li>
     <li><a class="dropdown-item" href="../articles/cpaic-methods.html">The cpaic statistical framework</a></li>
-    <li><hr class="dropdown-divider"></li>
-    <li><h6 class="dropdown-header" data-toc-skip>Outcomes</h6></li>
-    <li><a class="dropdown-item" href="../articles/binary-outcomes.html">Binary outcomes: a disconnected smoking-cessation network</a></li>
-    <li><a class="dropdown-item" href="../articles/continuous-outcomes.html">Continuous outcomes: bridging a disconnected network with a mean difference</a></li>
-    <li><a class="dropdown-item" href="../articles/count-outcomes.html">Count outcomes: a disconnected COPD exacerbation network</a></li>
-    <li><a class="dropdown-item" href="../articles/survival-outcomes.html">Survival outcomes: a disconnected network under proportional hazards</a></li>
-    <li><a class="dropdown-item" href="../articles/cpaic-disconnected-myeloma.html">A disconnected network: NMA, ML-NMR, and cML-NMR compared</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -75,6 +68,11 @@
     
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/choxos/cpaic" class="external-link">cpaic</a></span><span class="op">)</span></span></code></pre></div>
+<blockquote>
+<p><strong>Research use only.</strong> cpaic is experimental. Its
+methodology and implementation have not been validated for clinical,
+regulatory, reimbursement, or other decision use.</p>
+</blockquote>
 <div class="section level2">
 <h2 id="the-problem">The problem<a class="anchor" aria-label="anchor" href="#the-problem"></a>
 </h2>
@@ -82,12 +80,12 @@
 evidence splits into two or more sub-networks with no common comparator,
 the network is <strong>disconnected</strong> and the treatments in
 different sub-networks cannot be compared directly.</p>
-<p><code>cpaic</code> reconnects such a network through the <em>additive
-component</em> structure of the treatments (component network
-meta-analysis), and then adjusts the comparisons for between-study
-differences in effect modifiers using anchored population-adjustment
-methods (STC, MAIC, and ML-NMR). The result is an indirect comparison
-that is both connected and population-adjusted.</p>
+<p><code>cpaic</code> can reconnect such a network through the
+<em>additive component</em> structure of the treatments. It also
+implements experimental adjustment for between-study differences in
+effect modifiers using anchored STC, MAIC, and ML-NMR. Algebraic
+reconnection does not by itself make the result transportable to one
+population.</p>
 </div>
 <div class="section level2">
 <h2 id="a-disconnected-example">A disconnected example<a class="anchor" aria-label="anchor" href="#a-disconnected-example"></a>
@@ -161,29 +159,44 @@ reconstructs the relative effects across the gap.</p>
 </h2>
 <p>Components <code>C</code> and <code>D</code> come from the IPD
 studies, whose effect modifier <code>x1</code> is imbalanced relative to
-the target population (<code>x1 = 0</code>). Anchored STC fits an
-outcome regression with treatment-by-<code>x1</code> interactions and
-reads off the treatment effect at the target.</p>
+the target mean (<code>x1 = 0</code>). Anchored STC fits an outcome
+regression with treatment-by-<code>x1</code> interactions and evaluates
+the conditional link-scale treatment effect at that target mean.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">fit_stc</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cstc.html">cstc</a></span><span class="op">(</span><span class="va">net</span>, target <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>x1 <span class="op">=</span> <span class="fl">0</span><span class="op">)</span>, effect_modifiers <span class="op">=</span> <span class="st">"x1"</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">fit_stc</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cstc.html">cstc</a></span><span class="op">(</span><span class="va">net</span>, target <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>x1 <span class="op">=</span> <span class="fl">0</span><span class="op">)</span>, effect_modifiers <span class="op">=</span> <span class="st">"x1"</span>,</span>
+<span>                allow_experimental_bridge <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Warning: cstc() cannot form a decision-grade component bridge:</span></span>
+<span><span class="co">#&gt;   - retained aggregate-only edge(s) remain in their own study populations: S1: A vs Placebo; S2: B vs Placebo; S5: A+B+C vs A+B+D</span></span>
+<span><span class="co">#&gt; Use cmlnmr() for a joint model, restrict the analysis to a design in which every edge is adjusted and the estimand is additive, or set `allow_experimental_bridge = TRUE` only for explicitly exploratory sensitivity work.</span></span>
 <span><span class="fu"><a href="../reference/component_effects.html">component_effects</a></span><span class="op">(</span><span class="va">fit_stc</span><span class="op">)</span></span>
 <span><span class="co">#&gt;   component  estimate        se        lower     upper statistic        pval</span></span>
 <span><span class="co">#&gt; 1         A 0.5000000 0.2563324 -0.002402322 1.0024023  1.950592 0.051105590</span></span>
 <span><span class="co">#&gt; 2         B 0.4000000 0.2563324 -0.102402322 0.9024023  1.560474 0.118647988</span></span>
 <span><span class="co">#&gt; 3         C 0.4896667 0.2406290  0.018042458 0.9612910  2.034944 0.041856471</span></span>
 <span><span class="co">#&gt; 4         D 0.6408956 0.2317142  0.186744196 1.0950470  2.765889 0.005676788</span></span></code></pre></div>
-<p>Anchored MAIC instead reweights each IPD study to the target
-population.</p>
+<p>Anchored MAIC instead reweights each IPD study to the target moments.
+Its marginal weighted contrast is not generally component-additive on a
+nonlinear scale such as the log odds scale.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fit_maic</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cmaic.html">cmaic</a></span><span class="op">(</span><span class="va">net</span>, target <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>x1 <span class="op">=</span> <span class="fl">0</span><span class="op">)</span>, effect_modifiers <span class="op">=</span> <span class="st">"x1"</span>,</span>
-<span>                  n_boot <span class="op">=</span> <span class="fl">100</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span>                  n_boot <span class="op">=</span> <span class="fl">100</span>, seed <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>                  allow_experimental_bridge <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Warning: cmaic() cannot form a decision-grade component bridge:</span></span>
+<span><span class="co">#&gt;   - retained aggregate-only edge(s) remain in their own study populations: S1: A vs Placebo; S2: B vs Placebo; S5: A+B+C vs A+B+D</span></span>
+<span><span class="co">#&gt;   - cMAIC estimates marginal binomial contrasts, which are not generally additive in the component design on a nonlinear link scale</span></span>
+<span><span class="co">#&gt; Use cmlnmr() for a joint model, restrict the analysis to a design in which every edge is adjusted and the estimand is additive, or set `allow_experimental_bridge = TRUE` only for explicitly exploratory sensitivity work.</span></span>
 <span><span class="fu"><a href="../reference/effective_sample_size.html">effective_sample_size</a></span><span class="op">(</span><span class="va">fit_maic</span><span class="op">)</span></span>
 <span><span class="co">#&gt;       S3       S4 </span></span>
 <span><span class="co">#&gt; 207.4202 358.1461</span></span></code></pre></div>
-<p>Population adjustment moves the <code>C</code> and <code>D</code>
-effects relative to the unadjusted (naive) bridge, while the
-placebo-anchored components <code>A</code> and <code>B</code> are
-unchanged:</p>
+<p>Both calls require explicit opt-in because this example retains
+unadjusted AgD edges from their original study populations. The fitted
+objects record the override. It is not a claim that the resulting
+network has one coherent target estimand.</p>
+<p>Adjusting the IPD edges moves the <code>C</code> and <code>D</code>
+estimates relative to the unadjusted bridge, while the estimates driven
+by retained aggregate edges are unchanged. This comparison is
+descriptive because the opt-in bridge mixes study-population and
+target-specific contrasts:</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  component <span class="op">=</span> <span class="fu"><a href="../reference/component_effects.html">component_effects</a></span><span class="op">(</span><span class="va">br</span><span class="op">)</span><span class="op">$</span><span class="va">component</span>,</span>
@@ -203,13 +216,19 @@ unchanged:</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">fit_stc</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Relative effects (OR, back-transformed)</span></span>
-<span><span class="co">#&gt;  treatment comparator estimate    se lower  upper     z     p</span></span>
-<span><span class="co">#&gt;          A    Placebo    1.649 0.256 0.998  2.725 1.951 0.051</span></span>
-<span><span class="co">#&gt;        A+B    Placebo    2.460 0.363 1.209  5.005 2.483 0.013</span></span>
-<span><span class="co">#&gt;      A+B+C    Placebo    4.014 0.435 1.711  9.416 3.194 0.001</span></span>
-<span><span class="co">#&gt;      A+B+D    Placebo    4.669 0.430 2.009 10.850 3.582 0.000</span></span>
-<span><span class="co">#&gt;          B    Placebo    1.492 0.256 0.903  2.466 1.560 0.119</span></span>
-<span><span class="co">#&gt;   `se` is on the link (log) scale; the interval is back-transformed.</span></span>
+<span><span class="co">#&gt;  treatment comparator estimate estimate_link se_link lower  upper   scale     z</span></span>
+<span><span class="co">#&gt;          A    Placebo    1.649         0.500   0.256 0.998  2.725 natural 1.951</span></span>
+<span><span class="co">#&gt;        A+B    Placebo    2.460         0.900   0.363 1.209  5.005 natural 2.483</span></span>
+<span><span class="co">#&gt;      A+B+C    Placebo    4.014         1.390   0.435 1.711  9.416 natural 3.194</span></span>
+<span><span class="co">#&gt;      A+B+D    Placebo    4.669         1.541   0.430 2.009 10.850 natural 3.582</span></span>
+<span><span class="co">#&gt;          B    Placebo    1.492         0.400   0.256 0.903  2.466 natural 1.560</span></span>
+<span><span class="co">#&gt;      p</span></span>
+<span><span class="co">#&gt;  0.051</span></span>
+<span><span class="co">#&gt;  0.013</span></span>
+<span><span class="co">#&gt;  0.001</span></span>
+<span><span class="co">#&gt;  0.000</span></span>
+<span><span class="co">#&gt;  0.119</span></span>
+<span><span class="co">#&gt;   `se_link` is on the link (log) scale; the interval is back-transformed.</span></span>
 <span><span class="fu"><a href="../reference/additivity_test.html">additivity_test</a></span><span class="op">(</span><span class="va">fit_stc</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Additive component model: fit statistics</span></span>
 <span><span class="co">#&gt;   Total lack of fit (Q.additive): Q = 2.669, df = 1, p = 0.102</span></span>

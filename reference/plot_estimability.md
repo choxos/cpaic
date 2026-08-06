@@ -1,15 +1,15 @@
-# Map which contrasts are estimable, and on what evidence, across populations
+# Map which contrasts are estimable, and on what evidence, across target means
 
-Estimability under population adjustment is itself a function of the
-target population: a contrast identified at the covariate origin need
-not be identified in a population where the relevant component by
+Estimability of the average conditional link-scale contrast is a
+function of the target means. A contrast identified at the covariate
+origin need not be identified where the relevant component by
 effect-modifier interactions are not pinned down. This plot evaluates
 [`estimable_effects_at()`](https://choxos.github.io/cpaic/reference/estimable_effects_at.md)
-over a grid of target populations and tiles the result, separating
-contrasts identified by **IPD** (a within-study interaction, which
-randomization protects) from those identified only **ecologically**,
-from between-study differences in aggregate covariate means (which
-randomization does not protect; Berlin et al. 2002).
+over a grid and tiles the result, separating contrasts identified by
+**IPD** (a within-study interaction, which randomization protects) from
+those identified only **ecologically**, from between-study differences
+in aggregate covariate means (which randomization does not protect;
+Berlin et al. 2002).
 
 ## Usage
 

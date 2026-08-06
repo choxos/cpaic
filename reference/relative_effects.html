@@ -26,13 +26,6 @@ backtransf = FALSE."></head><body>
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/cpaic-intro.html">Getting started with cpaic</a></li>
     <li><a class="dropdown-item" href="../articles/cpaic-methods.html">The cpaic statistical framework</a></li>
-    <li><hr class="dropdown-divider"></li>
-    <li><h6 class="dropdown-header" data-toc-skip>Outcomes</h6></li>
-    <li><a class="dropdown-item" href="../articles/binary-outcomes.html">Binary outcomes: a disconnected smoking-cessation network</a></li>
-    <li><a class="dropdown-item" href="../articles/continuous-outcomes.html">Continuous outcomes: bridging a disconnected network with a mean difference</a></li>
-    <li><a class="dropdown-item" href="../articles/count-outcomes.html">Count outcomes: a disconnected COPD exacerbation network</a></li>
-    <li><a class="dropdown-item" href="../articles/survival-outcomes.html">Survival outcomes: a disconnected network under proportional hazards</a></li>
-    <li><a class="dropdown-item" href="../articles/cpaic-disconnected-myeloma.html">A disconnected network: NMA, ML-NMR, and cML-NMR compared</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -67,6 +60,7 @@ natural scale of the summary measure (e.g. odds ratios) unless
 <span>  backtransf <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  level <span class="op">=</span> <span class="fl">0.95</span>,</span>
 <span>  newdata <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  estimand <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -99,9 +93,13 @@ of versus the reference.</p></dd>
 
 
 <dt id="arg-newdata">newdata<a class="anchor" aria-label="anchor" href="#arg-newdata"></a></dt>
-<dd><p>For <code><a href="cmlnmr.html">cmlnmr()</a></code> fits: a one-row data frame giving the target
-population's effect-modifier values. Required when the model has effect
-modifiers.</p></dd>
+<dd><p>For <code><a href="cmlnmr.html">cmlnmr()</a></code> fits: a one-row data frame giving target
+effect-modifier means. Required when the model has effect modifiers.</p></dd>
+
+
+<dt id="arg-estimand">estimand<a class="anchor" aria-label="anchor" href="#arg-estimand"></a></dt>
+<dd><p>For <code><a href="cmlnmr.html">cmlnmr()</a></code> fits, the only implemented value is
+<code>"average_conditional_link"</code>. Requests for <code>"marginal"</code> fail explicitly.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
@@ -111,7 +109,9 @@ modifiers.</p></dd>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A data frame with columns <code>treatment</code>, <code>comparator</code>, <code>estimate</code>,
-<code>se</code> (link scale), <code>lower</code>, <code>upper</code>, and <code>z</code>/<code>p</code> for frequentist fits.
+<code>estimate_link</code>, <code>se_link</code>, <code>lower</code>, <code>upper</code>, <code>scale</code>, and <code>z</code>/<code>p</code> for
+frequentist fits. <code>estimate_link</code> and <code>se_link</code> are always on the model's
+link scale. <code>estimate</code>, <code>lower</code>, and <code>upper</code> use the scale named in <code>scale</code>.
 For <code><a href="cmlnmr.html">cmlnmr()</a></code> (Bayesian) fits the intervals are credible intervals and
 the final column is <code>pr_gt0</code>, the posterior probability that the
 effect (on the link scale) exceeds zero, instead of <code>z</code>/<code>p</code>.</p>
@@ -123,12 +123,13 @@ contrast vector lies outside the row space of <code>X = B C</code>) are returned
 <code>NA</code> rather than as pseudoinverse or prior-driven artefacts. See
 <code><a href="estimable_effects.html">estimable_effects()</a></code>.</p>
 <p>For <code><a href="cmlnmr.html">cmlnmr()</a></code> fits the model contains component x effect-modifier
-interactions, so relative effects are <strong>population-specific</strong>:
-<code>theta_t(x) = C_t' (beta + gamma x)</code>. You must name the target population
-through <code>newdata</code>; there is no population-free relative effect.</p>
+interactions, so relative effects depend on the supplied covariate means:
+<code>theta_t(x) = C_t' (beta + gamma x)</code>. Because this expression is linear in
+<code>x</code>, evaluating it at <code>E[X]</code> gives the average conditional link-scale effect.
+It is not a marginal standardized OR, RR, or HR.</p>
 <p>Two things this returns are narrower than they may look, both documented in
-full under <code><a href="cmlnmr.html">cmlnmr()</a></code>. The value is the <strong>conditional</strong> contrast at the
-covariate profile <code>x</code>, not the marginal effect standardized over a population
+full under <code><a href="cmlnmr.html">cmlnmr()</a></code>. The value is the <strong>average conditional link-scale</strong>
+contrast at target means <code>x</code>, not the marginal effect standardized over a population
 with a distribution of covariates; on a non-collapsible scale (odds ratio,
 hazard ratio) those differ, so <code>newdata = &lt;a study's covariate means&gt;</code> does not
 give that study's population-average effect. And where the interactions are

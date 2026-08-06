@@ -1,4 +1,4 @@
-# Plot a population-adjusted hierarchy
+# Plot an average conditional hierarchy at target means
 
 Plots the ranking metrics of a
 [`cpaic_ranks()`](https://choxos.github.io/cpaic/reference/cpaic_ranks.md)

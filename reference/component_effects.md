@@ -8,7 +8,13 @@ Component effects from a cpaic fit
 component_effects(object, newdata = NULL, ...)
 
 # S3 method for class 'cpaic_mlnmr'
-component_effects(object, newdata = NULL, level = 0.95, ...)
+component_effects(
+  object,
+  newdata = NULL,
+  level = 0.95,
+  estimand = "average_conditional_link",
+  ...
+)
 ```
 
 ## Arguments
@@ -36,6 +42,11 @@ component_effects(object, newdata = NULL, level = 0.95, ...)
   Credible level for the component-effect intervals (default `0.95`),
   for [`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md)
   fits.
+
+- estimand:
+
+  The only implemented cML-NMR component-effect estimand is
+  `"average_conditional_link"`.
 
 ## Value
 
