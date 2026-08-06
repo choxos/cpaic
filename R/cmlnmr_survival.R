@@ -27,7 +27,8 @@
     }
     return(structure(
       list(baseline = baseline, cut_points = cut_points,
-           n_basis = length(cut_points) + 1L),
+           n_basis = length(cut_points) + 1L,
+           max_time = max(observed_times)),
       class = "cpaic_survival_basis"
     ))
   }
@@ -54,7 +55,8 @@
   )
   structure(
     list(baseline = baseline, basis = basis,
-         n_basis = ncol(basis), boundary = boundary),
+         n_basis = ncol(basis), boundary = boundary,
+         max_time = max(observed_times)),
     class = "cpaic_survival_basis"
   )
 }
@@ -205,4 +207,3 @@
   list(time = time, status = status, start_time = start_time,
        entry_time = entry_time)
 }
-

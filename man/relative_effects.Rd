@@ -12,6 +12,12 @@ relative_effects(
   level = 0.95,
   newdata = NULL,
   estimand = NULL,
+  target = NULL,
+  weights = NULL,
+  measure = NULL,
+  baseline_study = NULL,
+  times = NULL,
+  random_effect = "population",
   ...
 )
 }
@@ -32,19 +38,24 @@ of versus the reference.}
 \item{newdata}{For \code{\link[=cmlnmr]{cmlnmr()}} fits: a one-row data frame giving target
 effect-modifier means. Required when the model has effect modifiers.}
 
-\item{estimand}{For \code{\link[=cmlnmr]{cmlnmr()}} fits, the only implemented value is
-\code{"average_conditional_link"}. Requests for \code{"marginal"} fail explicitly.}
+\item{estimand}{For \code{\link[=cmlnmr]{cmlnmr()}} fits, either
+\code{"average_conditional_link"} or \code{"marginal"}. The latter delegates to
+\code{marginal_effects()}.}
+
+\item{target, weights, measure, baseline_study, times, random_effect}{Arguments
+used only for \code{estimand = "marginal"}; see \code{marginal_effects()}.}
 
 \item{...}{Unused.}
 }
 \value{
-A data frame with columns \code{treatment}, \code{comparator}, \code{estimate},
-\code{estimate_link}, \code{se_link}, \code{lower}, \code{upper}, \code{scale}, and \code{z}/\code{p} for
-frequentist fits. \code{estimate_link} and \code{se_link} are always on the model's
-link scale. \code{estimate}, \code{lower}, and \code{upper} use the scale named in \code{scale}.
-For \code{\link[=cmlnmr]{cmlnmr()}} (Bayesian) fits the intervals are credible intervals and
-the final column is \code{pr_gt0}, the posterior probability that the
-effect (on the link scale) exceeds zero, instead of \code{z}/\code{p}.
+For frequentist and average-conditional outputs, a data frame with
+columns \code{treatment}, \code{comparator}, \code{estimate}, \code{estimate_link}, \code{se_link},
+\code{lower}, \code{upper}, \code{scale}, and \code{z}/\code{p} or Bayesian \code{pr_gt0}.
+\code{estimate_link} and \code{se_link} are on the model link scale.
+\code{estimand = "marginal"} returns the schema documented by
+\code{marginal_effects()}, with canonical \code{estimate_contrast}, \code{se_contrast},
+and \code{contrast_scale} columns because natural differences are not model-link
+quantities.
 }
 \description{
 Tidies the relative effects of the fitted model: every treatment versus a
@@ -58,19 +69,18 @@ contrast vector lies outside the row space of \verb{X = B C}) are returned as
 \code{NA} rather than as pseudoinverse or prior-driven artefacts. See
 \code{\link[=estimable_effects]{estimable_effects()}}.
 
-For \code{\link[=cmlnmr]{cmlnmr()}} fits the model contains component x effect-modifier
-interactions, so relative effects depend on the supplied covariate means:
+For \code{\link[=cmlnmr]{cmlnmr()}} fits, \code{estimand = "average_conditional_link"} reports
+component-additive link-scale contrasts at supplied covariate means:
 \verb{theta_t(x) = C_t' (beta + gamma x)}. Because this expression is linear in
 \code{x}, evaluating it at \code{E[X]} gives the average conditional link-scale effect.
-It is not a marginal standardized OR, RR, or HR.
+Set \code{estimand = "marginal"} to delegate to \code{marginal_effects()} and
+standardize treatment-specific outcomes over an explicit target covariate
+distribution before forming contrasts.
 
-Two things this returns are narrower than they may look, both documented in
-full under \code{\link[=cmlnmr]{cmlnmr()}}. The value is the \strong{average conditional link-scale}
-contrast at target means \code{x}, not the marginal effect standardized over a population
-with a distribution of covariates; on a non-collapsible scale (odds ratio,
-hazard ratio) those differ, so \verb{newdata = <a study's covariate means>} does not
-give that study's population-average effect. And where the interactions are
-informed only by aggregate arms, \code{x} is being applied to an ecological
-gradient rather than to within-study effect modification; see
-\code{\link[=estimable_effects_at]{estimable_effects_at()}}, whose \code{identified_by} column separates the two.
+The average-conditional path is narrower than it may look. A one-row
+\code{newdata} profile is not a target covariate distribution, and exponentiating
+a link-scale contrast does not create a marginal standardized effect. The
+marginal path therefore requires \code{target} instead. In either path,
+interactions informed only by aggregate arms can reflect ecological rather
+than within-study effect modification; see \code{\link[=estimable_effects_at]{estimable_effects_at()}}.
 }

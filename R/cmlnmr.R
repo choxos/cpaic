@@ -213,7 +213,9 @@
 #' The component main effects `beta` are the effects at the covariate origin
 #' (`x = 0`) and are not marginally standardized quantities. Use `newdata` in
 #' [relative_effects()] / [component_effects()] to obtain average conditional
-#' link-scale effects at named target effect-modifier means.
+#' link-scale effects at named target effect-modifier means. Use
+#' `marginal_effects()` with an explicit target covariate distribution to
+#' standardize treatment-specific outcomes before forming marginal contrasts.
 #'
 #' Supported families: `"binomial"` (logit), `"gaussian"` (identity),
 #' `"poisson"` (log), and `"survival"`.
@@ -322,12 +324,16 @@
 #' @section Scope and current limitations:
 #' Two gaps are worth naming for anyone comparing this with `multinma`.
 #'
-#' * **Effects are reported as average conditional link-scale contrasts at
-#'   target means**, `(C_t - C_u)'(beta + Gamma x)`. Linearity in `x` makes
-#'   evaluation at `E[X]` equal to the average conditional link-scale contrast.
-#'   There is no marginal population-standardized effect path. For nonlinear
-#'   links, averaging absolute outcomes first and then forming an odds, rate, or
-#'   hazard ratio gives a different quantity.
+#' * **Conditional and marginal reporting are distinct.**
+#'   [relative_effects()] defaults to the average conditional link-scale
+#'   contrast at target means, `(C_t - C_u)'(beta + Gamma x)`. Linearity in `x`
+#'   makes evaluation at `E[X]` equal to that average conditional contrast.
+#'   `marginal_effects()` instead integrates treatment-specific outcomes over an
+#'   explicit target distribution and forms contrasts within each posterior
+#'   draw. Binomial, Poisson rate-difference, and survival measures additionally
+#'   transport a selected study intercept or baseline hazard. Nonlinear
+#'   marginal effects are treatment-level quantities and are not component
+#'   additive.
 #' * **Every effect modifier enters both the prognostic terms and the full set of
 #'   component interactions.** There is no prognostic-only covariate role (unlike
 #'   [cstc()], which separates `prognostics`), so a covariate that shifts outcomes
@@ -971,6 +977,7 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
   # Exact survival bases. The integrated basis is evaluated at every outcome,
   # interval-start, and delayed-entry time.
   survival_spec <- NULL
+  survival_study_support <- NULL
   survival_ipd_basis <- NULL
   survival_agd_basis <- NULL
   if (family == "survival") {
@@ -983,6 +990,14 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
     survival_spec <- .cpaic_survival_basis_spec(
       observed_times = c(surv_ipd$time, surv_agd$time),
       baseline = baseline, cut_points = basis_cuts, n_basis = n_basis
+    )
+    survival_study_support <- tapply(
+      c(surv_ipd$time, surv_agd$time),
+      c(as.character(ipd[[study]]), as.character(agd[[study]])),
+      max
+    )
+    survival_study_support <- stats::setNames(
+      as.numeric(survival_study_support[studies]), studies
     )
     survival_ipd_basis <- .cpaic_survival_basis_eval(
       survival_spec, surv_ipd$time, surv_ipd$start_time,
@@ -1238,6 +1253,8 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
 
   structure(
     list(fit = fit, components = comp_tbl, C.matrix = C, comps = comps,
+         study_levels = studies, survival_spec = survival_spec,
+         survival_study_support = survival_study_support,
          family = family, effect_modifiers = effect_modifiers,
          margins = margins, cor = cor_mat, QR = QR, Z_cond = Z_cond,
          design = Dmat,

@@ -153,26 +153,59 @@ by default, or a smooth M-spline), set through `cut_points` and `baseline`.
 Its analytic row-level likelihood handles events, right/left/interval
 censoring, and delayed entry. Aggregate survival arms require reconstructed
 event and censoring rows; event counts plus person-time are rejected. The
-finite quasi-Monte Carlo covariate integration is approximate. Restricted mean
-survival time is not implemented.
+finite quasi-Monte Carlo covariate integration is approximate.
 Aggregate covariates are integrated with a Gaussian copula whose
 correlation is estimated from the individual patient data. A component
 whose effect-modifier interaction is informed only by aggregate data is
 weakly identified and relies on the regression prior.
 
-Reporting methods evaluate
+The default reporting path evaluates
 $(C_t-C_u)'(\beta + \Gamma x)$ at a one-row vector of supplied covariate
 means. Since this expression is linear in $x$, it is an average conditional
-link-scale effect at those means. It is not a marginally standardized odds,
-rate, or hazard ratio. The aggregate likelihood integrates outcomes over
-covariate distributions for model fitting, but that integration does not turn
-the reporting function into marginal standardization.
+link-scale effect at those means. A separate `marginal_effects()` path accepts
+empirical target rows or a named Gaussian-copula target distribution. Empirical
+rows must contain exactly the fitted effect modifiers; finite nonnegative
+weights are normalized and zero-weight rows are discarded. Bernoulli modifiers
+use actual 0/1 rows. Summary targets provide named means, SDs, and margins,
+with optional latent-scale correlation and deterministic Sobol' integration.
+Continuous modifiers can use normal, gamma, lognormal, or beta margins
+independently, while fitted Bernoulli modifiers remain Bernoulli. Independent
+Bernoulli strata are enumerated exactly. Summary integration stops when the
+requested Bernoulli strata or non-normal moments fail their moment-fidelity
+gates, rather than silently reporting a distorted target. The Bernoulli
+prevalence tolerance is `max(1e-8, 0.1 * min(p, 1 - p))`; non-normal means must
+be within 0.1 target SD and non-normal SDs within 15 percent relative error.
+Mixed or non-normal multivariable targets also require resolved pairwise
+correlations to agree within 0.05 of a high-resolution deterministic reference
+grid.
+
+The estimator averages treatment-specific outcomes within each posterior draw
+before forming odds, risk, rate, survival, time-specific hazard, or restricted
+mean survival time contrasts. Binomial, rate-difference, and survival measures
+require an explicit donor study intercept or baseline hazard. Survival
+predictions start at model time zero and are not landmark or delayed-entry
+conditioned. Prediction times must remain within the observed follow-up support
+of the selected donor study. Survival and risk ratios,
+piecewise-exponential RMST ratios, and time-specific marginal hazard ratios are
+formed on the log scale with stable log-sum-exp calculations before optional
+back-transformation. RMST measures require a piecewise-exponential donor
+baseline and are evaluated analytically over its intervals. M-spline fits
+support marginal survival, risk, and time-specific marginal hazard measures,
+but not RMST. These target checks are not a formal overlap or positivity
+diagnostic. Nonlinear marginal effects remain treatment-level
+contrasts, not marginal component effects or rankings.
 
 ```{r, eval = FALSE}
 # Fits with rstan by default; backend = "cmdstanr" is the alternative.
 fit <- cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "Placebo",
               family = "binomial")
 component_effects(fit)
+
+# Marginal risk ratio over an empirical target distribution.
+marginal_effects(
+  fit, target = data.frame(x1 = c(0, 1)), weights = c(0.7, 0.3),
+  measure = "risk_ratio", baseline_study = "study_id"
+)
 ```
 
 ## Assumptions and caveats
@@ -191,7 +224,12 @@ component_effects(fit)
 * **Nonlinearity and non-collapsibility**: MAIC targets a marginal weighted
   contrast and STC a conditional link-scale contrast. Marginal contrasts are
   not generally component-additive on nonlinear links.
-* **cML-NMR reporting**: target summaries are average conditional link-scale
-  effects at covariate means, not marginally standardized effects.
+* **cML-NMR reporting**: average conditional effects at covariate means and
+  marginal effects over target distributions are separate estimands. Marginal
+  standardization is treatment-level and does not preserve component additivity
+  on nonlinear scales. Measures requiring absolute outcomes transport a
+  selected study intercept or baseline hazard. Survival predictions start at
+  model time zero, not a landmark or delayed-entry time, and use the donor
+  study's observed follow-up support. No formal overlap diagnostic is estimated.
 
 ## References

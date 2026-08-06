@@ -29,11 +29,16 @@ reference:
     Experimental population-adjustment methods. Two-stage cSTC/cMAIC bridges
     stop by default when they would mix target-specific IPD contrasts with
     retained AgD contrasts, and nonlinear cMAIC bridges require explicit
-    experimental opt-in.
+    experimental opt-in. cML-NMR marginal effects standardize over empirical
+    or named summary targets with supported margins and moment and
+    joint-dependence fidelity gates;
+    survival predictions begin at model time zero and use donor-specific
+    follow-up support. Nonlinear marginal results remain treatment-level.
   contents:
   - cmaic
   - cstc
   - cmlnmr
+  - marginal_effects
   - effective_sample_size
   - weight_diagnostics
   - edge_influence

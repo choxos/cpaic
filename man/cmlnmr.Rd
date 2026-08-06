@@ -226,7 +226,9 @@ average conditional link-scale treatment effect depends on target means:
 The component main effects \code{beta} are the effects at the covariate origin
 (\code{x = 0}) and are not marginally standardized quantities. Use \code{newdata} in
 \code{\link[=relative_effects]{relative_effects()}} / \code{\link[=component_effects]{component_effects()}} to obtain average conditional
-link-scale effects at named target effect-modifier means.
+link-scale effects at named target effect-modifier means. Use
+\code{marginal_effects()} with an explicit target covariate distribution to
+standardize treatment-specific outcomes before forming marginal contrasts.
 
 Supported families: \code{"binomial"} (logit), \code{"gaussian"} (identity),
 \code{"poisson"} (log), and \code{"survival"}.
@@ -348,12 +350,16 @@ Do not reuse one status column across the two layers without recoding it.
 
 Two gaps are worth naming for anyone comparing this with \code{multinma}.
 \itemize{
-\item \strong{Effects are reported as average conditional link-scale contrasts at
-target means}, \verb{(C_t - C_u)'(beta + Gamma x)}. Linearity in \code{x} makes
-evaluation at \code{E[X]} equal to the average conditional link-scale contrast.
-There is no marginal population-standardized effect path. For nonlinear
-links, averaging absolute outcomes first and then forming an odds, rate, or
-hazard ratio gives a different quantity.
+\item \strong{Conditional and marginal reporting are distinct.}
+\code{\link[=relative_effects]{relative_effects()}} defaults to the average conditional link-scale
+contrast at target means, \verb{(C_t - C_u)'(beta + Gamma x)}. Linearity in \code{x}
+makes evaluation at \code{E[X]} equal to that average conditional contrast.
+\code{marginal_effects()} instead integrates treatment-specific outcomes over an
+explicit target distribution and forms contrasts within each posterior
+draw. Binomial, Poisson rate-difference, and survival measures additionally
+transport a selected study intercept or baseline hazard. Nonlinear
+marginal effects are treatment-level quantities and are not component
+additive.
 \item \strong{Every effect modifier enters both the prognostic terms and the full set of
 component interactions.} There is no prognostic-only covariate role (unlike
 \code{\link[=cstc]{cstc()}}, which separates \code{prognostics}), so a covariate that shifts outcomes

@@ -152,21 +152,20 @@
 #' `NA` rather than as pseudoinverse or prior-driven artefacts. See
 #' [estimable_effects()].
 #'
-#' For [cmlnmr()] fits the model contains component x effect-modifier
-#' interactions, so relative effects depend on the supplied covariate means:
+#' For [cmlnmr()] fits, `estimand = "average_conditional_link"` reports
+#' component-additive link-scale contrasts at supplied covariate means:
 #' `theta_t(x) = C_t' (beta + gamma x)`. Because this expression is linear in
 #' `x`, evaluating it at `E[X]` gives the average conditional link-scale effect.
-#' It is not a marginal standardized OR, RR, or HR.
+#' Set `estimand = "marginal"` to delegate to `marginal_effects()` and
+#' standardize treatment-specific outcomes over an explicit target covariate
+#' distribution before forming contrasts.
 #'
-#' Two things this returns are narrower than they may look, both documented in
-#' full under [cmlnmr()]. The value is the **average conditional link-scale**
-#' contrast at target means `x`, not the marginal effect standardized over a population
-#' with a distribution of covariates; on a non-collapsible scale (odds ratio,
-#' hazard ratio) those differ, so `newdata = <a study's covariate means>` does not
-#' give that study's population-average effect. And where the interactions are
-#' informed only by aggregate arms, `x` is being applied to an ecological
-#' gradient rather than to within-study effect modification; see
-#' [estimable_effects_at()], whose `identified_by` column separates the two.
+#' The average-conditional path is narrower than it may look. A one-row
+#' `newdata` profile is not a target covariate distribution, and exponentiating
+#' a link-scale contrast does not create a marginal standardized effect. The
+#' marginal path therefore requires `target` instead. In either path,
+#' interactions informed only by aggregate arms can reflect ecological rather
+#' than within-study effect modification; see [estimable_effects_at()].
 #'
 #' @param object A fitted cpaic object (`cpaic_bridge`, `cpaic_maic`,
 #'   `cpaic_stc`, or `cpaic_mlnmr`).
@@ -178,21 +177,27 @@
 #' @param level Confidence level for the intervals. Default `0.95`.
 #' @param newdata For [cmlnmr()] fits: a one-row data frame giving target
 #'   effect-modifier means. Required when the model has effect modifiers.
-#' @param estimand For [cmlnmr()] fits, the only implemented value is
-#'   `"average_conditional_link"`. Requests for `"marginal"` fail explicitly.
+#' @param estimand For [cmlnmr()] fits, either
+#'   `"average_conditional_link"` or `"marginal"`. The latter delegates to
+#'   `marginal_effects()`.
+#' @param target,weights,measure,baseline_study,times,random_effect Arguments
+#'   used only for `estimand = "marginal"`; see `marginal_effects()`.
 #' @param ... Unused.
 #'
-#' @return A data frame with columns `treatment`, `comparator`, `estimate`,
-#'   `estimate_link`, `se_link`, `lower`, `upper`, `scale`, and `z`/`p` for
-#'   frequentist fits. `estimate_link` and `se_link` are always on the model's
-#'   link scale. `estimate`, `lower`, and `upper` use the scale named in `scale`.
-#'   For [cmlnmr()] (Bayesian) fits the intervals are credible intervals and
-#'   the final column is `pr_gt0`, the posterior probability that the
-#'   effect (on the link scale) exceeds zero, instead of `z`/`p`.
+#' @return For frequentist and average-conditional outputs, a data frame with
+#'   columns `treatment`, `comparator`, `estimate`, `estimate_link`, `se_link`,
+#'   `lower`, `upper`, `scale`, and `z`/`p` or Bayesian `pr_gt0`.
+#'   `estimate_link` and `se_link` are on the model link scale.
+#'   `estimand = "marginal"` returns the schema documented by
+#'   `marginal_effects()`, with canonical `estimate_contrast`, `se_contrast`,
+#'   and `contrast_scale` columns because natural differences are not model-link
+#'   quantities.
 #' @export
 relative_effects <- function(object, reference = NULL, all_contrasts = FALSE,
                              backtransf = TRUE, level = 0.95, newdata = NULL,
-                             estimand = NULL, ...) {
+                             estimand = NULL, target = NULL, weights = NULL,
+                             measure = NULL, baseline_study = NULL,
+                             times = NULL, random_effect = "population", ...) {
   UseMethod("relative_effects")
 }
 
@@ -209,9 +214,34 @@ relative_effects.cpaic_mlnmr <- function(object, reference = NULL,
                                          backtransf = TRUE, level = 0.95,
                                          newdata = NULL,
                                          estimand = "average_conditional_link",
+                                         target = NULL, weights = NULL,
+                                         measure = NULL,
+                                         baseline_study = NULL,
+                                         times = NULL,
+                                         random_effect = "population",
                                          ...) {
+  if (identical(estimand, "marginal")) {
+    if (!is.null(newdata)) {
+      stop("Use `target`, not `newdata`, for marginal standardization.",
+           call. = FALSE)
+    }
+    return(marginal_effects(
+      object = object, target = target, weights = weights,
+      reference = reference, all_contrasts = all_contrasts,
+      measure = measure, baseline_study = baseline_study, times = times,
+      random_effect = random_effect, backtransf = backtransf, level = level,
+      ...
+    ))
+  }
   .cpaic_match_estimand(estimand, "average_conditional_link",
                         "relative_effects() for cmlnmr fits")
+  if (!is.null(target) || !is.null(weights) || !is.null(measure) ||
+      !is.null(baseline_study) || !is.null(times) ||
+      !identical(random_effect, "population")) {
+    stop("`target`, `weights`, `measure`, `baseline_study`, `times`, and ",
+         "`random_effect` are available only with `estimand = \"marginal\"`.",
+         call. = FALSE)
+  }
   C <- object$C.matrix
   trts <- rownames(C)
   if (is.null(reference)) reference <- object$reference
@@ -347,32 +377,71 @@ print.cpaic_effects <- function(x, digits = 3, ...) {
   sm <- attr(x, "sm")
   if (is.null(sm)) sm <- ""
   bt <- isTRUE(attr(x, "backtransf"))
+  estimand <- attr(x, "estimand") %||% "input_contrast_scale"
+  output_scale <- attr(x, "scale") %||% if (bt) "natural" else "link"
   tgt <- attr(x, "target_mean") %||% attr(x, "target")
-  cat("Relative effects (", sm, if (bt) ", back-transformed" else
-      ", link scale", ")\n", sep = "")
+  heading <- if (identical(estimand, "marginal")) {
+    "Marginal standardized effects"
+  } else {
+    "Relative effects"
+  }
+  cat(heading, " (", sm, ", ", output_scale, " scale)\n", sep = "")
   if (!is.null(tgt) && length(tgt)) {
-    cat("  Average conditional link-scale effect at target means: ",
+    target_label <- if (identical(estimand, "marginal")) {
+      "Target-distribution means"
+    } else {
+      "Average conditional link-scale effect at target means"
+    }
+    cat("  ", target_label, ": ",
         paste(names(tgt), signif(tgt, 3), sep = " = ", collapse = ", "),
         "\n", sep = "")
+  }
+  if (identical(estimand, "marginal")) {
+    donor <- attr(x, "baseline_study")
+    if (!is.null(donor)) {
+      cat("  Transported baseline source: ", donor, "\n", sep = "")
+    }
+    cat("  Treatment random effects: population mean (study-arm deviations ",
+        "set to zero)\n", sep = "")
   }
   df <- as.data.frame(x)
   num <- vapply(df, is.numeric, logical(1))
   df[num] <- lapply(df[num], round, digits = digits)
   print(df, row.names = FALSE)
   if (anyNA(df$estimate)) {
-    cat("  NA = not uniquely estimable from this component design",
-        " (see estimable_effects()).\n", sep = "")
+    if (!is.null(df$basis) &&
+        any(df$basis == "first-order screen failed", na.rm = TRUE)) {
+      cat("  NA = the nonlinear marginal contrast failed the conservative ",
+          "treatment-surface\n  row-space screen. This is not a complete ",
+          "identification test for nuisance or\n  donor-baseline parameters.\n",
+          sep = "")
+    } else {
+      cat("  NA = not uniquely estimable from this component design",
+          " (see estimable_effects()).\n", sep = "")
+    }
   }
   if (bt) {
-    cat("  `se_link` is on the link (log) scale; the interval is ",
-        "back-transformed.\n", sep = "")
+    uncertainty_column <- if ("se_contrast" %in% names(df)) {
+      "`se_contrast`"
+    } else {
+      "`se_link`"
+    }
+    cat("  ", uncertainty_column,
+        " is on the log-ratio scale; the interval is back-transformed.\n",
+        sep = "")
   }
   if (!is.null(df$basis) &&
       any(df$basis == "first-order screen", na.rm = TRUE)) {
-    cat("  basis \"first-order screen\" = estimable by the row-space criterion",
-        " but leaning\n  on aggregate arms or a survival baseline, so it can be",
-        " optimistic; check\n  with prior_sensitivity() / estimable_effects_at().\n",
-        sep = "")
+    if (identical(estimand, "marginal")) {
+      cat("  basis \"first-order screen\" covers the treatment beta/Gamma ",
+          "surface only. It\n  does not establish identification of prognostic, ",
+          "donor-intercept, or baseline\n  hazard parameters.\n", sep = "")
+    } else {
+      cat("  basis \"first-order screen\" = estimable by the row-space criterion",
+          " but leaning\n  on aggregate arms or a survival baseline, so it can be",
+          " optimistic; check\n  with prior_sensitivity() / estimable_effects_at().\n",
+          sep = "")
+    }
   }
   invisible(x)
 }

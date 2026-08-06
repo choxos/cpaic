@@ -173,10 +173,6 @@ test_that("relative effects name link-scale uncertainty and estimand", {
   expect_identical(attr(out, "estimand"), "average_conditional_link")
   expect_identical(attr(out, "diagnostic_status"), "unknown")
   expect_error(
-    relative_effects(make_tied_rank_fit(), estimand = "marginal"),
-    "does not yet implement marginal standardization", fixed = TRUE
-  )
-  expect_error(
     cpaic_ranks(
       make_tied_rank_fit(), include_screen_only = TRUE,
       estimand = "marginal"

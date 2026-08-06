@@ -18,12 +18,16 @@ Description: Experimental research software that combines component network
     component-additive, so affected bridges require explicit experimental
     opt-in. Component-additive multilevel network meta-regression (ML-NMR;
     Phillippo et al. 2020 <doi:10.1111/rssa.12579>) jointly models individual
-    and aggregate data. Its target summaries are average conditional effects on
-    the link scale evaluated at supplied covariate means, not marginally
-    standardized odds, rate, or hazard ratios. Models are implemented for
-    binary, continuous, count, and time-to-event outcomes. This methodology and
-    implementation have not been validated for clinical, regulatory,
-    reimbursement, or other decision use.
+    and aggregate data. Post-fit reporting includes average conditional effects
+    on the link scale at supplied covariate means and treatment-level marginal
+    contrasts standardized over an explicit target covariate distribution, with
+    empirical or named summary targets, supported continuous margins, and
+    moment and joint-dependence fidelity checks. Survival summaries begin at
+    model time zero and use donor-study follow-up support; nonlinear marginal
+    effects remain treatment-level summaries.
+    Models are implemented for binary, continuous, count, and time-to-event
+    outcomes. This methodology and implementation have not been validated for
+    clinical, regulatory, reimbursement, or other decision use.
 License: GPL-3
 URL: https://github.com/choxos/cpaic, https://choxos.github.io/cpaic/
 BugReports: https://github.com/choxos/cpaic/issues
