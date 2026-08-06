@@ -40,7 +40,11 @@ Reconnect a disconnected network through shared components.
 Experimental population-adjustment methods. Two-stage cSTC/cMAIC bridges
 stop by default when they would mix target-specific IPD contrasts with
 retained AgD contrasts, and nonlinear cMAIC bridges require explicit
-experimental opt-in.
+experimental opt-in. cML-NMR marginal effects standardize over empirical
+or named summary targets with supported margins and moment and
+joint-dependence fidelity gates; survival predictions begin at model
+time zero and use donor-specific follow-up support. Nonlinear marginal
+results remain treatment-level.
 
 - [`cmaic()`](https://choxos.github.io/cpaic/reference/cmaic.md) :
   Component matching-adjusted indirect comparison (cMAIC)
@@ -48,6 +52,8 @@ experimental opt-in.
   Component simulated treatment comparison (cSTC)
 - [`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md) :
   Component-additive multilevel network meta-regression (ML-NMR)
+- [`marginal_effects()`](https://choxos.github.io/cpaic/reference/marginal_effects.md)
+  : Marginal effects from a component ML-NMR fit
 - [`effective_sample_size()`](https://choxos.github.io/cpaic/reference/effective_sample_size.md)
   : Effective sample sizes from a cMAIC fit
 - [`weight_diagnostics()`](https://choxos.github.io/cpaic/reference/weight_diagnostics.md)

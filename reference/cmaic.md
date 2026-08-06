@@ -172,7 +172,7 @@ fit <- cmaic(net, target = c(x1 = 0), effect_modifiers = "x1",
 #>   - cMAIC estimates marginal binomial contrasts, which are not generally additive in the component design on a nonlinear link scale
 #> Use cmlnmr() for a joint model, restrict the analysis to a design in which every edge is adjusted and the estimand is additive, or set `allow_experimental_bridge = TRUE` only for explicitly exploratory sensitivity work.
 relative_effects(fit)
-#> Relative effects (OR, back-transformed)
+#> Relative effects (OR, natural scale)
 #>  treatment comparator estimate estimate_link se_link lower  upper   scale     z
 #>          A    Placebo    1.649         0.500   0.401 0.752  3.615 natural 1.248
 #>        A+B    Placebo    2.460         0.900   0.567 0.810  7.466 natural 1.589
@@ -185,7 +185,7 @@ relative_effects(fit)
 #>  0.017
 #>  0.012
 #>  0.318
-#>   `se_link` is on the link (log) scale; the interval is back-transformed.
+#>   `se_link` is on the log-ratio scale; the interval is back-transformed.
 effective_sample_size(fit)
 #>       S3       S4 
 #> 207.4202 358.1461 

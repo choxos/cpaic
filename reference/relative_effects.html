@@ -61,6 +61,12 @@ natural scale of the summary measure (e.g. odds ratios) unless
 <span>  level <span class="op">=</span> <span class="fl">0.95</span>,</span>
 <span>  newdata <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  estimand <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  target <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  weights <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  measure <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  baseline_study <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  times <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  random_effect <span class="op">=</span> <span class="st">"population"</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -98,8 +104,14 @@ effect-modifier means. Required when the model has effect modifiers.</p></dd>
 
 
 <dt id="arg-estimand">estimand<a class="anchor" aria-label="anchor" href="#arg-estimand"></a></dt>
-<dd><p>For <code><a href="cmlnmr.html">cmlnmr()</a></code> fits, the only implemented value is
-<code>"average_conditional_link"</code>. Requests for <code>"marginal"</code> fail explicitly.</p></dd>
+<dd><p>For <code><a href="cmlnmr.html">cmlnmr()</a></code> fits, either
+<code>"average_conditional_link"</code> or <code>"marginal"</code>. The latter delegates to
+<code><a href="marginal_effects.html">marginal_effects()</a></code>.</p></dd>
+
+
+<dt id="arg-target-weights-measure-baseline-study-times-random-effect">target, weights, measure, baseline_study, times, random_effect<a class="anchor" aria-label="anchor" href="#arg-target-weights-measure-baseline-study-times-random-effect"></a></dt>
+<dd><p>Arguments
+used only for <code>estimand = "marginal"</code>; see <code><a href="marginal_effects.html">marginal_effects()</a></code>.</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
@@ -108,13 +120,14 @@ effect-modifier means. Required when the model has effect modifiers.</p></dd>
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A data frame with columns <code>treatment</code>, <code>comparator</code>, <code>estimate</code>,
-<code>estimate_link</code>, <code>se_link</code>, <code>lower</code>, <code>upper</code>, <code>scale</code>, and <code>z</code>/<code>p</code> for
-frequentist fits. <code>estimate_link</code> and <code>se_link</code> are always on the model's
-link scale. <code>estimate</code>, <code>lower</code>, and <code>upper</code> use the scale named in <code>scale</code>.
-For <code><a href="cmlnmr.html">cmlnmr()</a></code> (Bayesian) fits the intervals are credible intervals and
-the final column is <code>pr_gt0</code>, the posterior probability that the
-effect (on the link scale) exceeds zero, instead of <code>z</code>/<code>p</code>.</p>
+    <p>For frequentist and average-conditional outputs, a data frame with
+columns <code>treatment</code>, <code>comparator</code>, <code>estimate</code>, <code>estimate_link</code>, <code>se_link</code>,
+<code>lower</code>, <code>upper</code>, <code>scale</code>, and <code>z</code>/<code>p</code> or Bayesian <code>pr_gt0</code>.
+<code>estimate_link</code> and <code>se_link</code> are on the model link scale.
+<code>estimand = "marginal"</code> returns the schema documented by
+<code><a href="marginal_effects.html">marginal_effects()</a></code>, with canonical <code>estimate_contrast</code>, <code>se_contrast</code>,
+and <code>contrast_scale</code> columns because natural differences are not model-link
+quantities.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -122,20 +135,19 @@ effect (on the link scale) exceeds zero, instead of <code>z</code>/<code>p</code
 contrast vector lies outside the row space of <code>X = B C</code>) are returned as
 <code>NA</code> rather than as pseudoinverse or prior-driven artefacts. See
 <code><a href="estimable_effects.html">estimable_effects()</a></code>.</p>
-<p>For <code><a href="cmlnmr.html">cmlnmr()</a></code> fits the model contains component x effect-modifier
-interactions, so relative effects depend on the supplied covariate means:
+<p>For <code><a href="cmlnmr.html">cmlnmr()</a></code> fits, <code>estimand = "average_conditional_link"</code> reports
+component-additive link-scale contrasts at supplied covariate means:
 <code>theta_t(x) = C_t' (beta + gamma x)</code>. Because this expression is linear in
 <code>x</code>, evaluating it at <code>E[X]</code> gives the average conditional link-scale effect.
-It is not a marginal standardized OR, RR, or HR.</p>
-<p>Two things this returns are narrower than they may look, both documented in
-full under <code><a href="cmlnmr.html">cmlnmr()</a></code>. The value is the <strong>average conditional link-scale</strong>
-contrast at target means <code>x</code>, not the marginal effect standardized over a population
-with a distribution of covariates; on a non-collapsible scale (odds ratio,
-hazard ratio) those differ, so <code>newdata = &lt;a study's covariate means&gt;</code> does not
-give that study's population-average effect. And where the interactions are
-informed only by aggregate arms, <code>x</code> is being applied to an ecological
-gradient rather than to within-study effect modification; see
-<code><a href="estimable_effects_at.html">estimable_effects_at()</a></code>, whose <code>identified_by</code> column separates the two.</p>
+Set <code>estimand = "marginal"</code> to delegate to <code><a href="marginal_effects.html">marginal_effects()</a></code> and
+standardize treatment-specific outcomes over an explicit target covariate
+distribution before forming contrasts.</p>
+<p>The average-conditional path is narrower than it may look. A one-row
+<code>newdata</code> profile is not a target covariate distribution, and exponentiating
+a link-scale contrast does not create a marginal standardized effect. The
+marginal path therefore requires <code>target</code> instead. In either path,
+interactions informed only by aggregate arms can reflect ecological rather
+than within-study effect modification; see <code><a href="estimable_effects_at.html">estimable_effects_at()</a></code>.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

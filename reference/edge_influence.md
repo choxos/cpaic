@@ -81,6 +81,6 @@ edge_influence(br, treatment = "A+B+C")
 #> 1      S1      A Placebo   FALSE 1.0000000
 #> 2      S2      B Placebo   FALSE 1.0000000
 #> 3      S3  A+B+C     A+B   FALSE 0.6670975
-#> 4      S5  A+B+C   A+B+D   FALSE 0.3329025
-#> 5      S4  A+B+D     A+B   FALSE 0.3329025
+#> 4      S4  A+B+D     A+B   FALSE 0.3329025
+#> 5      S5  A+B+C   A+B+D   FALSE 0.3329025
 ```

@@ -18,10 +18,37 @@ reimbursement, guideline, or other decision use.
 - Partial-IPD multi-arm replacements are rejected. An IPD-only study
   edge requires `allow_ipd_only_studies = TRUE` and is recorded in the
   result.
-- cML-NMR reporting and ranking methods identify their supported
-  estimand as `average_conditional_link` at target effect-modifier
-  means. Marginal standardized effects are not available. Bernoulli
-  means in `[0, 1]` are valid prevalences.
+- This release introduces separate cML-NMR reporting for
+  `average_conditional_link` effects at target effect-modifier means and
+  treatment-level marginal standardization.
+  [`marginal_effects()`](https://choxos.github.io/cpaic/reference/marginal_effects.md)
+  accepts empirical target rows or a named summary distribution.
+  Empirical weights are normalized after zero-weight rows are removed;
+  Bernoulli modifiers use actual 0/1 rows. Summary targets use named
+  means, SDs, supported margins, optional latent-scale correlation,
+  deterministic Sobol’ nodes, and explicit moment-fidelity gates:
+  Bernoulli prevalence uses a 10 percent tolerance bounded below by
+  `1e-8`, non-normal means use a 0.1 SD tolerance, and non-normal SDs
+  use a 15 percent relative tolerance. Mixed or non-normal multivariable
+  targets also require resolved pairwise correlations to agree within
+  0.05 of a high-resolution deterministic reference grid. Continuous
+  modifiers may use normal, gamma, lognormal, or beta margins
+  independently, while fitted Bernoulli modifiers remain Bernoulli.
+- Marginal survival reporting includes standardized survival and risk
+  differences or ratios, restricted mean survival time differences or
+  ratios, and time-specific marginal hazard ratios. Predictions begin at
+  model time zero, are not landmark or delayed-entry conditioned, and
+  use the selected donor study’s observed follow-up support. Survival
+  and risk ratios, RMST ratios, and time-specific marginal hazard ratios
+  use stable log-scale calculations before optional back-transformation.
+  Measures needing absolute risks or rates use an explicitly selected
+  study intercept or baseline hazard. RMST measures require a
+  piecewise-exponential donor baseline and are analytic over its
+  intervals. For M-spline baselines, marginal reporting covers survival,
+  risk, and time-specific marginal hazard measures. Study-arm random
+  effects are set to the population mean. No formal overlap or
+  positivity diagnostic is estimated, and nonlinear marginal effects
+  remain treatment-level rather than component-level summaries.
 - Two-stage network construction rejects missing analysis values,
   malformed study labels, invalid family-specific outcomes, and
   ambiguous survival event coding. Two-stage survival requires
@@ -39,10 +66,8 @@ reimbursement, guideline, or other decision use.
   zero. Fits store a `passed`, `failed`, or `unknown` diagnostic status.
 - Relative-effect tables separate `estimate_link` and `se_link` from the
   reporting-scale `estimate`, interval, and `scale` field.
-- Package and pkgdown builds include the current introduction and
-  methods articles. Five archived rendered examples remain outside
-  published builds until they are regenerated against the current
-  interfaces.
+- Package and pkgdown builds include the introduction and methods
+  articles.
 
 ### What the package does
 
@@ -70,9 +95,10 @@ across that gap remains an untestable assumption.
   meta-regression, fitted with rstan or CmdStan. The treatment effect is
   `C %*% beta` and the model carries component by effect-modifier
   interactions through the whole network, so disconnected sub-networks
-  are connected by construction. Reported target summaries are average
-  conditional link-scale effects at covariate means, not marginally
-  standardized effects.
+  are connected by construction. Reporting provides average conditional
+  link-scale effects at covariate means and a separate
+  target-distribution standardization path for marginal treatment
+  contrasts.
 
 Binary, continuous, count, and time-to-event outcomes are supported
 throughout.
@@ -197,9 +223,19 @@ These are stated in the manual pages, not only here.
   a marginal effect, and on a non-collapsible scale the additive
   component model is false; the resulting bias survives perfect matching
   and infinite data.
-- **[`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md)
-  reports an average conditional link-scale contrast at target means**,
-  not a population-standardized marginal effect.
+- **Conditional and marginal cML-NMR summaries answer different
+  questions.** A one-row `newdata` profile gives an average conditional
+  link-scale contrast.
+  [`marginal_effects()`](https://choxos.github.io/cpaic/reference/marginal_effects.md)
+  requires a full target distribution and averages treatment-specific
+  outcomes before forming a contrast. Nonlinear marginal effects are not
+  component-additive, so the package does not expose marginal component
+  effects or rankings.
+- **Absolute marginal outcomes require baseline transport.** Binomial
+  effects, Poisson rate differences, and survival measures borrow a
+  selected fitted study intercept or baseline hazard.
+  Target-distribution uncertainty and that transport assumption are not
+  modeled.
 - **One `Gamma` serves both roles.** It multiplies individual covariates
   and aggregate study means alike, so an interaction supported only by
   aggregate arms is an ecological association read as effect

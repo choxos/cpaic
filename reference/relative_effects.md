@@ -16,6 +16,12 @@ relative_effects(
   level = 0.95,
   newdata = NULL,
   estimand = NULL,
+  target = NULL,
+  weights = NULL,
+  measure = NULL,
+  baseline_study = NULL,
+  times = NULL,
+  random_effect = "population",
   ...
 )
 ```
@@ -54,8 +60,14 @@ relative_effects(
 - estimand:
 
   For [`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md)
-  fits, the only implemented value is `"average_conditional_link"`.
-  Requests for `"marginal"` fail explicitly.
+  fits, either `"average_conditional_link"` or `"marginal"`. The latter
+  delegates to
+  [`marginal_effects()`](https://choxos.github.io/cpaic/reference/marginal_effects.md).
+
+- target, weights, measure, baseline_study, times, random_effect:
+
+  Arguments used only for `estimand = "marginal"`; see
+  [`marginal_effects()`](https://choxos.github.io/cpaic/reference/marginal_effects.md).
 
 - ...:
 
@@ -63,15 +75,14 @@ relative_effects(
 
 ## Value
 
-A data frame with columns `treatment`, `comparator`, `estimate`,
-`estimate_link`, `se_link`, `lower`, `upper`, `scale`, and `z`/`p` for
-frequentist fits. `estimate_link` and `se_link` are always on the
-model's link scale. `estimate`, `lower`, and `upper` use the scale named
-in `scale`. For
-[`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md)
-(Bayesian) fits the intervals are credible intervals and the final
-column is `pr_gt0`, the posterior probability that the effect (on the
-link scale) exceeds zero, instead of `z`/`p`.
+For frequentist and average-conditional outputs, a data frame with
+columns `treatment`, `comparator`, `estimate`, `estimate_link`,
+`se_link`, `lower`, `upper`, `scale`, and `z`/`p` or Bayesian `pr_gt0`.
+`estimate_link` and `se_link` are on the model link scale.
+`estimand = "marginal"` returns the schema documented by
+[`marginal_effects()`](https://choxos.github.io/cpaic/reference/marginal_effects.md),
+with canonical `estimate_contrast`, `se_contrast`, and `contrast_scale`
+columns because natural differences are not model-link quantities.
 
 ## Details
 
@@ -82,22 +93,19 @@ See
 [`estimable_effects()`](https://choxos.github.io/cpaic/reference/estimable_effects.md).
 
 For [`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md)
-fits the model contains component x effect-modifier interactions, so
-relative effects depend on the supplied covariate means:
+fits, `estimand = "average_conditional_link"` reports component-additive
+link-scale contrasts at supplied covariate means:
 `theta_t(x) = C_t' (beta + gamma x)`. Because this expression is linear
 in `x`, evaluating it at `E[X]` gives the average conditional link-scale
-effect. It is not a marginal standardized OR, RR, or HR.
+effect. Set `estimand = "marginal"` to delegate to
+[`marginal_effects()`](https://choxos.github.io/cpaic/reference/marginal_effects.md)
+and standardize treatment-specific outcomes over an explicit target
+covariate distribution before forming contrasts.
 
-Two things this returns are narrower than they may look, both documented
-in full under
-[`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md). The
-value is the **average conditional link-scale** contrast at target means
-`x`, not the marginal effect standardized over a population with a
-distribution of covariates; on a non-collapsible scale (odds ratio,
-hazard ratio) those differ, so `newdata = <a study's covariate means>`
-does not give that study's population-average effect. And where the
-interactions are informed only by aggregate arms, `x` is being applied
-to an ecological gradient rather than to within-study effect
-modification; see
-[`estimable_effects_at()`](https://choxos.github.io/cpaic/reference/estimable_effects_at.md),
-whose `identified_by` column separates the two.
+The average-conditional path is narrower than it may look. A one-row
+`newdata` profile is not a target covariate distribution, and
+exponentiating a link-scale contrast does not create a marginal
+standardized effect. The marginal path therefore requires `target`
+instead. In either path, interactions informed only by aggregate arms
+can reflect ecological rather than within-study effect modification; see
+[`estimable_effects_at()`](https://choxos.github.io/cpaic/reference/estimable_effects_at.md).

@@ -71,7 +71,9 @@ additivity.
 - **Bayesian
   [`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md)**
   (component-additive ML-NMR), fitted with rstan by default or with
-  cmdstanr on request. Binary, continuous, count, and survival outcomes.
+  cmdstanr on request. Binary, continuous, count, and survival outcomes,
+  with separate conditional and target-standardized marginal reporting
+  paths.
 
 The four outcome-family implementations are under active development.
 They are not decision validated. Read the estimand and bridge
@@ -173,9 +175,7 @@ For the Bayesian model, conditional relative effects vary with the
 effect modifiers because `theta_t(x) = C_t' (beta + Gamma x)`. A one-row
 `newdata` value is interpreted as a vector of target covariate means.
 Because this contrast is linear in `x` on the link scale, it is an
-average conditional link-scale effect at those means. It is not a
-marginally standardized odds, rate, or hazard ratio over a target
-population.
+average conditional link-scale effect at those means.
 
 ``` r
 
@@ -185,7 +185,63 @@ relative_effects(fit, newdata = data.frame(x1 = 0.3))
 component_effects(fit, newdata = data.frame(x1 = 0.3))
 ```
 
+Marginal reporting uses a separate target-distribution interface. It
+averages treatment-specific outcomes within every posterior draw, then
+forms the requested contrast. For example, an empirical binary target
+distribution can be supplied as actual 0/1 rows with weights:
+
+``` r
+
+target_population <- data.frame(x1 = c(0, 1))
+target_weights <- c(0.7, 0.3)
+
+# Binomial marginal risk ratio. Replace "study_id" with a study retained by fit.
+marginal_effects(
+  fit, target = target_population, weights = target_weights,
+  measure = "risk_ratio", baseline_study = "study_id"
+)
+```
+
+The donor study supplies the fitted intercept needed for absolute risks.
+The target rows remain a separate input. Gaussian mean differences and
+Poisson rate ratios do not need a donor baseline because the common
+intercept cancels.
+
+An empirical target is a data frame with exactly the fitted effect
+modifiers. Its finite, nonnegative weights are normalized and
+zero-weight rows are discarded. Bernoulli modifiers must be represented
+by actual 0/1 rows. A summary target is a named list of `means`, `sds`,
+and `margins`, with optional latent-scale `cor` and deterministic Sobol’
+`n_int`. Continuous modifiers can use `normal`, `gamma`, `lognormal`, or
+`beta` margins independently; fitted Bernoulli modifiers must remain
+Bernoulli. Independent Bernoulli strata are enumerated exactly, while
+continuous margins use deterministic integration nodes. Summary targets
+have moment-fidelity gates for Bernoulli strata and non-normal means and
+SDs. The Bernoulli prevalence tolerance is
+`max(1e-8, 0.1 * min(p, 1 - p))`; non-normal means must be within 0.1
+target SD and non-normal SDs within 15 percent relative error. A failed
+gate stops with a request for more nodes or an empirical target. Mixed
+or non-normal multivariable targets also require resolved pairwise
+correlations to agree within 0.05 of a high-resolution deterministic
+reference grid. Target-distribution uncertainty is not propagated, and
+these checks do not constitute a formal overlap or positivity
+diagnostic.
+
+For survival, predictions start at model time zero and are not landmark
+or delayed-entry conditioned. `times` must lie within the observed
+follow-up support of the selected donor study, which may be shorter than
+the global support. Survival and risk ratios, piecewise-exponential RMST
+ratios, and time-specific marginal hazard ratios are calculated on the
+log scale with stable log-sum-exp operations before optional
+back-transformation. RMST measures require a piecewise-exponential donor
+baseline and are evaluated analytically over its intervals. M-spline
+fits support marginal survival, risk, and time-specific marginal hazard
+measures, but not RMST. Nonlinear marginal effects are treatment-level
+contrasts; the package does not report marginal component effects or
+rankings.
+
 [`relative_effects()`](https://choxos.github.io/cpaic/reference/relative_effects.md),
+[`marginal_effects()`](https://choxos.github.io/cpaic/reference/marginal_effects.md),
 [`league_table()`](https://choxos.github.io/cpaic/reference/league_table.md),
 [`component_effects()`](https://choxos.github.io/cpaic/reference/component_effects.md),
 [`estimable_effects()`](https://choxos.github.io/cpaic/reference/estimable_effects.md),
@@ -235,13 +291,28 @@ The following apply to any result produced by this package.
   additive bridge can be methodologically incoherent even with perfect
   matching. Non-Gaussian cMAIC bridges therefore require the
   experimental override.
-- **cML-NMR target summaries are not marginal standardized effects.**
-  For a one-row `newdata`,
-  [`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md)
-  reports the average conditional link-scale contrast evaluated at the
-  supplied covariate means. Exponentiating it does not turn it into a
-  population-marginal odds ratio, rate ratio, or hazard ratio. A full
-  covariate distribution is not accepted for standardization.
+- **Conditional and marginal cML-NMR summaries are separate estimands.**
+  A one-row `newdata` profile reports an average conditional link-scale
+  contrast.
+  [`marginal_effects()`](https://choxos.github.io/cpaic/reference/marginal_effects.md)
+  requires a target distribution and standardizes absolute outcomes
+  before forming treatment-level contrasts. Nonlinear marginal effects
+  are not component-additive, so marginal component effects and marginal
+  treatment rankings are not reported.
+- **Some marginal measures borrow a study baseline.** Binomial effects,
+  Poisson rate differences, and every survival measure transport a
+  selected fitted study intercept or baseline hazard to the target
+  population. This is an explicit assumption. Target-distribution
+  uncertainty is not propagated, and study-arm random effects are set to
+  zero for population-mean predictions. Survival predictions begin at
+  model time zero, not at a landmark or delayed entry time, and
+  prediction times are restricted to the selected donor study’s observed
+  follow-up support.
+- **Target checks are not overlap diagnostics.** Empirical and summary
+  targets are checked for finite values, fitted-margin support,
+  Bernoulli strata, and summary moment fidelity. The package does not
+  estimate a formal overlap or positivity statistic, so extrapolation
+  risk remains an analyst-level responsibility.
 - **Survival conditions on the supplied rows.**
   [`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md)
   evaluates the exact analytic individual survival likelihood (events
@@ -253,6 +324,13 @@ The following apply to any result produced by this package.
   the finite numerical integration; uncertainty from reconstructing
   pseudo-IPD out of a published Kaplan-Meier curve is not propagated,
   and proportional hazards is assumed.
+  [`marginal_effects()`](https://choxos.github.io/cpaic/reference/marginal_effects.md)
+  can report standardized survival and risk contrasts and time-specific
+  marginal hazard ratios within the fitted follow-up support. Restricted
+  mean survival time contrasts are available for piecewise-exponential
+  baselines. M-spline fits retain the pointwise survival, risk, and
+  time-specific hazard measures. These outputs additionally require
+  transport of a selected study’s baseline hazard.
 - **Survival interfaces have different status contracts.** The two-stage
   [`cstc()`](https://choxos.github.io/cpaic/reference/cstc.md) and
   [`cmaic()`](https://choxos.github.io/cpaic/reference/cmaic.md) network
@@ -261,7 +339,10 @@ The following apply to any result produced by this package.
   separately uses `0` right-censored, `1` event, `2` left-censored, and
   `3` interval-censored rows, with reconstructed rows required for
   aggregate survival arms. The package reports proportional-hazard
-  contrasts; it does not estimate restricted mean survival time.
+  contrasts through
+  [`relative_effects()`](https://choxos.github.io/cpaic/reference/relative_effects.md).
+  A scalar marginal hazard ratio is not reported because the
+  standardized hazard ratio generally varies with time.
 - **[`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md)
   treatment effects may be fixed or random.** `trt_effects = "random"`
   adds study-arm heterogeneity with a single common `tau`, which is one
@@ -338,7 +419,11 @@ Reconnect a disconnected network through shared components.
 Experimental population-adjustment methods. Two-stage cSTC/cMAIC bridges
 stop by default when they would mix target-specific IPD contrasts with
 retained AgD contrasts, and nonlinear cMAIC bridges require explicit
-experimental opt-in.
+experimental opt-in. cML-NMR marginal effects standardize over empirical
+or named summary targets with supported margins and moment and
+joint-dependence fidelity gates; survival predictions begin at model
+time zero and use donor-specific follow-up support. Nonlinear marginal
+results remain treatment-level.
 
 - [`cmaic()`](https://choxos.github.io/cpaic/reference/cmaic.md) :
   Component matching-adjusted indirect comparison (cMAIC)
@@ -346,6 +431,8 @@ experimental opt-in.
   Component simulated treatment comparison (cSTC)
 - [`cmlnmr()`](https://choxos.github.io/cpaic/reference/cmlnmr.md) :
   Component-additive multilevel network meta-regression (ML-NMR)
+- [`marginal_effects()`](https://choxos.github.io/cpaic/reference/marginal_effects.md)
+  : Marginal effects from a component ML-NMR fit
 - [`effective_sample_size()`](https://choxos.github.io/cpaic/reference/effective_sample_size.md)
   : Effective sample sizes from a cMAIC fit
 - [`weight_diagnostics()`](https://choxos.github.io/cpaic/reference/weight_diagnostics.md)

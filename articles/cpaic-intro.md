@@ -169,7 +169,7 @@ data.frame(
 ``` r
 
 relative_effects(fit_stc)
-#> Relative effects (OR, back-transformed)
+#> Relative effects (OR, natural scale)
 #>  treatment comparator estimate estimate_link se_link lower  upper   scale     z
 #>          A    Placebo    1.649         0.500   0.256 0.998  2.725 natural 1.951
 #>        A+B    Placebo    2.460         0.900   0.363 1.209  5.005 natural 2.483
@@ -182,7 +182,7 @@ relative_effects(fit_stc)
 #>  0.001
 #>  0.000
 #>  0.119
-#>   `se_link` is on the link (log) scale; the interval is back-transformed.
+#>   `se_link` is on the log-ratio scale; the interval is back-transformed.
 additivity_test(fit_stc)
 #> Additive component model: fit statistics
 #>   Total lack of fit (Q.additive): Q = 2.669, df = 1, p = 0.102

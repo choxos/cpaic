@@ -220,7 +220,7 @@ edges reported on a marginal scale, so it should be regarded as approximate.</p>
 <span class="r-wrn co"><span class="r-pr">#&gt;</span>   - cMAIC estimates marginal binomial contrasts, which are not generally additive in the component design on a nonlinear link scale</span>
 <span class="r-wrn co"><span class="r-pr">#&gt;</span> Use cmlnmr() for a joint model, restrict the analysis to a design in which every edge is adjusted and the estimand is additive, or set `allow_experimental_bridge = TRUE` only for explicitly exploratory sensitivity work.</span>
 <span class="r-in"><span><span class="fu"><a href="relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Relative effects (OR, back-transformed)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Relative effects (OR, natural scale)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  treatment comparator estimate estimate_link se_link lower  upper   scale     z</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>          A    Placebo    1.649         0.500   0.401 0.752  3.615 natural 1.248</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>        A+B    Placebo    2.460         0.900   0.567 0.810  7.466 natural 1.589</span>
@@ -233,7 +233,7 @@ edges reported on a marginal scale, so it should be regarded as approximate.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  0.017</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  0.012</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  0.318</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   `se_link` is on the link (log) scale; the interval is back-transformed.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   `se_link` is on the log-ratio scale; the interval is back-transformed.</span>
 <span class="r-in"><span><span class="fu"><a href="effective_sample_size.html">effective_sample_size</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>       S3       S4 </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> 207.4202 358.1461 </span>

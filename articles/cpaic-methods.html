@@ -268,27 +268,61 @@ M-spline), set through <code>cut_points</code> and
 right/left/interval censoring, and delayed entry. Aggregate survival
 arms require reconstructed event and censoring rows; event counts plus
 person-time are rejected. The finite quasi-Monte Carlo covariate
-integration is approximate. Restricted mean survival time is not
-implemented. Aggregate covariates are integrated with a Gaussian copula
-whose correlation is estimated from the individual patient data. A
-component whose effect-modifier interaction is informed only by
-aggregate data is weakly identified and relies on the regression
+integration is approximate. Aggregate covariates are integrated with a
+Gaussian copula whose correlation is estimated from the individual
+patient data. A component whose effect-modifier interaction is informed
+only by aggregate data is weakly identified and relies on the regression
 prior.</p>
-<p>Reporting methods evaluate
+<p>The default reporting path evaluates
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>C</mi><mi>t</mi></msub><mo>−</mo><msub><mi>C</mi><mi>u</mi></msub><msup><mo stretchy="false" form="postfix">)</mo><mo>′</mo></msup><mo stretchy="false" form="prefix">(</mo><mi>β</mi><mo>+</mo><mi mathvariant="normal">Γ</mi><mi>x</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(C_t-C_u)'(\beta + \Gamma x)</annotation></semantics></math>
 at a one-row vector of supplied covariate means. Since this expression
 is linear in
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>x</mi><annotation encoding="application/x-tex">x</annotation></semantics></math>,
-it is an average conditional link-scale effect at those means. It is not
-a marginally standardized odds, rate, or hazard ratio. The aggregate
-likelihood integrates outcomes over covariate distributions for model
-fitting, but that integration does not turn the reporting function into
-marginal standardization.</p>
+it is an average conditional link-scale effect at those means. A
+separate <code><a href="../reference/marginal_effects.html">marginal_effects()</a></code> path accepts empirical target
+rows or a named Gaussian-copula target distribution. Empirical rows must
+contain exactly the fitted effect modifiers; finite nonnegative weights
+are normalized and zero-weight rows are discarded. Bernoulli modifiers
+use actual 0/1 rows. Summary targets provide named means, SDs, and
+margins, with optional latent-scale correlation and deterministic Sobol’
+integration. Continuous modifiers can use normal, gamma, lognormal, or
+beta margins independently, while fitted Bernoulli modifiers remain
+Bernoulli. Independent Bernoulli strata are enumerated exactly. Summary
+integration stops when the requested Bernoulli strata or non-normal
+moments fail their moment-fidelity gates, rather than silently reporting
+a distorted target. The Bernoulli prevalence tolerance is
+<code>max(1e-8, 0.1 * min(p, 1 - p))</code>; non-normal means must be
+within 0.1 target SD and non-normal SDs within 15 percent relative
+error. Mixed or non-normal multivariable targets also require resolved
+pairwise correlations to agree within 0.05 of a high-resolution
+deterministic reference grid.</p>
+<p>The estimator averages treatment-specific outcomes within each
+posterior draw before forming odds, risk, rate, survival, time-specific
+hazard, or restricted mean survival time contrasts. Binomial,
+rate-difference, and survival measures require an explicit donor study
+intercept or baseline hazard. Survival predictions start at model time
+zero and are not landmark or delayed-entry conditioned. Prediction times
+must remain within the observed follow-up support of the selected donor
+study. Survival and risk ratios, piecewise-exponential RMST ratios, and
+time-specific marginal hazard ratios are formed on the log scale with
+stable log-sum-exp calculations before optional back-transformation.
+RMST measures require a piecewise-exponential donor baseline and are
+evaluated analytically over its intervals. M-spline fits support
+marginal survival, risk, and time-specific marginal hazard measures, but
+not RMST. These target checks are not a formal overlap or positivity
+diagnostic. Nonlinear marginal effects remain treatment-level contrasts,
+not marginal component effects or rankings.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Fits with rstan by default; backend = "cmdstanr" is the alternative.</span></span>
 <span><span class="va">fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cmlnmr.html">cmlnmr</a></span><span class="op">(</span><span class="va">ipd</span>, <span class="va">agd</span>, effect_modifiers <span class="op">=</span> <span class="st">"x1"</span>, inactive <span class="op">=</span> <span class="st">"Placebo"</span>,</span>
 <span>              family <span class="op">=</span> <span class="st">"binomial"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/component_effects.html">component_effects</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="../reference/component_effects.html">component_effects</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Marginal risk ratio over an empirical target distribution.</span></span>
+<span><span class="fu"><a href="../reference/marginal_effects.html">marginal_effects</a></span><span class="op">(</span></span>
+<span>  <span class="va">fit</span>, target <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>x1 <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span>, weights <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.7</span>, <span class="fl">0.3</span><span class="op">)</span>,</span>
+<span>  measure <span class="op">=</span> <span class="st">"risk_ratio"</span>, baseline_study <span class="op">=</span> <span class="st">"study_id"</span></span>
+<span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="assumptions-and-caveats">Assumptions and caveats<a class="anchor" aria-label="anchor" href="#assumptions-and-caveats"></a>
@@ -317,9 +351,14 @@ marginal weighted contrast and STC a conditional link-scale contrast.
 Marginal contrasts are not generally component-additive on nonlinear
 links.</li>
 <li>
-<strong>cML-NMR reporting</strong>: target summaries are average
-conditional link-scale effects at covariate means, not marginally
-standardized effects.</li>
+<strong>cML-NMR reporting</strong>: average conditional effects at
+covariate means and marginal effects over target distributions are
+separate estimands. Marginal standardization is treatment-level and does
+not preserve component additivity on nonlinear scales. Measures
+requiring absolute outcomes transport a selected study intercept or
+baseline hazard. Survival predictions start at model time zero, not a
+landmark or delayed-entry time, and use the donor study’s observed
+follow-up support. No formal overlap diagnostic is estimated.</li>
 </ul>
 </div>
 <div class="section level2 unnumbered">

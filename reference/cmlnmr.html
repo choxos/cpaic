@@ -338,7 +338,9 @@ $$\theta_t(x) = C_t' (\beta + \Gamma x).$$
 The component main effects <code>beta</code> are the effects at the covariate origin
 (<code>x = 0</code>) and are not marginally standardized quantities. Use <code>newdata</code> in
 <code><a href="relative_effects.html">relative_effects()</a></code> / <code><a href="component_effects.html">component_effects()</a></code> to obtain average conditional
-link-scale effects at named target effect-modifier means.</p>
+link-scale effects at named target effect-modifier means. Use
+<code><a href="marginal_effects.html">marginal_effects()</a></code> with an explicit target covariate distribution to
+standardize treatment-specific outcomes before forming marginal contrasts.</p>
 <p>Supported families: <code>"binomial"</code> (logit), <code>"gaussian"</code> (identity),
 <code>"poisson"</code> (log), and <code>"survival"</code>.</p>
     </div>
@@ -458,12 +460,16 @@ Do not reuse one status column across the two layers without recoding it.</p>
     <h2 id="scope-and-current-limitations">Scope and current limitations<a class="anchor" aria-label="anchor" href="#scope-and-current-limitations"></a></h2>
 
 
-<p>Two gaps are worth naming for anyone comparing this with <code>multinma</code>.</p><ul><li><p><strong>Effects are reported as average conditional link-scale contrasts at
-target means</strong>, <code>(C_t - C_u)'(beta + Gamma x)</code>. Linearity in <code>x</code> makes
-evaluation at <code>E[X]</code> equal to the average conditional link-scale contrast.
-There is no marginal population-standardized effect path. For nonlinear
-links, averaging absolute outcomes first and then forming an odds, rate, or
-hazard ratio gives a different quantity.</p></li>
+<p>Two gaps are worth naming for anyone comparing this with <code>multinma</code>.</p><ul><li><p><strong>Conditional and marginal reporting are distinct.</strong>
+<code><a href="relative_effects.html">relative_effects()</a></code> defaults to the average conditional link-scale
+contrast at target means, <code>(C_t - C_u)'(beta + Gamma x)</code>. Linearity in <code>x</code>
+makes evaluation at <code>E[X]</code> equal to that average conditional contrast.
+<code><a href="marginal_effects.html">marginal_effects()</a></code> instead integrates treatment-specific outcomes over an
+explicit target distribution and forms contrasts within each posterior
+draw. Binomial, Poisson rate-difference, and survival measures additionally
+transport a selected study intercept or baseline hazard. Nonlinear
+marginal effects are treatment-level quantities and are not component
+additive.</p></li>
 <li><p><strong>Every effect modifier enters both the prognostic terms and the full set of
 component interactions.</strong> There is no prognostic-only covariate role (unlike
 <code><a href="cstc.html">cstc()</a></code>, which separates <code>prognostics</code>), so a covariate that shifts outcomes
@@ -558,7 +564,7 @@ Component Hierarchies in Component Network Meta-Analysis.</p>
 <span class="r-wrn co"><span class="r-pr">#&gt;</span> https://mc-stan.org/misc/warnings.html#tail-ess</span>
 <span class="r-in"><span><span class="co"># Average conditional link-scale effects at target mean x1 = 0.2:</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">fit</span>, newdata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>x1 <span class="op">=</span> <span class="fl">0.2</span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Relative effects (OR, back-transformed)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Relative effects (OR, natural scale)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Average conditional link-scale effect at target means: x1 = 0.2</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  treatment comparator estimate estimate_link se_link lower upper   scale pr_gt0</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>          A    Placebo    2.121         0.711   0.286 1.141 3.557 natural  0.995</span>
@@ -566,7 +572,7 @@ Component Hierarchies in Component Network Meta-Analysis.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>               basis</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>               exact</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  first-order screen</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   `se_link` is on the link (log) scale; the interval is back-transformed.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   `se_link` is on the log-ratio scale; the interval is back-transformed.</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   basis "first-order screen" = estimable by the row-space criterion but leaning</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   on aggregate arms or a survival baseline, so it can be optimistic; check</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   with prior_sensitivity() / estimable_effects_at().</span>

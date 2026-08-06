@@ -173,7 +173,7 @@ common target effect-modifier means.</p>
 <span class="r-wrn co"><span class="r-pr">#&gt;</span>   - retained aggregate-only edge(s) remain in their own study populations: S1: A vs Placebo; S2: B vs Placebo; S5: A+B+C vs A+B+D</span>
 <span class="r-wrn co"><span class="r-pr">#&gt;</span> Use cmlnmr() for a joint model, restrict the analysis to a design in which every edge is adjusted and the estimand is additive, or set `allow_experimental_bridge = TRUE` only for explicitly exploratory sensitivity work.</span>
 <span class="r-in"><span><span class="fu"><a href="relative_effects.html">relative_effects</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Relative effects (OR, back-transformed)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Relative effects (OR, natural scale)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  treatment comparator estimate estimate_link se_link lower  upper   scale     z</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>          A    Placebo    1.649         0.500   0.256 0.998  2.725 natural 1.951</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>        A+B    Placebo    2.460         0.900   0.363 1.209  5.005 natural 2.483</span>
@@ -186,7 +186,7 @@ common target effect-modifier means.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  0.001</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  0.000</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  0.119</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   `se_link` is on the link (log) scale; the interval is back-transformed.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   `se_link` is on the log-ratio scale; the interval is back-transformed.</span>
 <span class="r-in"><span><span class="fu"><a href="additivity_test.html">additivity_test</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Additive component model: fit statistics</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Total lack of fit (Q.additive): Q = 2.669, df = 1, p = 0.102</span>

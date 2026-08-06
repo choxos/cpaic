@@ -125,7 +125,7 @@ fit <- cstc(net, target = c(x1 = 0), effect_modifiers = "x1",
 #>   - retained aggregate-only edge(s) remain in their own study populations: S1: A vs Placebo; S2: B vs Placebo; S5: A+B+C vs A+B+D
 #> Use cmlnmr() for a joint model, restrict the analysis to a design in which every edge is adjusted and the estimand is additive, or set `allow_experimental_bridge = TRUE` only for explicitly exploratory sensitivity work.
 relative_effects(fit)
-#> Relative effects (OR, back-transformed)
+#> Relative effects (OR, natural scale)
 #>  treatment comparator estimate estimate_link se_link lower  upper   scale     z
 #>          A    Placebo    1.649         0.500   0.256 0.998  2.725 natural 1.951
 #>        A+B    Placebo    2.460         0.900   0.363 1.209  5.005 natural 2.483
@@ -138,7 +138,7 @@ relative_effects(fit)
 #>  0.001
 #>  0.000
 #>  0.119
-#>   `se_link` is on the link (log) scale; the interval is back-transformed.
+#>   `se_link` is on the log-ratio scale; the interval is back-transformed.
 additivity_test(fit)
 #> Additive component model: fit statistics
 #>   Total lack of fit (Q.additive): Q = 2.669, df = 1, p = 0.102

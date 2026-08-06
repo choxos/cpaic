@@ -296,7 +296,10 @@ not marginally standardized quantities. Use `newdata` in
 /
 [`component_effects()`](https://choxos.github.io/cpaic/reference/component_effects.md)
 to obtain average conditional link-scale effects at named target
-effect-modifier means.
+effect-modifier means. Use
+[`marginal_effects()`](https://choxos.github.io/cpaic/reference/marginal_effects.md)
+with an explicit target covariate distribution to standardize
+treatment-specific outcomes before forming marginal contrasts.
 
 Supported families: `"binomial"` (logit), `"gaussian"` (identity),
 `"poisson"` (log), and `"survival"`.
@@ -424,12 +427,17 @@ column across the two layers without recoding it.
 
 Two gaps are worth naming for anyone comparing this with `multinma`.
 
-- **Effects are reported as average conditional link-scale contrasts at
-  target means**, `(C_t - C_u)'(beta + Gamma x)`. Linearity in `x` makes
-  evaluation at `E[X]` equal to the average conditional link-scale
-  contrast. There is no marginal population-standardized effect path.
-  For nonlinear links, averaging absolute outcomes first and then
-  forming an odds, rate, or hazard ratio gives a different quantity.
+- **Conditional and marginal reporting are distinct.**
+  [`relative_effects()`](https://choxos.github.io/cpaic/reference/relative_effects.md)
+  defaults to the average conditional link-scale contrast at target
+  means, `(C_t - C_u)'(beta + Gamma x)`. Linearity in `x` makes
+  evaluation at `E[X]` equal to that average conditional contrast.
+  [`marginal_effects()`](https://choxos.github.io/cpaic/reference/marginal_effects.md)
+  instead integrates treatment-specific outcomes over an explicit target
+  distribution and forms contrasts within each posterior draw. Binomial,
+  Poisson rate-difference, and survival measures additionally transport
+  a selected study intercept or baseline hazard. Nonlinear marginal
+  effects are treatment-level quantities and are not component additive.
 
 - **Every effect modifier enters both the prognostic terms and the full
   set of component interactions.** There is no prognostic-only covariate
@@ -541,7 +549,7 @@ fit <- cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "Placebo",
 #> https://mc-stan.org/misc/warnings.html#tail-ess
 # Average conditional link-scale effects at target mean x1 = 0.2:
 relative_effects(fit, newdata = data.frame(x1 = 0.2))
-#> Relative effects (OR, back-transformed)
+#> Relative effects (OR, natural scale)
 #>   Average conditional link-scale effect at target means: x1 = 0.2
 #>  treatment comparator estimate estimate_link se_link lower upper   scale pr_gt0
 #>          A    Placebo    2.121         0.711   0.286 1.141 3.557 natural  0.995
@@ -549,7 +557,7 @@ relative_effects(fit, newdata = data.frame(x1 = 0.2))
 #>               basis
 #>               exact
 #>  first-order screen
-#>   `se_link` is on the link (log) scale; the interval is back-transformed.
+#>   `se_link` is on the log-ratio scale; the interval is back-transformed.
 #>   basis "first-order screen" = estimable by the row-space criterion but leaning
 #>   on aggregate arms or a survival baseline, so it can be optimistic; check
 #>   with prior_sensitivity() / estimable_effects_at().
