@@ -5,6 +5,10 @@ bibliography: cpaic.bib
 link-citations: yes
 ---
 
+> **Archived example source.** This vignette is excluded from package
+> builds and pkgdown until it is regenerated against the current estimand
+> labels, bridge safeguards, and API. Do not treat it as current guidance.
+
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE, comment = "#>", message = FALSE, warning = FALSE,
@@ -345,14 +349,22 @@ population-adjusted **conditional** log rate ratio in the target population.
 giving a **marginal** log rate ratio. Both hand their adjusted contrasts to
 `cnma_bridge()`.
 
+This archived example opts into `allow_experimental_bridge = TRUE` because
+unadjusted AgD edges remain and marginal rate contrasts are not guaranteed to
+be component-additive. The override records these constraints; it does not fix
+them.
+
 ```{r freq}
 ems <- c("eos", "freqex")
 
-fit_stc <- cstc(net, target = c(eos = 1.5, freqex = 0.55), effect_modifiers = ems)
+fit_stc <- cstc(net, target = c(eos = 1.5, freqex = 0.55),
+                effect_modifiers = ems,
+                allow_experimental_bridge = TRUE)
 
 fit_maic <- cmaic(net, target = c(eos = 1.5, freqex = 0.55),
                   target_sd = c(eos = 1.0),      # only the continuous one needs an SD
-                  effect_modifiers = ems, n_boot = 200, seed = 9)
+                  effect_modifiers = ems, n_boot = 200, seed = 9,
+                  allow_experimental_bridge = TRUE)
 effective_sample_size(fit_maic)
 ```
 

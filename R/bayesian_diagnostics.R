@@ -88,13 +88,67 @@ print.cpaic_dic <- function(x, digits = 1, ...) {
   invisible(x)
 }
 
+#' Summarize Poisson replication overflow counts
+#'
+#' The Poisson Stan model records how many generated counts could not be drawn
+#' safely in each iteration. This helper validates those generated quantities
+#' before any replicated outcome is summarized.
+#' @noRd
+.cpaic_poisson_overflow_summary <- function(fit, variables) {
+  sources <- c("ipd", "agd")
+  valid_variables <- is.list(variables) &&
+    all(sources %in% names(variables)) &&
+    all(vapply(variables[sources], function(x) {
+      is.character(x) && length(x) == 1L && !is.na(x) && nzchar(x)
+    }, logical(1)))
+  if (!valid_variables) {
+    stop("Poisson replication overflow metadata are missing or malformed. ",
+         "Refit with the current cpaic version before using replicated ",
+         "outcomes.", call. = FALSE)
+  }
+
+  rows <- lapply(sources, function(source) {
+    variable <- variables[[source]]
+    counts <- tryCatch(
+      .cpaic_draws_matrix(fit, variable),
+      error = function(e) {
+        stop("Could not read Poisson replication overflow counts from `",
+             variable, "`: ", conditionMessage(e),
+             ". Refit with the current cpaic version before using replicated ",
+             "outcomes.", call. = FALSE)
+      }
+    )
+    if (ncol(counts) != 1L) {
+      stop("Poisson replication overflow variable `", variable,
+           "` must contain one count per draw.", call. = FALSE)
+    }
+    counts <- as.numeric(counts)
+    if (!length(counts) || any(!is.finite(counts)) || any(counts < 0) ||
+        any(counts != floor(counts))) {
+      stop("Poisson replication overflow variable `", variable,
+           "` contains invalid counts.", call. = FALSE)
+    }
+    data.frame(
+      source = source,
+      draws = length(counts),
+      draws_with_overflow = sum(counts > 0),
+      overflowed_values = sum(counts),
+      max_overflow_per_draw = max(counts),
+      stringsAsFactors = FALSE
+    )
+  })
+  do.call(rbind, rows)
+}
+
 #' Summarize a prior-predictive cML-NMR fit
 #'
 #' `cmlnmr(prior_predictive = TRUE)` samples from the prior without adding the
 #' observed likelihood. This helper compares a simple statistic of the
 #' observed outcomes with the corresponding replicated outcomes. Survival
 #' replications are event-by-observed-time indicators because the censoring
-#' process is not modeled.
+#' process is not modeled. For Poisson models, the check stops if any generated
+#' count exceeded Stan's safe random-number range. Affected values are explicit
+#' sentinels and are never summarized as data.
 #'
 #' @param object A [cmlnmr()] fit created with `prior_predictive = TRUE`.
 #' @param statistic Either `"mean"` or `"sd"`.
@@ -115,9 +169,31 @@ prior_predictive_check <- function(object, statistic = c("mean", "sd"),
   stat <- switch(statistic, mean = base::mean, sd = stats::sd)
   alpha <- (1 - level) / 2
 
+  if (identical(object$family, "poisson")) {
+    overflow <- .cpaic_poisson_overflow_summary(
+      object$fit, object$rep_overflow_variables
+    )
+    affected <- overflow$overflowed_values > 0
+    if (any(affected)) {
+      detail <- paste0(
+        overflow$source[affected], "=",
+        overflow$overflowed_values[affected], collapse = ", "
+      )
+      stop("Poisson replicated outcomes contain RNG overflow sentinels (",
+           detail, "). Refit with more appropriate priors or model scaling ",
+           "before running prior_predictive_check().", call. = FALSE)
+    }
+  }
+
   summarize_source <- function(source) {
     variable <- object$rep_variables[[source]]
     draws <- .cpaic_draws_matrix(object$fit, variable)
+    if (identical(object$family, "poisson") && any(draws < 0)) {
+      stop("Poisson replicated outcomes for `", source,
+           "` contain negative overflow sentinels even though the recorded ",
+           "overflow count is zero. The generated quantities are inconsistent ",
+           "and cannot be summarized; refit the model.", call. = FALSE)
+    }
     replicated <- apply(draws, 1, stat)
     observed <- stat(object$observed[[source]])
     interval <- stats::quantile(replicated, c(alpha, 0.5, 1 - alpha),
@@ -142,11 +218,11 @@ prior_predictive_check <- function(object, statistic = c("mean", "sd"),
 #'
 #' Prior movement is an empirical identification diagnostic. Contrasts that
 #' move substantially when a weakly identified prior is changed should not be
-#' interpreted as data-driven. This helper reuses the principle in
-#' `documentation/validation/estimability_gamma.R`.
+#' interpreted as data-driven.
 #'
 #' @param object A [cmlnmr()] fit.
-#' @param newdata One target population, as for [relative_effects()].
+#' @param newdata One row of target effect-modifier means, as for
+#'   [relative_effects()].
 #' @param prior Which scales to vary: the interaction prior, component-effect
 #'   prior, or all configurable scale priors.
 #' @param tighter,looser Positive multipliers for the fitted prior scales.
@@ -209,7 +285,7 @@ prior_sensitivity <- function(object, newdata,
   loose_fit <- do.call(cmlnmr, scaled_args(looser))
 
   raw_contrasts <- function(fit) {
-    x <- .cpaic_target_x(newdata, fit$effect_modifiers)
+    x <- .cpaic_target_x(newdata, fit$effect_modifiers, fit$margins)
     effects <- .cpaic_beta_at(fit, x) %*% t(fit$C.matrix)
     colnames(effects) <- rownames(fit$C.matrix)
     treatments <- setdiff(colnames(effects), reference)
@@ -239,12 +315,15 @@ prior_sensitivity <- function(object, newdata,
                                 movement$move_looser)
   movement$estimable <- estimable$estimable[
     match(movement$treatment, estimable$treatment)]
+  target_mean <- .cpaic_target_x(newdata, object$effect_modifiers,
+                                 object$margins)
 
   structure(
     list(movement = movement, fits = list(tighter = tight_fit,
                                          looser = loose_fit),
          prior = prior, multipliers = c(tighter = tighter, looser = looser),
-         target = .cpaic_target_x(newdata, object$effect_modifiers)),
+         target = target_mean, target_mean = target_mean,
+         estimand = "average_conditional_link"),
     class = "cpaic_prior_sensitivity"
   )
 }
@@ -258,4 +337,3 @@ print.cpaic_prior_sensitivity <- function(x, digits = 3, ...) {
   print(out, row.names = FALSE)
   invisible(x)
 }
-

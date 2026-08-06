@@ -106,6 +106,10 @@ test_that("cmlnmr runs for gaussian, poisson, and survival families", {
                family = "poisson", chains = 1, iter_warmup = 250,
                iter_sampling = 250, seed = 1)
   expect_true(all(is.finite(component_effects(fP)$estimate)))
+  expect_false(fP$replication_overflow$any)
+  expect_true(all(fP$replication_overflow$summary$overflowed_values == 0L))
+  expect_true(all(cpaic:::.cpaic_draws(fP, "yrep_ipd") >= 0L))
+  expect_true(all(cpaic:::.cpaic_draws(fP, "rrep_agd") >= 0L))
 
   # survival (exponential). The exact likelihood needs individual event and
   # censoring times, so an aggregate survival arm is supplied as RECONSTRUCTED

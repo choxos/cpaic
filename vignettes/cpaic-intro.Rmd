@@ -17,6 +17,10 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6,
 library(cpaic)
 ```
 
+> **Research use only.** cpaic is experimental. Its methodology and
+> implementation have not been validated for clinical, regulatory,
+> reimbursement, or other decision use.
+
 ## The problem
 
 Network meta-analysis needs a *connected* network. When the evidence splits
@@ -24,12 +28,11 @@ into two or more sub-networks with no common comparator, the network is
 **disconnected** and the treatments in different sub-networks cannot be
 compared directly.
 
-`cpaic` reconnects such a network through the *additive component* structure
-of the treatments (component network meta-analysis), and then adjusts the
-comparisons for between-study differences in effect modifiers using anchored
-population-adjustment methods (STC, MAIC, and ML-NMR). The
-result is an indirect comparison that is both connected and
-population-adjusted.
+`cpaic` can reconnect such a network through the *additive component*
+structure of the treatments. It also implements experimental adjustment for
+between-study differences in effect modifiers using anchored STC, MAIC, and
+ML-NMR. Algebraic reconnection does not by itself make the result transportable
+to one population.
 
 ## A disconnected example
 
@@ -77,26 +80,36 @@ component_effects(br)
 ## Step 2: adjust for effect modifiers
 
 Components `C` and `D` come from the IPD studies, whose effect modifier `x1`
-is imbalanced relative to the target population (`x1 = 0`). Anchored STC fits
-an outcome regression with treatment-by-`x1` interactions and reads off the
-treatment effect at the target.
+is imbalanced relative to the target mean (`x1 = 0`). Anchored STC fits an
+outcome regression with treatment-by-`x1` interactions and evaluates the
+conditional link-scale treatment effect at that target mean.
 
 ```{r}
-fit_stc <- cstc(net, target = c(x1 = 0), effect_modifiers = "x1")
+fit_stc <- cstc(net, target = c(x1 = 0), effect_modifiers = "x1",
+                allow_experimental_bridge = TRUE)
 component_effects(fit_stc)
 ```
 
-Anchored MAIC instead reweights each IPD study to the target population.
+Anchored MAIC instead reweights each IPD study to the target moments. Its
+marginal weighted contrast is not generally component-additive on a nonlinear
+scale such as the log odds scale.
 
 ```{r}
 fit_maic <- cmaic(net, target = c(x1 = 0), effect_modifiers = "x1",
-                  n_boot = 100, seed = 1)
+                  n_boot = 100, seed = 1,
+                  allow_experimental_bridge = TRUE)
 effective_sample_size(fit_maic)
 ```
 
-Population adjustment moves the `C` and `D` effects relative to the
-unadjusted (naive) bridge, while the placebo-anchored components `A` and `B`
-are unchanged:
+Both calls require explicit opt-in because this example retains unadjusted AgD
+edges from their original study populations. The fitted objects record the
+override. It is not a claim that the resulting network has one coherent target
+estimand.
+
+Adjusting the IPD edges moves the `C` and `D` estimates relative to the
+unadjusted bridge, while the estimates driven by retained aggregate edges are
+unchanged. This comparison is descriptive because the opt-in bridge mixes
+study-population and target-specific contrasts:
 
 ```{r}
 data.frame(

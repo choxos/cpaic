@@ -7,7 +7,13 @@
 \usage{
 component_effects(object, newdata = NULL, ...)
 
-\method{component_effects}{cpaic_mlnmr}(object, newdata = NULL, level = 0.95, ...)
+\method{component_effects}{cpaic_mlnmr}(
+  object,
+  newdata = NULL,
+  level = 0.95,
+  estimand = "average_conditional_link",
+  ...
+)
 }
 \arguments{
 \item{object}{A fitted cpaic object (\code{cpaic_bridge}, \code{cpaic_maic},
@@ -23,6 +29,9 @@ covariate origin and are not population-adjusted.}
 
 \item{level}{Credible level for the component-effect intervals (default
 \code{0.95}), for \code{\link[=cmlnmr]{cmlnmr()}} fits.}
+
+\item{estimand}{The only implemented cML-NMR component-effect estimand is
+\code{"average_conditional_link"}.}
 }
 \value{
 A data frame of component effects (estimate, se, CI, p-value).

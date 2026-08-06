@@ -10,7 +10,7 @@
 #'
 #' Studies `S3` and `S4` also have individual patient data
 #' ([cpaic_bin_ipd]); their rows here are the *unadjusted* contrasts, which
-#' [cmaic()] / [cstc()] replace with population-adjusted versions.
+#' [cmaic()] / [cstc()] replace with target-matched versions.
 #'
 #' @format A data frame with 5 rows and 5 columns:
 #' \describe{
@@ -28,9 +28,8 @@
 #'
 #' Individual patient data for studies `S3` (`A+B+C` vs `A+B`) and `S4`
 #' (`A+B+D` vs `A+B`) of the [cpaic_bin_agd] network. A single effect
-#' modifier `x1` is imbalanced relative to the target population
-#' (`x1 = 0`), so population adjustment changes the `C` and `D` component
-#' effects.
+#' modifier `x1` is imbalanced relative to the target mean (`x1 = 0`), so
+#' target-moment adjustment changes the `C` and `D` component effects.
 #'
 #' @format A data frame with 3200 rows and 4 columns:
 #' \describe{

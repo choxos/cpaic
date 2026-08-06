@@ -2,11 +2,17 @@
 
 **Component-Based Population-Adjusted Indirect Comparison**
 
-`cpaic` extends component network meta-analysis (cNMA) to
-population-adjusted indirect comparison (PAIC), so that a **disconnected**
-treatment network can be *reconnected* through shared treatment components
-and, at the same time, *adjusted* for between-study differences in effect
-modifiers.
+`cpaic` is experimental research software for combining component network
+meta-analysis (cNMA) with population-adjusted indirect comparison (PAIC) in a
+**disconnected** treatment network. Shared treatment components can identify a
+bridge across the disconnection. IPD-bearing comparisons can then be adjusted
+for differences in measured effect modifiers, subject to the restrictions
+below.
+
+> **Research use only.** The methodology and implementation have not been
+> validated for clinical, regulatory, reimbursement, or other decision use.
+> A successful fit and clean sampler diagnostics do not validate the
+> cross-sub-network additivity or transportability assumptions.
 
 Standard network meta-analysis needs a connected network. When the network is
 disconnected (no common comparator links two sub-networks), it cannot be
@@ -19,8 +25,10 @@ analyzed directly. Two ideas each solve half of the problem:
 - **PAIC** (STC, MAIC, ML-NMR) adjusts for effect-modifier imbalance using
   individual patient data (IPD), but assumes the network is already connected.
 
-`cpaic` composes them: the component structure supplies the bridge, and
-STC / MAIC / ML-NMR supply the population adjustment.
+`cpaic` implements experimental ways to combine these ideas. The one-stage
+`cmlnmr()` model and the two-stage `cstc()` / `cmaic()` bridge have different
+estimands and different failure modes. They should not be described as
+interchangeable whole-network population adjustments.
 
 ## Two senses of "anchored"
 
@@ -47,8 +55,9 @@ by a common comparator. It is identification through additivity.
   default or with cmdstanr on request.
   Binary, continuous, count, and survival outcomes.
 
-This is research software under active development. Read the Limitations
-section before using it for a decision.
+The four outcome-family implementations are under active development. They are
+not decision validated. Read the estimand and bridge limitations before
+interpreting a result.
 
 ## Estimability
 
@@ -112,20 +121,35 @@ estimable_effects(net)
 # 1. Connect only (aggregate component NMA)
 cnma_bridge(net)
 
-# 2. Connect and population-adjust via anchored STC
-cstc(net, target = c(x1 = 0), effect_modifiers = "x1")
+# 2. Experimental two-stage STC bridge. This network retains AgD edges, so
+#    explicit opt-in is required because the bridge mixes populations.
+cstc(net, target = c(x1 = 0), effect_modifiers = "x1",
+     allow_experimental_bridge = TRUE)
 
-# 3. Connect and population-adjust via anchored MAIC
-cmaic(net, target = c(x1 = 0), effect_modifiers = "x1")
+# 3. Experimental two-stage MAIC bridge. On the OR scale, marginal weighted
+#    contrasts also need not obey component additivity.
+cmaic(net, target = c(x1 = 0), effect_modifiers = "x1",
+      allow_experimental_bridge = TRUE)
 ```
 
-For the Bayesian model, relative effects are **population-specific**: the model
-contains component by effect-modifier interactions, so
-`theta_t(x) = C_t' (beta + Gamma x)`. You must name the target population.
+By default, `cstc()` and `cmaic()` stop when retained aggregate contrasts would
+be combined with target-specific adjusted contrasts. `cmaic()` also stops by
+default for non-Gaussian families because a marginal weighted contrast is not
+generally additive across components on a nonlinear scale.
+`allow_experimental_bridge = TRUE` records the override in the fitted object and
+emits a warning. It does not make the estimands coherent.
+
+For the Bayesian model, conditional relative effects vary with the effect
+modifiers because `theta_t(x) = C_t' (beta + Gamma x)`. A one-row `newdata`
+value is interpreted as a vector of target covariate means. Because this
+contrast is linear in `x` on the link scale, it is an average conditional
+link-scale effect at those means. It is not a marginally standardized odds,
+rate, or hazard ratio over a target population.
 
 ```r
 fit <- cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "Placebo")
-relative_effects(fit, newdata = data.frame(x1 = 0.3))   # effects at x1 = 0.3
+# Average conditional link-scale effects at target mean x1 = 0.3
+relative_effects(fit, newdata = data.frame(x1 = 0.3))
 component_effects(fit, newdata = data.frame(x1 = 0.3))
 ```
 
@@ -133,39 +157,15 @@ component_effects(fit, newdata = data.frame(x1 = 0.3))
 `estimable_effects()`, `additivity_test()`, `effective_sample_size()`,
 `forest()` and `plot()` summarize and visualize a fit.
 
-## Simulation evidence
+## Validation status
 
-A factorial simulation evaluates the **cross-gap** contrast on a disconnected
-network, i.e. the comparison no trial makes. The simulation code and outputs
-currently live in the local `documentation/` tree, which is not part of the
-public repository, so the figures below are indicative rather than independently
-reproducible; a tracked, reproducible validation pipeline is planned.
-
-**Population adjustment is effective.** Without it, the naive bridge reaches a bias of
-+0.60 log-OR and 38% coverage under severe imbalance with poor overlap. cSTC's bias stays flat at -0.01 to -0.04 *regardless* of imbalance and
-overlap, with 94 to 96% coverage and well-calibrated standard errors.
-
-The simulation also identifies four limitations.
-
-* **Additivity violation is invisible, and it is the largest error.** With a moderate
-  violation of cross-sub-network additivity, cSTC's coverage falls to **0.50**, while
-  `additivity_test()` reports a *perfect* fit (Q = 0 on 0 degrees of freedom). No
-  diagnostic fires, because none can: there is no cross-gap evidence to test against.
-  cpaic now reports the statistic as vacuous rather than printing a value that reads as a
-  good fit.
-* **Errors can offset.** Under severe imbalance combined with an additivity violation, the
-  naive analysis outperformed both adjusted methods because its two biases cancelled.
-  Agreement between methods is therefore not evidence of validity.
-* **Marginal effects do not add.** On a non-collapsible scale, `marginal(A) +
-  marginal(B)` is not `marginal(A+B)`: in one target population, 0.6615 versus 0.6411.
-  So `cmaic()`, which targets a marginal effect, carries a small **irreducible** bias
-  that survives perfect matching and infinite data. The conditional log-odds scale is
-  the only one on which the additive component model is coherent. Prefer `cstc()` or
-  `cmlnmr()` if this matters.
-* **The effective sample size is not a validity diagnostic.** Individual patient data placed
-  on an edge that does not carry the requested contrast leave the estimate identical to the
-  unadjusted one, while the effective sample size reports 999 of 1000. `edge_influence()`
-  reports whether the individual patient data inform the contrast at all.
+The package does not yet have a tracked, independently reproducible validation
+suite that supports decision use. Local exploratory simulations are useful for
+finding failure modes, but they are not release evidence and are not summarized
+as performance claims here. At minimum, future validation must cover overlap,
+model misspecification, partial IPD coverage, nonlinear estimands, multi-arm
+studies, survival reconstruction, and violations of cross-sub-network
+additivity.
 
 ## Limitations
 
@@ -176,15 +176,24 @@ The following apply to any result produced by this package.
   component by effect-modifier interactions) to be *constant across
   sub-networks*. There is by construction no cross-gap evidence to test this
   against. `additivity_test()` reports the fit of the additive model *within*
-  the observed evidence; a large p-value is not a licence to bridge.
-- **Only IPD edges are adjusted.** `cmaic()` and `cstc()` adjust the edges that
-  have IPD; aggregate contrasts enter the bridge as published, in their own
-  study populations. The pooled result is therefore fully adjusted to a single
-  target only if the retained aggregate effects are themselves transportable.
+  the observed evidence; a large p-value is not a license to bridge.
+- **A two-stage bridge can mix populations.** `cmaic()` and `cstc()` adjust the
+  edges that have IPD. Retained aggregate contrasts remain on their original
+  study-population estimands. Combining both types does not produce a coherent
+  single-target network merely because the component model can solve the
+  algebra. The default is to stop; `allow_experimental_bridge = TRUE` is an
+  explicit research override, not a validity correction.
 - **Estimands differ across the methods.** `cstc()` returns a conditional effect
-  at the target covariate values; `cmaic()` returns a marginal weighted effect
-  in the target population. On non-collapsible scales (odds ratios, hazard
-  ratios) these differ even when both are correct.
+  on the link scale at the target covariate means; `cmaic()` returns a marginal
+  weighted contrast. On a nonlinear scale a marginal contrast is not generally
+  component-additive, so feeding cMAIC edges into an additive bridge can be
+  methodologically incoherent even with perfect matching. Non-Gaussian cMAIC
+  bridges therefore require the experimental override.
+- **cML-NMR target summaries are not marginal standardized effects.** For a
+  one-row `newdata`, `cmlnmr()` reports the average conditional link-scale
+  contrast evaluated at the supplied covariate means. Exponentiating it does
+  not turn it into a population-marginal odds ratio, rate ratio, or hazard
+  ratio. A full covariate distribution is not accepted for standardization.
 - **Survival conditions on the supplied rows.** `cmlnmr()` evaluates the exact
   analytic individual survival likelihood (events plus right, left, and interval
   censoring, and delayed entry), integrated over each aggregate arm's covariate
@@ -194,6 +203,12 @@ The following apply to any result produced by this package.
   finite numerical integration; uncertainty from reconstructing pseudo-IPD out of
   a published Kaplan-Meier curve is not propagated, and proportional hazards is
   assumed.
+- **Survival interfaces have different status contracts.** The two-stage
+  `cstc()` and `cmaic()` network input accepts only `0` for right censoring and
+  `1` for an event. `cmlnmr()` separately uses `0` right-censored, `1` event,
+  `2` left-censored, and `3` interval-censored rows, with reconstructed rows
+  required for aggregate survival arms. The package reports proportional-hazard
+  contrasts; it does not estimate restricted mean survival time.
 - **`cmlnmr()` treatment effects may be fixed or random.** `trt_effects =
   "random"` adds study-arm heterogeneity with a single common `tau`, which is one
   exchangeability assumption, not a component-, sub-network-, or era-specific
@@ -201,8 +216,10 @@ The following apply to any result produced by this package.
 
 ## Documentation
 
-Mathematical foundations, the methods manual, and the validation study live in
-the local `documentation/` folder. User-facing vignettes ship with the package.
+The introductory and methods vignettes ship with the package. Five archived
+outcome examples are excluded until they are regenerated against the current
+estimand labels, safeguards, and API. The standalone manual in the
+development-only `documentation/` tree is not public package guidance.
 
 ## References
 

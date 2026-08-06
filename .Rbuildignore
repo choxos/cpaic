@@ -1,8 +1,6 @@
 ^documentation$
-^CLAUDE\.md$
 ^\.codegraph
 ^\.omo
-^\.claude
 ^LICENSE$
 ^data-raw$
 ^.*\.Rproj$
@@ -23,11 +21,8 @@
 ^scratch$
 ^vignettes/precompile\.R$
 ^vignettes/.*\.Rmd\.orig$
-^vignettes/binary-outcomes\.Rmd$
-^vignettes/continuous-outcomes\.Rmd$
-^vignettes/count-outcomes\.Rmd$
-^vignettes/survival-outcomes\.Rmd$
+^vignettes/_?(binary-outcomes|continuous-outcomes|count-outcomes|survival-outcomes|cpaic-disconnected-myeloma)\.Rmd$
 ^vignettes/figure$
 ^AGENTS\.md$
-^vignettes/cpaic-disconnected-myeloma\.Rmd$
+^vignettes/(binary-outcomes|continuous-outcomes|count-outcomes|survival-outcomes|cpaic-disconnected-myeloma)\.html(\.asis)?$
 ^Rplots\.pdf$

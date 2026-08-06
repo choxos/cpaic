@@ -8,6 +8,10 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
+> **Archived example source.** This vignette is excluded from package
+> builds and pkgdown until it is regenerated against the current estimand
+> labels, bridge safeguards, and API. Do not treat it as current guidance.
+
 ```{r, include = FALSE}
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6,
                       # Pre-rendered, self-contained HTML that ships in the

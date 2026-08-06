@@ -1,4 +1,4 @@
-# Component MAIC: population-adjusted, component-bridged indirect comparison ---
+# Component MAIC: target-matched, component-bridged indirect comparison ---------
 
 #' Weighted within-study contrast for one IPD study
 #'
@@ -30,7 +30,7 @@
     fit <- capture(survival::coxph(
       survival::Surv(data[[time_col]], data[[status_col]]) ~ arm,
       weights = w, robust = TRUE))
-    n_events <- tapply(data[[status_col]], arm, function(z) sum(z != 0))
+    n_events <- tapply(data[[status_col]], arm, function(z) sum(z == 1L))
   } else {
     fam <- switch(family,
                   binomial = stats::binomial(),
@@ -63,7 +63,7 @@
 #' @noRd
 .cpaic_weighted_contrast <- function(...) .cpaic_weighted_fit(...)$cf
 
-#' Center effect modifiers on the target population
+#' Center effect modifiers on target means
 #' @noRd
 .cpaic_center <- function(data, target_mean, target_sd = NULL) {
   ems <- names(target_mean)
@@ -76,6 +76,201 @@
     }
   }
   data
+}
+
+#' Classify bootstrap validity failures
+#' @noRd
+.cpaic_bootstrap_problem_codes <- function(stage, problems) {
+  vapply(problems, function(problem) {
+    if (stage == "weight_validation") {
+      if (grepl("non-finite or negative weights", problem, fixed = TRUE)) {
+        return("weights_nonfinite_or_negative")
+      }
+      if (grepl("weights sum to zero", problem, fixed = TRUE)) {
+        return("weights_zero_sum")
+      }
+      if (grepl("non-finite or zero ESS", problem, fixed = TRUE)) {
+        return("ess_nonfinite_or_zero")
+      }
+      if (grepl("optimizer did not converge", problem, fixed = TRUE)) {
+        return("weight_optimizer_nonconvergence")
+      }
+      if (grepl("moment balance", problem, fixed = TRUE)) {
+        return("moment_imbalance")
+      }
+      return("weight_validation_failure")
+    }
+    if (stage == "regression_validation") {
+      if (grepl("non-finite coefficient", problem, fixed = TRUE)) {
+        return("coefficient_nonfinite")
+      }
+      if (grepl("missing treatment coefficient", problem, fixed = TRUE)) {
+        return("treatment_coefficient_missing")
+      }
+      if (grepl("no covariance matrix", problem, fixed = TRUE)) {
+        return("covariance_missing")
+      }
+      if (grepl("degenerate covariance", problem, fixed = TRUE)) {
+        return("treatment_covariance_degenerate")
+      }
+      if (grepl("did not converge", problem, fixed = TRUE)) {
+        return("outcome_model_nonconvergence")
+      }
+      if (grepl("aliased", problem, fixed = TRUE)) {
+        return("treatment_term_aliased")
+      }
+      if (grepl("zero events", problem, fixed = TRUE)) {
+        return("arm_zero_events")
+      }
+      if (grepl("separated / non-identified", problem, fixed = TRUE)) {
+        return("treatment_effect_nonidentified")
+      }
+      if (grepl("fit warning", problem, fixed = TRUE)) {
+        return("outcome_model_warning")
+      }
+      return("regression_validation_failure")
+    }
+    paste0(stage, "_failure")
+  }, character(1))
+}
+
+#' Build bootstrap failure records
+#' @noRd
+.cpaic_bootstrap_failure_rows <- function(replicate, stage, problems,
+                                          codes = NULL) {
+  problems <- as.character(problems)
+  if (!length(problems)) problems <- "unspecified bootstrap failure"
+  if (is.null(codes)) {
+    codes <- .cpaic_bootstrap_problem_codes(stage, problems)
+  }
+  data.frame(
+    replicate = rep.int(as.integer(replicate), length(problems)),
+    stage = rep.int(stage, length(problems)),
+    reason_code = as.character(codes),
+    reason = problems,
+    stringsAsFactors = FALSE
+  )
+}
+
+#' Summarize cMAIC bootstrap validity
+#' @noRd
+.cpaic_bootstrap_validation <- function(boot, accepted, failure_records,
+                                        arms_non_ref, ref_arm, n_boot,
+                                        min_boot_success) {
+  failures <- do.call(rbind, Filter(Negate(is.null), failure_records))
+  if (is.null(failures)) {
+    failures <- data.frame(
+      replicate = integer(), stage = character(), reason_code = character(),
+      reason = character(), stringsAsFactors = FALSE)
+  }
+
+  # Defensive accounting invariant: every rejected row must be recorded even
+  # if a future branch forgets to register a specific reason.
+  recorded <- unique(failures$replicate)
+  unrecorded <- setdiff(which(!accepted), recorded)
+  if (length(unrecorded)) {
+    failure_records[unrecorded] <- lapply(unrecorded, function(replicate) {
+      rbind(
+        failure_records[[replicate]],
+        .cpaic_bootstrap_failure_rows(
+          replicate, "internal", "bootstrap replicate was not accepted",
+          "unclassified_rejection")
+      )
+    })
+    failures <- do.call(rbind, Filter(Negate(is.null), failure_records))
+  }
+
+  se <- apply(boot, 2, stats::sd, na.rm = TRUE)
+  n_ok <- colSums(is.finite(boot))
+  success_fraction <- n_ok / n_boot
+  se_mcse <- se / sqrt(2 * pmax(n_ok - 1L, 1L))
+
+  # At least 20 successful replicates gives a normal-theory relative Monte
+  # Carlo error for the bootstrap SD of about 16 percent or less. When a caller
+  # deliberately requests fewer than 20 replicates for a small test fixture, all
+  # requested replicates must succeed. Production analyses should use far more
+  # than this floor; the default remains 500.
+  absolute_min_success <- min(20L, n_boot)
+  proportion_min_success <- as.integer(ceiling(min_boot_success * n_boot))
+  required_success <- max(absolute_min_success, proportion_min_success)
+
+  bootstrap_summary <- data.frame(
+    treat1 = arms_non_ref,
+    treat2 = ref_arm,
+    n_requested = rep.int(n_boot, length(arms_non_ref)),
+    n_success = unname(n_ok[arms_non_ref]),
+    success_fraction = unname(success_fraction[arms_non_ref]),
+    required_success_count = rep.int(required_success,
+                                     length(arms_non_ref)),
+    required_success_fraction = rep.int(required_success / n_boot,
+                                        length(arms_non_ref)),
+    bootstrap_se = unname(se[arms_non_ref]),
+    bootstrap_se_mcse_normal_approx = unname(se_mcse[arms_non_ref]),
+    stringsAsFactors = FALSE
+  )
+  failure_table <- if (nrow(failures)) {
+    tab <- stats::aggregate(
+      replicate ~ stage + reason_code,
+      data = unique(failures[c("replicate", "stage", "reason_code")]),
+      FUN = length)
+    names(tab)[names(tab) == "replicate"] <- "n_replicates"
+    tab$fraction_of_requested <- tab$n_replicates / n_boot
+    tab
+  } else {
+    data.frame(
+      stage = character(), reason_code = character(),
+      n_replicates = integer(), fraction_of_requested = numeric(),
+      stringsAsFactors = FALSE)
+  }
+
+  list(
+    se = se,
+    n_ok = n_ok,
+    required_success = required_success,
+    failures = failures,
+    bootstrap_summary = bootstrap_summary,
+    bootstrap_failure_table = failure_table,
+    bootstrap_mcse_method = paste0(
+      "Normal-theory Monte Carlo standard error of the bootstrap SD: ",
+      "bootstrap_se / sqrt(2 * (n_success - 1))."),
+    bootstrap_success_rule = paste0(
+      "Each contrast requires at least max(ceiling(min_boot_success * n_boot), ",
+      "min(20, n_boot)) successful replicates. When n_boot is below 20, all ",
+      "requested replicates must succeed.")
+  )
+}
+
+#' Stop for insufficient cMAIC bootstrap validity
+#' @noRd
+.cpaic_stop_bootstrap_validation_failure <- function(study_id, validation,
+                                                      n_boot,
+                                                      min_boot_success, boot) {
+  if (!any(validation$n_ok < validation$required_success)) {
+    return(invisible(NULL))
+  }
+
+  message <- paste0(
+    "cmaic(): the population-adjusted fit for study '", study_id,
+    "' is not usable and would corrupt the component bridge:\n  - only ",
+    min(validation$n_ok), " of ", n_boot, " bootstrap replicates succeeded ",
+    "(required ", validation$required_success, ": max of ceiling(",
+    min_boot_success, " * ", n_boot, ") and min(20, ", n_boot,
+    ")); the standard error is unreliable (poor overlap or separation in ",
+    "the resamples)\nFix or remove this study; an invalid edge is not ",
+    "silently dropped.")
+  stop(structure(
+    list(
+      message = message,
+      call = NULL,
+      study = study_id,
+      bootstrap_draws = boot,
+      bootstrap_summary = validation$bootstrap_summary,
+      bootstrap_failures = validation$failures,
+      bootstrap_failure_table = validation$bootstrap_failure_table,
+      bootstrap_mcse_method = validation$bootstrap_mcse_method,
+      bootstrap_success_rule = validation$bootstrap_success_rule
+    ),
+    class = c("cpaic_bootstrap_error", "error", "condition")))
 }
 
 #' MAIC for one IPD study: weights + adjusted contrast(s) with bootstrap SE
@@ -116,67 +311,126 @@
   # both the weighting and the outcome-model uncertainty.
   arms_non_ref <- names(point)
   boot <- matrix(NA_real_, nrow = n_boot, ncol = length(arms_non_ref),
-                 dimnames = list(NULL, arms_non_ref))
+                 dimnames = list(as.character(seq_len(n_boot)), arms_non_ref))
   strata <- split(seq_len(nrow(centered)), centered[[arm_col]])
-  logfam <- family %in% c("binomial", "poisson", "survival")
+  accepted <- rep(FALSE, n_boot)
+  failure_records <- vector("list", n_boot)
+
+  record_failure <- function(replicate, stage, problems, codes = NULL) {
+    failure_records[[replicate]] <<- rbind(
+      failure_records[[replicate]],
+      .cpaic_bootstrap_failure_rows(replicate, stage, problems, codes)
+    )
+    invisible(NULL)
+  }
+
   for (b in seq_len(n_boot)) {
     idx <- unlist(lapply(strata, function(ii) sample(ii, length(ii),
                                                      replace = TRUE)),
                   use.names = FALSE)
     db <- centered[idx, , drop = FALSE]
+    weight_error <- NULL
     wfit_b <- tryCatch(
       suppressMessages(maicplus::estimate_weights(
         db, centered_colnames = em_centered_cols,
         boot_strata = arm_col)),
-      error = function(e) NULL)
-    if (is.null(wfit_b)) next
-    wb <- wfit_b$data$weights
+      error = function(e) {
+        weight_error <<- conditionMessage(e)
+        NULL
+      })
+    if (is.null(wfit_b)) {
+      record_failure(b, "weight_estimation", weight_error,
+                     "weight_estimation_error")
+      next
+    }
     # Hold a resampled weight solution to the SAME validity gate as the point
     # estimate: convergence, positivity, a usable ESS, and the moment balance
-    # actually achieved. Taking `$data$weights` unchecked would admit a
-    # non-converged or unbalanced solution whenever its outcome coefficient
-    # happened to fall below the crude magnitude cutoff below, which both
-    # corrupts the standard error and inflates the success fraction that
-    # `min_boot_success` is meant to police. A failing replicate is a failed
-    # replicate.
-    if (length(.cpaic_weight_problems(wb, wfit_b$ess, db, em_centered_cols,
-                                      opt = wfit_b$opt))) next
-    cb <- tryCatch(
-      .cpaic_weighted_contrast(db, family, arm_col, ref_arm, out_col,
-                               weights = wb, time_col = outcome_args$time,
-                               status_col = outcome_args$status,
-                               exposure_col = outcome_args$exposure),
-      error = function(e) stats::setNames(rep(NA_real_, length(arms_non_ref)),
-                                          arms_non_ref))
-    # A separated / degenerate resample yields a finite but absurd coefficient;
-    # treat it as a failed replicate so it neither inflates the bootstrap SE nor
-    # counts toward the success threshold. On a bounded (log / hazard) link this
-    # is flagged only when the resample is BOTH huge and far from the validated
-    # point estimate, so a genuinely large but well-identified effect is kept.
-    pt <- point[names(cb)]
-    cb[!is.finite(cb) |
-       (logfam & abs(cb) > 30 & abs(cb - pt) > 20)] <- NA_real_
-    boot[b, names(cb)] <- cb
+    # actually achieved. A failing replicate is a failed replicate.
+    weight_gate <- tryCatch({
+      wb <- wfit_b$data$weights
+      list(
+        ok = TRUE,
+        weights = wb,
+        problems = .cpaic_weight_problems(
+          wb, wfit_b$ess, db, em_centered_cols, opt = wfit_b$opt)
+      )
+    }, error = function(e) {
+      list(ok = FALSE, error = conditionMessage(e))
+    })
+    if (!weight_gate$ok) {
+      record_failure(b, "weight_validation", weight_gate$error,
+                     "weight_validation_error")
+      next
+    }
+    if (length(weight_gate$problems)) {
+      record_failure(b, "weight_validation", weight_gate$problems)
+      next
+    }
+    wb <- weight_gate$weights
+    outcome_error <- NULL
+    pf_b <- tryCatch(
+      .cpaic_weighted_fit(db, family, arm_col, ref_arm, out_col,
+                          weights = wb, time_col = outcome_args$time,
+                          status_col = outcome_args$status,
+                          exposure_col = outcome_args$exposure),
+      error = function(e) {
+        outcome_error <<- conditionMessage(e)
+        NULL
+      })
+    if (is.null(pf_b)) {
+      record_failure(b, "outcome_fit", outcome_error, "outcome_fit_error")
+      next
+    }
+    regression_gate <- tryCatch({
+      list(
+        ok = TRUE,
+        problems = .cpaic_regression_problems(
+          pf_b$fit, family, expected_terms = arm_terms,
+          n_events = pf_b$n_events, warn = pf_b$warn)
+      )
+    }, error = function(e) {
+      list(ok = FALSE, error = conditionMessage(e))
+    })
+    if (!regression_gate$ok) {
+      record_failure(b, "regression_validation", regression_gate$error,
+                     "regression_validation_error")
+      next
+    }
+    if (length(regression_gate$problems)) {
+      record_failure(b, "regression_validation", regression_gate$problems)
+      next
+    }
+    cb <- pf_b$cf
+    if (!setequal(names(cb), arms_non_ref) || any(!is.finite(cb))) {
+      record_failure(
+        b, "coefficient_validation",
+        "validated outcome fit did not return one finite coefficient per contrast",
+        "coefficient_set_invalid")
+      next
+    }
+    boot[b, arms_non_ref] <- cb[arms_non_ref]
+    accepted[b] <- TRUE
   }
-  se <- apply(boot, 2, stats::sd, na.rm = TRUE)
-  n_ok <- colSums(!is.na(boot))
-  # Fail closed: too few successful replicates means the SE cannot be trusted,
-  # which usually signals poor overlap or separation in the resamples. Abstain
-  # rather than emit a fragile SE from a selected subset.
-  if (any(n_ok < min_boot_success * n_boot)) {
-    .cpaic_stop_invalid_edge("cmaic()", study_id, paste0(
-      "only ", min(n_ok), " of ", n_boot, " bootstrap replicates succeeded ",
-      "(threshold ", round(min_boot_success * n_boot), "); the standard error ",
-      "is unreliable (poor overlap or separation in the resamples)"))
-  }
+
+  validation <- .cpaic_bootstrap_validation(
+    boot, accepted, failure_records, arms_non_ref, ref_arm, n_boot,
+    min_boot_success)
+  .cpaic_stop_bootstrap_validation_failure(
+    study_id, validation, n_boot, min_boot_success, boot)
 
   list(
     contrasts = data.frame(
       treat1 = arms_non_ref, treat2 = ref_arm,
-      TE = unname(point), seTE = unname(se[arms_non_ref]),
+      TE = unname(point), seTE = unname(validation$se[arms_non_ref]),
       stringsAsFactors = FALSE),
     ess = ess, weights = w, n = nrow(ipd_s),
-    diagnostics = .cpaic_weight_diagnostics(w, centered, em_centered_cols)
+    diagnostics = .cpaic_weight_diagnostics(w, centered, em_centered_cols),
+    bootstrap_draws = boot,
+    bootstrap_summary = validation$bootstrap_summary,
+    bootstrap_failures = validation$failures,
+    bootstrap_failure_table = validation$bootstrap_failure_table,
+    bootstrap_mcse_method = validation$bootstrap_mcse_method,
+    bootstrap_success_rule = validation$bootstrap_success_rule
   )
 }
 
@@ -184,38 +438,38 @@
 #'
 #' Anchored MAIC generalized to a (possibly disconnected) component
 #' network. Each IPD study is reweighted with [maicplus::estimate_weights()]
-#' so that its effect-modifier distribution matches a common `target`
-#' population; the resulting population-adjusted within-study contrasts
+#' so that its requested effect-modifier moments match a common `target`;
+#' the resulting target-matched within-study contrasts
 #' (with bootstrap standard errors that propagate the weighting
 #' uncertainty) then replace the corresponding unadjusted aggregate
 #' contrasts. Finally [cnma_bridge()] combines all contrasts through the
-#' additive component model, yielding relative effects that are both
-#' connected across sub-networks and adjusted to the target population.
+#' additive component model. The bridge is gated because retained aggregate
+#' edges and nonlinear marginal effects can make that synthesis incoherent.
 #'
 #' @section What the two-stage bridge does and does not adjust:
 #' Only the edges carrying individual patient data are population-adjusted to the
-#' target. Every aggregate-only edge keeps its published, study-population
+#' target moments. Every aggregate-only edge keeps its published study-specific
 #' contrast, and the additive bridge then combines all edges as if they estimated
 #' the same component effects. Under effect modification they do not: an aggregate
 #' edge estimates its contrast in *its own* trial population, while the reweighted
 #' IPD edge estimates it at the target. The two agree only when the aggregate
 #' populations resemble the target, or when the components on those edges are not
 #' effect-modified. Treat a cross-network contrast that leans on aggregate-only
-#' edges as adjusted for the IPD part alone, and prefer [cmlnmr()], which carries
-#' the component by effect-modifier interactions through the whole network and so
-#' adjusts every edge to the same target population coherently.
+#' edges as adjusted for the IPD part alone. Prefer [cmlnmr()] for a joint model
+#' whose average conditional link-scale outputs are explicitly evaluated at
+#' common target effect-modifier means.
 #'
 #' @section Non-collapsibility and the additive model:
-#' cMAIC returns a **marginal** effect in the target population, and the additive
+#' cMAIC returns a **marginal** effect in the reweighted IPD sample, and the additive
 #' component model assumes effects add. On a non-collapsible scale (the odds
 #' ratio, the hazard ratio) **marginal effects do not add**, even when every
 #' conditional effect does. In one simulated target population the marginal
 #' log-odds ratios satisfied
 #' `marginal(A) + marginal(B) = 0.6615` while `marginal(A+B) = 0.6411`; the
-#' additive model is simply false on that scale. cMAIC therefore carries a small
-#' **irreducible bias** (about +0.02 log-OR there) that survives perfect matching
-#' and infinite sample size. It is small relative to a typical standard error
-#' (about 0.25) but it does not vanish with more data.
+#' additive model is simply false on that scale. cMAIC therefore carries an
+#' **irreducible approximation error** that survives perfect matching and
+#' infinite sample size. Its size is problem-specific and cannot be assumed
+#' negligible.
 #'
 #' Marginal component effects are not *generally* additive; they add exactly when
 #' the standardized treatment effects remain affine in the component design.
@@ -224,12 +478,11 @@
 #' sample size. Where it is material, [cstc()] or [cmlnmr()], which target a
 #' conditional effect and inherit additivity exactly, are preferable. Note also
 #' that the two-stage route combines a conditional adjusted edge with aggregate
-#' edges reported on a marginal scale, so it should be regarded as approximate. See
-#' `documentation/validation/VALIDATION.md`.
+#' edges reported on a marginal scale, so it should be regarded as approximate.
 #'
 #' @param network A [cpaic_network()] object that includes IPD.
 #' @param target Named numeric vector (or one-row data frame / list) giving
-#'   the target-population means of the effect modifiers.
+#'   target means of the effect modifiers.
 #' @param effect_modifiers Character vector of covariates to match on
 #'   (defaults to all IPD covariates). Matching only on effect modifiers is
 #'   the anchored-MAIC convention.
@@ -238,18 +491,34 @@
 #' @param n_boot Number of bootstrap resamples for the adjusted-contrast
 #'   standard errors. Default `500`.
 #' @param min_boot_success Minimum fraction of bootstrap resamples that must
-#'   succeed for a contrast; below this threshold the edge is rejected rather
-#'   than given a fragile standard error from a selected subset. Default `0.8`.
+#'   succeed for a contrast. The enforced count is
+#'   `max(ceiling(min_boot_success * n_boot), min(20, n_boot))`, so a run with
+#'   fewer than 20 requested resamples requires every resample to succeed.
+#'   Below this threshold the edge is rejected rather than given a fragile
+#'   standard error from a selected subset. Default `0.8`.
 #' @param reference Optional anchor (comparator) arm to use in every IPD study
 #'   in which it appears, instead of inferring it from the aggregate row order.
 #' @param seed Optional RNG seed for reproducible bootstrap. The caller's global
 #'   RNG state is restored on exit, so calling `cmaic()` does not perturb a
 #'   downstream random stream.
 #' @param common,random Passed to [cnma_bridge()].
+#' @param allow_experimental_bridge Logical. The default `FALSE` stops when
+#'   aggregate-only edges would be combined with target-matched IPD edges, or
+#'   when a non-Gaussian cMAIC contrast would be forced through an additive
+#'   component model. Set `TRUE` only for explicitly exploratory sensitivity
+#'   work; the fit records the exact approximation reasons.
+#' @param allow_ipd_only_studies Logical. The default `FALSE` requires every
+#'   IPD study to match exactly one aggregate two-arm edge. Set `TRUE` to append
+#'   an IPD-derived edge that has no aggregate row. Such additions are recorded
+#'   in the returned fit.
 #'
 #' @return An object of class `cpaic_maic` (also inheriting `cpaic_bridge`
 #'   structure via `$bridge`), with the bridged fit, per-study effective
-#'   sample sizes, and the target population.
+#'   sample sizes, and the target moments. Bootstrap diagnostic fields include
+#'   `$bootstrap_draws`, `$bootstrap_summary`, `$bootstrap_failures`,
+#'   `$bootstrap_failure_table`, `$bootstrap_mcse_method`, and
+#'   `$bootstrap_success_rule`. A threshold failure raises a
+#'   `cpaic_bootstrap_error` condition carrying the same diagnostic information.
 #' @seealso [cstc()], [cnma_bridge()]
 #' @examples
 #' net <- cpaic_network(cpaic_bin_agd, ipd = cpaic_bin_ipd, sm = "OR",
@@ -257,14 +526,17 @@
 #'                      inactive = "Placebo")
 #' \donttest{
 #' fit <- cmaic(net, target = c(x1 = 0), effect_modifiers = "x1",
-#'              n_boot = 100, seed = 1)
+#'              n_boot = 100, seed = 1,
+#'              allow_experimental_bridge = TRUE)
 #' relative_effects(fit)
 #' effective_sample_size(fit)
 #' }
 #' @export
 cmaic <- function(network, target, effect_modifiers = NULL, target_sd = NULL,
                   n_boot = 500, min_boot_success = 0.8, seed = NULL,
-                  common = FALSE, random = TRUE, reference = NULL) {
+                  common = FALSE, random = TRUE, reference = NULL,
+                  allow_experimental_bridge = FALSE,
+                  allow_ipd_only_studies = FALSE) {
   stopifnot(inherits(network, "cpaic_network"))
   if (is.null(network$ipd)) {
     stop("`network` has no IPD; cmaic() requires individual patient data.",
@@ -328,36 +600,27 @@ cmaic <- function(network, target, effect_modifiers = NULL, target_sd = NULL,
 
   agd <- network$agd
   cols <- network$cols
-  adj <- vector("list", length(info$studies))
-  wdiag <- vector("list", length(info$studies))
+  plan <- .cpaic_two_stage_plan(
+    network, reference, "cmaic()",
+    allow_ipd_only_studies = allow_ipd_only_studies)
+  bridge_validity <- .cpaic_two_stage_bridge_gate(
+    agd, plan$adjusted, cols, "cmaic()", family,
+    allow_experimental_bridge = allow_experimental_bridge)
+  bridge_validity$ipd_only_studies <- plan$ipd_only_studies
+  adj <- vector("list", length(plan$studies))
+  wdiag <- vector("list", length(plan$studies))
+  bootstrap_draws <- setNames(vector("list", length(plan$studies)),
+                              vapply(plan$studies, `[[`, character(1), "study"))
+  bootstrap_summary <- vector("list", length(plan$studies))
+  bootstrap_failures <- vector("list", length(plan$studies))
+  bootstrap_failure_table <- vector("list", length(plan$studies))
   ess <- setNames(numeric(length(info$studies)), info$studies)
 
-  for (i in seq_along(info$studies)) {
-    s <- info$studies[i]
-    ipd_s <- network$ipd[as.character(network$ipd[[info$study]]) == s, ,
-                         drop = FALSE]
-    # Reference (anchor) arm: the comparator of this study's AgD row if
-    # present, else the network reference if it is an arm, else first arm.
-    agd_s <- agd[as.character(agd[[cols$studlab]]) == s, , drop = FALSE]
-    arms <- unique(as.character(ipd_s[[info$trt]]))
-    if (length(arms) < 2L) {
-      stop("IPD study '", s, "' has a single arm; cmaic() needs a within-study ",
-           "contrast (at least two arms).", call. = FALSE)
-    }
-    if (length(arms) > 2L) {
-      stop("IPD study '", s, "' has ", length(arms), " arms; cmaic() ",
-           "supports two-arm IPD studies in this version.", call. = FALSE)
-    }
-    ref_arm <- if (!is.null(reference) && reference %in% arms) {
-      reference
-    } else if (nrow(agd_s)) {
-      as.character(agd_s[[cols$treat2]][1])
-    } else if (network$reference %in% arms) {
-      network$reference
-    } else {
-      sort(arms)[1]
-    }
-    if (!ref_arm %in% arms) ref_arm <- sort(arms)[1]
+  for (i in seq_along(plan$studies)) {
+    study_plan <- plan$studies[[i]]
+    s <- study_plan$study
+    ipd_s <- study_plan$ipd
+    ref_arm <- study_plan$reference
 
     res <- .cpaic_maic_one_study(
       ipd_s, info, family, ref_arm, target_mean, target_sd,
@@ -367,10 +630,25 @@ cmaic <- function(network, target, effect_modifiers = NULL, target_sd = NULL,
     ess[s] <- res$ess
     res$diagnostics <- cbind(study = s, res$diagnostics)
     wdiag[[i]] <- res$diagnostics
+    bootstrap_draws[[i]] <- res$bootstrap_draws
+    bootstrap_summary[[i]] <- cbind(
+      study = s, res$bootstrap_summary, stringsAsFactors = FALSE)
+    bootstrap_failures[[i]] <- cbind(
+      study = rep.int(s, nrow(res$bootstrap_failures)),
+      res$bootstrap_failures, stringsAsFactors = FALSE)
+    bootstrap_failure_table[[i]] <- cbind(
+      study = rep.int(s, nrow(res$bootstrap_failure_table)),
+      res$bootstrap_failure_table, stringsAsFactors = FALSE)
   }
 
   adj_df <- do.call(rbind, adj)
   wdiag_df <- do.call(rbind, wdiag)
+  bootstrap_summary_df <- do.call(rbind, bootstrap_summary)
+  bootstrap_failures_df <- do.call(rbind, bootstrap_failures)
+  bootstrap_failure_table_df <- do.call(rbind, bootstrap_failure_table)
+  rownames(bootstrap_summary_df) <- NULL
+  rownames(bootstrap_failures_df) <- NULL
+  rownames(bootstrap_failure_table_df) <- NULL
   agd2 <- .cpaic_replace_contrasts(agd, adj_df, cols)
 
   net2 <- network
@@ -386,7 +664,16 @@ cmaic <- function(network, target, effect_modifiers = NULL, target_sd = NULL,
       target = target_mean,
       effect_modifiers = effect_modifiers,
       n_boot = n_boot,
+      bootstrap_draws = bootstrap_draws,
+      bootstrap_summary = bootstrap_summary_df,
+      bootstrap_failures = bootstrap_failures_df,
+      bootstrap_failure_table = bootstrap_failure_table_df,
+      bootstrap_mcse_method = res$bootstrap_mcse_method,
+      bootstrap_success_rule = res$bootstrap_success_rule,
       method = "cMAIC",
+      adjusted_contrasts = adj_df,
+      ipd_only_studies = plan$ipd_only_studies,
+      bridge_validity = bridge_validity,
       network = network
     ),
     class = c("cpaic_maic", "cpaic_fit")
@@ -506,10 +793,46 @@ component_effects.cpaic_fit <- function(object, newdata = NULL, ...) {
 
 #' @export
 print.cpaic_maic <- function(x, ...) {
-  cat("cpaic: component MAIC (anchored; IPD edges adjusted to target)\n")
-  cat("  Diagnostic two-stage bridge: aggregate-only edges keep their own study\n",
-      "  population, so the pooled result is only partially target-adjusted.\n",
-      "  Prefer cmlnmr() for a coherent single-target synthesis.\n", sep = "")
+  cat("cpaic: component MAIC (anchored; IPD edges matched to target moments)\n")
+  validity <- x$bridge_validity
+  if (is.null(validity)) {
+    cat("  Two-stage bridge gate: NOT RECORDED\n",
+        "  Refit before interpreting this result for decision-grade use.\n",
+        sep = "")
+  } else if (isTRUE(validity$decision_grade)) {
+    cat("  Two-stage bridge gate: PASSED (decision-grade eligibility only)\n",
+        "  This gate result does not establish overall model validity.\n",
+        sep = "")
+  } else {
+    override <- if (isTRUE(validity$experimental_override)) {
+      "EXPERIMENTAL OVERRIDE ACTIVE"
+    } else {
+      "FAILED"
+    }
+    cat("  Two-stage bridge gate: ", override, "\n", sep = "")
+    cat("  This bridge is not decision-grade; interpret it only as exploratory\n",
+        "  sensitivity output.\n", sep = "")
+    if (length(validity$reasons)) {
+      cat("  Reasons:\n")
+      for (reason in validity$reasons) cat("    - ", reason, "\n", sep = "")
+    }
+    retained <- validity$retained_aggregate_edges
+    cols <- x$network$cols
+    required <- unlist(cols[c("studlab", "treat1", "treat2")], use.names = FALSE)
+    if (is.data.frame(retained) && nrow(retained) &&
+        length(required) == 3L && all(required %in% names(retained))) {
+      labels <- paste0(
+        as.character(retained[[cols$studlab]]), ": ",
+        as.character(retained[[cols$treat1]]), " vs ",
+        as.character(retained[[cols$treat2]]))
+      cat("  Retained aggregate-only edges: ",
+          paste(labels, collapse = "; "), "\n", sep = "")
+    }
+  }
+  if (length(validity$ipd_only_studies)) {
+    cat("  Explicitly appended IPD-only studies: ",
+        paste(validity$ipd_only_studies, collapse = ", "), "\n", sep = "")
+  }
   cat("  Effect modifiers matched: ",
       paste(x$effect_modifiers, collapse = ", "), "\n", sep = "")
   cat("  Effective sample sizes (per IPD study):\n")

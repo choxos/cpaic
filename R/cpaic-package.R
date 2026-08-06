@@ -3,8 +3,11 @@
 
 ## cpaic: Component-Based Population-Adjusted Indirect Comparison
 ##
-## The package is organized in two layers (see CLAUDE.md and
-## documentation/PROGRESS.md for the full architecture):
+## This package is experimental research software. Its methodology and
+## implementation have not been validated for clinical, regulatory,
+## reimbursement, or other decision use.
+##
+## The package is organized in two layers:
 ##
 ##   1. Connection layer (component NMA). The additive component model of
 ##      Ruecker et al. (2020) decomposes multi-component treatments into
@@ -13,15 +16,25 @@
 ##      `cnma_bridge()` on top of `netmeta::discomb()`.
 ##
 ##   2. Adjustment layer (population-adjusted indirect comparison). Where
-##      individual patient data (IPD) are available, each evidence edge is
+##      individual patient data (IPD) are available, an evidence edge can be
 ##      adjusted for effect-modifier imbalance with anchored STC
-##      (`cstc()`), anchored MAIC (`cmaic()`, via `maicplus`), or
-##      component-additive ML-NMR (`cmlnmr()`, Phase 2). The adjusted
-##      contrasts are then combined through the component model.
+##      (`cstc()`), anchored MAIC (`cmaic()`, via `maicplus`), or modeled
+##      jointly with component-additive ML-NMR (`cmlnmr()`).
 ##
-## Anchored STC here is implemented natively (mlumr's stc targets the
-## unanchored two-trial case); the delta-method and G-computation
-## machinery is adapted from 'mlumr' with attribution.
+## The two-stage `cstc()` and `cmaic()` paths are not automatically a coherent
+## whole-network population adjustment. If aggregate-data edges remain, their
+## published contrasts refer to their own study populations, while adjusted
+## IPD edges refer to the supplied target. Further, marginal contrasts from
+## `cmaic()` are not generally component-additive on nonlinear link scales.
+## Affected bridges stop unless the caller explicitly sets
+## `allow_experimental_bridge = TRUE`.
+##
+## Anchored STC is implemented natively. It fits an outcome regression and
+## evaluates the conditional link-scale contrast at supplied target covariate
+## means. The cML-NMR reporting methods likewise return average conditional
+## link-scale effects evaluated at supplied covariate means. They do not
+## marginally standardize odds, rate, or hazard ratios over a target covariate
+## distribution.
 ##
 ## The Stan models in inst/stan are compiled at install time through the
 ## rstantools scaffolding (configure -> rstantools::rstan_config()), so

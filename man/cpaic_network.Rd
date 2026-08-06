@@ -54,7 +54,8 @@ outcomes use \code{ipd_time}/\code{ipd_status} instead of (or alongside)
 \code{ipd_outcome}; for Poisson rates an optional \code{ipd_exposure} offset.}
 
 \item{ipd_time, ipd_status}{Time and event-indicator column names in
-\code{ipd} (survival family).}
+\code{ipd} (survival family). The event indicator must be coded \code{0} for
+censored and \code{1} for an event. Missing values are not permitted.}
 
 \item{ipd_exposure}{Optional exposure/person-time column in \code{ipd}
 (Poisson family); used as a log offset.}

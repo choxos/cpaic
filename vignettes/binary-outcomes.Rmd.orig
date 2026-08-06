@@ -5,6 +5,10 @@ bibliography: cpaic.bib
 link-citations: yes
 ---
 
+> **Archived example source.** This vignette is excluded from package
+> builds and pkgdown until it is regenerated against the current estimand
+> labels, bridge safeguards, and API. Do not treat it as current guidance.
+
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE, comment = "#>", message = FALSE, warning = FALSE,
@@ -336,11 +340,17 @@ matches the target [@signorovitch2010] and refits. Both then hand their
 adjusted contrasts to `cnma_bridge()`, which combines everything through the
 additive component model [@rucker2020cnma].
 
+This archived example opts into `allow_experimental_bridge = TRUE` because
+unadjusted AgD edges remain and the odds-ratio cMAIC contrasts are marginal.
+The override records known estimand incompatibilities; it does not fix them.
+
 ```{r freq}
-fit_stc <- cstc(net, target = c(cpd = 0.3), effect_modifiers = "cpd")
+fit_stc <- cstc(net, target = c(cpd = 0.3), effect_modifiers = "cpd",
+                allow_experimental_bridge = TRUE)
 
 fit_maic <- cmaic(net, target = c(cpd = 0.3), target_sd = c(cpd = 0.7),
-                  effect_modifiers = "cpd", n_boot = 200, seed = 7)
+                  effect_modifiers = "cpd", n_boot = 200, seed = 7,
+                  allow_experimental_bridge = TRUE)
 effective_sample_size(fit_maic)
 ```
 

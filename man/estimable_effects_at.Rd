@@ -2,15 +2,15 @@
 % Please edit documentation in R/estimability.R
 \name{estimable_effects_at}
 \alias{estimable_effects_at}
-\title{Which population-adjusted contrasts are estimable at a target population?}
+\title{Which average conditional contrasts are estimable at target means?}
 \usage{
 estimable_effects_at(object, newdata = NULL, reference = NULL, ...)
 }
 \arguments{
 \item{object}{A \code{cpaic_mlnmr} fit.}
 
-\item{newdata}{A one-row data frame giving the target population's
-effect-modifier values. Defaults to the covariate origin.}
+\item{newdata}{A one-row data frame giving target effect-modifier means.
+Defaults to the covariate origin.}
 
 \item{reference}{Reference treatment. Defaults to the fit's reference.}
 
@@ -24,7 +24,7 @@ below.
 }
 \description{
 Extends the row-space criterion of Wigle et al. (2026) from the component
-main effects to the population-adjusted estimand
+main effects to the average conditional link-scale estimand
 \verb{theta_t(x) = C_t' (beta + Gamma x)}. A relative effect is identified by the
 first-order information if and only if its augmented contrast vector
 \verb{(1, x) \%x\% (C_t - C_u)} lies in the row space of the information design
@@ -33,9 +33,9 @@ evidence).
 }
 \details{
 Because the criterion depends on \code{x}, \strong{the estimable set can depend on the
-target population}: a contrast estimable at the covariate origin need not be
-estimable in a target population where the component by effect-modifier
-interactions are not identified.
+target means}. A contrast estimable at the covariate origin need not be
+estimable at means where the component by effect-modifier interactions are
+not identified. This does not assess a marginal standardized estimand.
 }
 \section{Strength of the guarantee}{
 

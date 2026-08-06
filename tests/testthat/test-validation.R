@@ -173,10 +173,15 @@ test_that("target_sd matches second moments (no longer a no-op)", {
   net <- cpaic_network(cpaic_bin_agd, ipd = cpaic_bin_ipd, sm = "OR",
                        family = "binomial", ipd_covariates = "x1",
                        inactive = "Placebo")
-  f1 <- cmaic(net, target = c(x1 = 0), effect_modifiers = "x1",
-              n_boot = 10, seed = 1)
-  f2 <- cmaic(net, target = c(x1 = 0), target_sd = c(x1 = 0.5),
-              effect_modifiers = "x1", n_boot = 10, seed = 1)
+  f1 <- suppressWarnings(cmaic(
+    net, target = c(x1 = 0), effect_modifiers = "x1",
+    n_boot = 10, seed = 1, allow_experimental_bridge = TRUE
+  ))
+  f2 <- suppressWarnings(cmaic(
+    net, target = c(x1 = 0), target_sd = c(x1 = 0.5),
+    effect_modifiers = "x1", n_boot = 10, seed = 1,
+    allow_experimental_bridge = TRUE
+  ))
   expect_false(isTRUE(all.equal(unname(f1$ess), unname(f2$ess))))
 })
 

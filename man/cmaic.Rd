@@ -14,14 +14,16 @@ cmaic(
   seed = NULL,
   common = FALSE,
   random = TRUE,
-  reference = NULL
+  reference = NULL,
+  allow_experimental_bridge = FALSE,
+  allow_ipd_only_studies = FALSE
 )
 }
 \arguments{
 \item{network}{A \code{\link[=cpaic_network]{cpaic_network()}} object that includes IPD.}
 
 \item{target}{Named numeric vector (or one-row data frame / list) giving
-the target-population means of the effect modifiers.}
+target means of the effect modifiers.}
 
 \item{effect_modifiers}{Character vector of covariates to match on
 (defaults to all IPD covariates). Matching only on effect modifiers is
@@ -34,8 +36,11 @@ deviations; when supplied, second moments are matched as well.}
 standard errors. Default \code{500}.}
 
 \item{min_boot_success}{Minimum fraction of bootstrap resamples that must
-succeed for a contrast; below this threshold the edge is rejected rather
-than given a fragile standard error from a selected subset. Default \code{0.8}.}
+succeed for a contrast. The enforced count is
+\code{max(ceiling(min_boot_success * n_boot), min(20, n_boot))}, so a run with
+fewer than 20 requested resamples requires every resample to succeed.
+Below this threshold the edge is rejected rather than given a fragile
+standard error from a selected subset. Default \code{0.8}.}
 
 \item{seed}{Optional RNG seed for reproducible bootstrap. The caller's global
 RNG state is restored on exit, so calling \code{cmaic()} does not perturb a
@@ -45,50 +50,65 @@ downstream random stream.}
 
 \item{reference}{Optional anchor (comparator) arm to use in every IPD study
 in which it appears, instead of inferring it from the aggregate row order.}
+
+\item{allow_experimental_bridge}{Logical. The default \code{FALSE} stops when
+aggregate-only edges would be combined with target-matched IPD edges, or
+when a non-Gaussian cMAIC contrast would be forced through an additive
+component model. Set \code{TRUE} only for explicitly exploratory sensitivity
+work; the fit records the exact approximation reasons.}
+
+\item{allow_ipd_only_studies}{Logical. The default \code{FALSE} requires every
+IPD study to match exactly one aggregate two-arm edge. Set \code{TRUE} to append
+an IPD-derived edge that has no aggregate row. Such additions are recorded
+in the returned fit.}
 }
 \value{
 An object of class \code{cpaic_maic} (also inheriting \code{cpaic_bridge}
 structure via \verb{$bridge}), with the bridged fit, per-study effective
-sample sizes, and the target population.
+sample sizes, and the target moments. Bootstrap diagnostic fields include
+\verb{$bootstrap_draws}, \verb{$bootstrap_summary}, \verb{$bootstrap_failures},
+\verb{$bootstrap_failure_table}, \verb{$bootstrap_mcse_method}, and
+\verb{$bootstrap_success_rule}. A threshold failure raises a
+\code{cpaic_bootstrap_error} condition carrying the same diagnostic information.
 }
 \description{
 Anchored MAIC generalized to a (possibly disconnected) component
 network. Each IPD study is reweighted with \code{\link[maicplus:estimate_weights]{maicplus::estimate_weights()}}
-so that its effect-modifier distribution matches a common \code{target}
-population; the resulting population-adjusted within-study contrasts
+so that its requested effect-modifier moments match a common \code{target};
+the resulting target-matched within-study contrasts
 (with bootstrap standard errors that propagate the weighting
 uncertainty) then replace the corresponding unadjusted aggregate
 contrasts. Finally \code{\link[=cnma_bridge]{cnma_bridge()}} combines all contrasts through the
-additive component model, yielding relative effects that are both
-connected across sub-networks and adjusted to the target population.
+additive component model. The bridge is gated because retained aggregate
+edges and nonlinear marginal effects can make that synthesis incoherent.
 }
 \section{What the two-stage bridge does and does not adjust}{
 
 Only the edges carrying individual patient data are population-adjusted to the
-target. Every aggregate-only edge keeps its published, study-population
+target moments. Every aggregate-only edge keeps its published study-specific
 contrast, and the additive bridge then combines all edges as if they estimated
 the same component effects. Under effect modification they do not: an aggregate
 edge estimates its contrast in \emph{its own} trial population, while the reweighted
 IPD edge estimates it at the target. The two agree only when the aggregate
 populations resemble the target, or when the components on those edges are not
 effect-modified. Treat a cross-network contrast that leans on aggregate-only
-edges as adjusted for the IPD part alone, and prefer \code{\link[=cmlnmr]{cmlnmr()}}, which carries
-the component by effect-modifier interactions through the whole network and so
-adjusts every edge to the same target population coherently.
+edges as adjusted for the IPD part alone. Prefer \code{\link[=cmlnmr]{cmlnmr()}} for a joint model
+whose average conditional link-scale outputs are explicitly evaluated at
+common target effect-modifier means.
 }
 
 \section{Non-collapsibility and the additive model}{
 
-cMAIC returns a \strong{marginal} effect in the target population, and the additive
+cMAIC returns a \strong{marginal} effect in the reweighted IPD sample, and the additive
 component model assumes effects add. On a non-collapsible scale (the odds
 ratio, the hazard ratio) \strong{marginal effects do not add}, even when every
 conditional effect does. In one simulated target population the marginal
 log-odds ratios satisfied
 \code{marginal(A) + marginal(B) = 0.6615} while \code{marginal(A+B) = 0.6411}; the
-additive model is simply false on that scale. cMAIC therefore carries a small
-\strong{irreducible bias} (about +0.02 log-OR there) that survives perfect matching
-and infinite sample size. It is small relative to a typical standard error
-(about 0.25) but it does not vanish with more data.
+additive model is simply false on that scale. cMAIC therefore carries an
+\strong{irreducible approximation error} that survives perfect matching and
+infinite sample size. Its size is problem-specific and cannot be assumed
+negligible.
 
 Marginal component effects are not \emph{generally} additive; they add exactly when
 the standardized treatment effects remain affine in the component design.
@@ -97,8 +117,7 @@ marginal scale inherits only approximately, and the error does not vanish with
 sample size. Where it is material, \code{\link[=cstc]{cstc()}} or \code{\link[=cmlnmr]{cmlnmr()}}, which target a
 conditional effect and inherit additivity exactly, are preferable. Note also
 that the two-stage route combines a conditional adjusted edge with aggregate
-edges reported on a marginal scale, so it should be regarded as approximate. See
-\code{documentation/validation/VALIDATION.md}.
+edges reported on a marginal scale, so it should be regarded as approximate.
 }
 
 \examples{
@@ -107,7 +126,8 @@ net <- cpaic_network(cpaic_bin_agd, ipd = cpaic_bin_ipd, sm = "OR",
                      inactive = "Placebo")
 \donttest{
 fit <- cmaic(net, target = c(x1 = 0), effect_modifiers = "x1",
-             n_boot = 100, seed = 1)
+             n_boot = 100, seed = 1,
+             allow_experimental_bridge = TRUE)
 relative_effects(fit)
 effective_sample_size(fit)
 }

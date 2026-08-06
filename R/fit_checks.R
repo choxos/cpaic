@@ -162,3 +162,160 @@
        "\nFix or remove this study; an invalid edge is not silently dropped.",
        call. = FALSE)
 }
+
+#' Validate that a two-stage IPD fit replaces a complete two-arm study edge
+#'
+#' A study with more aggregate contrasts than the two IPD arms is a partially
+#' observed multi-arm study. Replacing one contrast while retaining the others
+#' discards their joint covariance and creates a hybrid study that neither the
+#' outcome model nor the aggregate network model represents.
+#' @noRd
+.cpaic_validate_two_stage_edge <- function(agd_s, cols, arms, study_id,
+                                           method) {
+  if (nrow(agd_s) > 1L) {
+    stop(method, ": study '", study_id, "' has partial IPD representation of ",
+         "a multi-arm aggregate study. All within-study contrasts share ",
+         "sampling covariance, so one pair cannot be replaced while the ",
+         "remaining aggregate pairs are retained. Supply complete IPD for a ",
+         "supported joint multi-arm model, or use a separate two-arm study.",
+         call. = FALSE)
+  }
+  if (nrow(agd_s) == 1L) {
+    pair <- as.character(agd_s[1, c(cols$treat1, cols$treat2)])
+    if (!setequal(pair, arms)) {
+      stop(method, ": study '", study_id, "' has IPD arms {",
+           paste(sort(arms), collapse = ", "), "}, but its aggregate edge is {",
+           paste(sort(pair), collapse = ", "), "}. The adjusted contrast cannot ",
+           "replace a different treatment pair.", call. = FALSE)
+    }
+  }
+  invisible(TRUE)
+}
+
+#' Preflight and plan each two-stage IPD contrast before any model is fitted
+#' @noRd
+.cpaic_two_stage_plan <- function(network, reference, method,
+                                  allow_ipd_only_studies = FALSE) {
+  if (!is.logical(allow_ipd_only_studies) ||
+      length(allow_ipd_only_studies) != 1L || is.na(allow_ipd_only_studies)) {
+    stop("`allow_ipd_only_studies` must be TRUE or FALSE.", call. = FALSE)
+  }
+  info <- network$ipd_info
+  agd <- network$agd
+  cols <- network$cols
+  studies <- lapply(info$studies, function(s) {
+    ipd_s <- network$ipd[
+      as.character(network$ipd[[info$study]]) == s, , drop = FALSE]
+    agd_s <- agd[as.character(agd[[cols$studlab]]) == s, , drop = FALSE]
+    arms <- unique(as.character(ipd_s[[info$trt]]))
+    if (length(arms) < 2L) {
+      stop("IPD study '", s, "' has a single arm; ", method,
+           " needs a within-study contrast (at least two arms).", call. = FALSE)
+    }
+    if (length(arms) > 2L) {
+      stop("IPD study '", s, "' has ", length(arms), " arms; ", method,
+           " supports two-arm IPD studies in this version.", call. = FALSE)
+    }
+    if (!nrow(agd_s) && !allow_ipd_only_studies) {
+      stop(method, ": IPD study '", s, "' has no aggregate row to replace. ",
+           "Appending an IPD-only edge changes the evidence set. Set ",
+           "`allow_ipd_only_studies = TRUE` explicitly to permit and record ",
+           "that addition.", call. = FALSE)
+    }
+    .cpaic_validate_two_stage_edge(agd_s, cols, arms, s, method)
+    ref_arm <- if (!is.null(reference) && reference %in% arms) {
+      reference
+    } else if (nrow(agd_s)) {
+      as.character(agd_s[[cols$treat2]][1])
+    } else if (network$reference %in% arms) {
+      network$reference
+    } else {
+      sort(arms)[1]
+    }
+    if (!ref_arm %in% arms) ref_arm <- sort(arms)[1]
+    list(study = s, ipd = ipd_s, arms = arms, reference = ref_arm,
+         ipd_only = !nrow(agd_s))
+  })
+
+  planned <- do.call(rbind, lapply(studies, function(x) {
+    out <- data.frame(
+      treat1 = setdiff(x$arms, x$reference), treat2 = x$reference,
+      stringsAsFactors = FALSE)
+    out[[cols$studlab]] <- x$study
+    out
+  }))
+  rownames(planned) <- NULL
+  ipd_only <- vapply(
+    studies, function(x) if (isTRUE(x$ipd_only)) x$study else NA_character_,
+    character(1))
+  ipd_only <- unname(ipd_only[!is.na(ipd_only)])
+  list(
+    studies = studies,
+    adjusted = planned,
+    ipd_only_studies = ipd_only
+  )
+}
+
+#' Stable unordered key for a study-specific treatment contrast
+#' @noRd
+.cpaic_edge_key <- function(study, treat1, treat2) {
+  paste(as.character(study), pmin(as.character(treat1), as.character(treat2)),
+        pmax(as.character(treat1), as.character(treat2)), sep = "\r")
+}
+
+#' Gate methodologically approximate two-stage component bridges
+#'
+#' The two-stage estimators adjust only the IPD-bearing contrasts. Any retained
+#' aggregate contrast remains tied to its own study population. In addition,
+#' cMAIC produces marginal contrasts, which are not generally additive on a
+#' nonlinear link scale. Both approximations require explicit opt-in.
+#' @noRd
+.cpaic_two_stage_bridge_gate <- function(agd, adjusted, cols, method, family,
+                                         allow_experimental_bridge) {
+  if (!is.logical(allow_experimental_bridge) ||
+      length(allow_experimental_bridge) != 1L ||
+      is.na(allow_experimental_bridge)) {
+    stop("`allow_experimental_bridge` must be TRUE or FALSE.", call. = FALSE)
+  }
+
+  agd_key <- .cpaic_edge_key(agd[[cols$studlab]], agd[[cols$treat1]],
+                             agd[[cols$treat2]])
+  adjusted_key <- .cpaic_edge_key(
+    adjusted[[cols$studlab]], adjusted$treat1, adjusted$treat2)
+  retained <- agd[!agd_key %in% adjusted_key, , drop = FALSE]
+
+  reasons <- character(0)
+  if (nrow(retained)) {
+    labels <- paste0(
+      as.character(retained[[cols$studlab]]), ": ",
+      as.character(retained[[cols$treat1]]), " vs ",
+      as.character(retained[[cols$treat2]]))
+    reasons <- c(reasons, paste0(
+      "retained aggregate-only edge(s) remain in their own study populations: ",
+      paste(labels, collapse = "; ")))
+  }
+  if (identical(method, "cmaic()") && !identical(family, "gaussian")) {
+    reasons <- c(reasons, paste0(
+      "cMAIC estimates marginal ", family, " contrasts, which are not generally ",
+      "additive in the component design on a nonlinear link scale"))
+  }
+
+  if (length(reasons)) {
+    msg <- paste0(
+      method, " cannot form a decision-grade component bridge:\n  - ",
+      paste(reasons, collapse = "\n  - "),
+      "\nUse cmlnmr() for a joint model, restrict the analysis to a design in which ",
+      "every edge is adjusted and the estimand is additive, or set ",
+      "`allow_experimental_bridge = TRUE` only for explicitly exploratory ",
+      "sensitivity work.")
+    if (!allow_experimental_bridge) stop(msg, call. = FALSE)
+    warning(msg, call. = FALSE)
+  }
+
+  list(
+    decision_grade = !length(reasons),
+    experimental_override = length(reasons) && allow_experimental_bridge,
+    reasons = reasons,
+    retained_aggregate_edges = retained
+  )
+}

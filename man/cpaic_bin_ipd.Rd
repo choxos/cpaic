@@ -20,9 +20,8 @@ cpaic_bin_ipd
 \description{
 Individual patient data for studies \code{S3} (\code{A+B+C} vs \code{A+B}) and \code{S4}
 (\code{A+B+D} vs \code{A+B}) of the \link{cpaic_bin_agd} network. A single effect
-modifier \code{x1} is imbalanced relative to the target population
-(\code{x1 = 0}), so population adjustment changes the \code{C} and \code{D} component
-effects.
+modifier \code{x1} is imbalanced relative to the target mean (\code{x1 = 0}), so
+target-moment adjustment changes the \code{C} and \code{D} component effects.
 }
 \seealso{
 \link{cpaic_bin_agd}, \code{\link[=cmaic]{cmaic()}}, \code{\link[=cstc]{cstc()}}

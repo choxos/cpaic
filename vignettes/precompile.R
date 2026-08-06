@@ -5,14 +5,14 @@
 #   Rscript vignettes/precompile.R
 #
 # For each "<stem>.Rmd.orig" this:
-#   1. knits it to a static "<stem>.Rmd", fitting the Stan models ONCE, here;
+#   1. knits it to a static "_<stem>.Rmd", fitting the Stan models once here;
 #   2. renders a self-contained "<stem>.html" (output: rmarkdown::html_vignette);
 #   3. writes "<stem>.html.asis" so R CMD build and CRAN register and serve the
 #      pre-rendered HTML through the R.rsp::asis engine and never run Stan.
 #
-# Re-run whenever a "<stem>.Rmd.orig" changes. This script, the *.Rmd.orig
-# sources, the knitted *.Rmd intermediates and figure/ are all build-ignored (see
-# .Rbuildignore); only *.html and *.html.asis ship.
+# The five archived outputs are outside package and pkgdown discovery. This
+# script remains available as their regeneration path once the articles are
+# revised against the current interfaces.
 #
 # Requires: rstan (the default backend, whose models are compiled into the
 # installed package), ggplot2 (figures), bayesplot, knitr, rmarkdown, R.rsp.
@@ -157,7 +157,9 @@ cache_root <- function() {
 
 precompile_one <- function(stem) {
   orig <- paste0(stem, ".Rmd.orig")
-  rmd  <- paste0(stem, ".Rmd")
+  # The leading underscore keeps the intermediate out of pkgdown's article
+  # discovery while the archived series remains outside published builds.
+  rmd  <- paste0("_", stem, ".Rmd")
   message("\n=== precompiling ", orig, " ===")
   key <- cache_key(orig)
   cdir <- file.path(cache_root(), paste0(stem, "-", key))
@@ -166,7 +168,7 @@ precompile_one <- function(stem) {
   knitr::opts_chunk$set(cache = TRUE, cache.path = paste0(cdir, .Platform$file.sep))
   on.exit(knitr::opts_chunk$set(cache = FALSE), add = TRUE)
   knitr::knit(orig, output = rmd)            # runs the chunks -> fits Stan here
-  rmarkdown::render(rmd, quiet = TRUE)       # output format taken from the YAML
+  rmarkdown::render(rmd, output_file = paste0(stem, ".html"), quiet = TRUE)
   title <- rmarkdown::yaml_front_matter(orig)$title
   writeLines(
     c(sprintf("%%\\VignetteIndexEntry{%s}", title),

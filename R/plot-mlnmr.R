@@ -9,9 +9,9 @@
 # ggplot2 alone (multinma builds on ggdist and ggraph, which cpaic does not
 # depend on). Both packages are licensed under GPL-3.
 #
-# The population-dependent rank curve and the estimability map have no
-# counterpart in multinma: under population adjustment both the hierarchy and
-# the estimable set are functions of the target population.
+# The target-mean rank curve and estimability map have no counterpart in
+# multinma. Both the hierarchy and the estimable set are functions of the
+# supplied effect-modifier means.
 
 utils::globalVariables(c("dens", "density", "group", "parameter", "point",
                          "study_arm", "xseq"))
@@ -53,28 +53,32 @@ utils::globalVariables(c("dens", "density", "group", "parameter", "point",
 
 # Rank probabilities: rankogram and cumulative ranks ---------------------------
 
-#' Posterior rank probabilities in a target population
+#' Posterior rank probabilities at target effect-modifier means
 #'
 #' The full rank distribution behind [cpaic_ranks()]: the posterior probability
-#' that each treatment (or component) takes each rank, **in a named target
-#' population**. Ported from multinma's `posterior_rank_probs()` (Phillippo et
-#' al. 2020) and extended, because under population adjustment the hierarchy is
-#' a function of the target: the component effects are `beta + Gamma x`, so the
-#' ranks move with `x`.
+#' that each treatment (or component) takes each rank, using average conditional
+#' link-scale effects evaluated at target means. Ported from multinma's
+#' `posterior_rank_probs()` (Phillippo et al. 2020) and extended because the
+#' component effects are `beta + Gamma x`, so the ranks move with `x`. These are
+#' not ranks of marginal standardized ORs, RRs, or HRs.
 #'
-#' Elements that are not estimable at the target population are dropped from the
+#' Elements that are not estimable at the target means are dropped from the
 #' ranking set rather than ranked from the prior, exactly as in [cpaic_ranks()]
 #' (Step 3 of Wigle et al. 2026); they are listed in the `dropped` attribute.
 #'
 #' @param object A [cmlnmr()] fit.
-#' @param newdata A one-row data frame giving the target population's
-#'   effect-modifier values.
+#' @param newdata A one-row data frame giving target effect-modifier means.
 #' @param what `"treatment"` (default) or `"component"`.
+#' @param set Optional character vector restricting the elements to rank, as in
+#'   [cpaic_ranks()]. Defaults to all treatments, including the reference, or
+#'   all components.
 #' @param lower_is_better If `TRUE`, a smaller effect is preferred.
 #' @param cumulative Return cumulative rank probabilities (the quantity SUCRA
 #'   summarizes) instead of the rankogram? Default `FALSE`.
 #' @param include_screen_only If `FALSE` (default), elements identified only by
 #'   aggregate arms (a first-order screen) are excluded, as in [cpaic_ranks()].
+#' @param estimand The only implemented value is
+#'   `"average_conditional_link"`. Marginal standardized ranks are rejected.
 #' @param ... Unused.
 #'
 #' @return A data frame of class `cpaic_rank_probs` with one row per (element,
@@ -88,75 +92,24 @@ utils::globalVariables(c("dens", "density", "group", "parameter", "point",
 #' plot(rp)
 #' @export
 rank_probs <- function(object, newdata = NULL,
-                       what = c("treatment", "component"),
+                       what = c("treatment", "component"), set = NULL,
                        lower_is_better = FALSE, cumulative = FALSE,
-                       include_screen_only = FALSE, ...) {
-  .cpaic_check_mlnmr(object, "rank_probs()")
+                       include_screen_only = FALSE,
+                       estimand = "average_conditional_link", ...) {
+  .cpaic_match_estimand(estimand, "average_conditional_link", "rank_probs()")
   what <- match.arg(what)
   if (!is.logical(cumulative) || length(cumulative) != 1L ||
       is.na(cumulative)) {
     stop("`cumulative` must be TRUE or FALSE.", call. = FALSE)
   }
-  C <- object$C.matrix
-  x <- .cpaic_target_x(newdata, object$effect_modifiers)
-  Beff <- .cpaic_beta_at(object, x)
-
-  if (what == "treatment") {
-    ref <- object$reference
-    elems <- setdiff(rownames(C), ref)
-    Draws <- Beff %*% t(C)
-    colnames(Draws) <- rownames(C)
-    Draws <- Draws[, elems, drop = FALSE] - Draws[, ref]
-    Lmat <- C[elems, , drop = FALSE] -
-      matrix(C[ref, ], nrow = length(elems), ncol = ncol(C), byrow = TRUE)
-  } else {
-    elems <- object$comps
-    Draws <- Beff
-    colnames(Draws) <- elems
-    Lmat <- diag(ncol(C))
-    rownames(Lmat) <- elems
-  }
-
-  # Only rank what the target population actually identifies, and by default
-  # exclude elements identified only by aggregate arms (a first-order screen),
-  # matching cpaic_ranks().
-  V <- do.call(rbind, lapply(seq_along(elems),
-                             function(i) .cpaic_target_vec(Lmat[i, ], x)))
-  ok <- .cpaic_in_rowspace(V, .cpaic_null_space(object$joint_design))
-  by_ipd <- .cpaic_in_rowspace(V, .cpaic_null_space(object$joint_design_ipd))
-  dropped <- elems[!ok]
-  if (length(dropped)) {
-    warning("Dropped from the hierarchy as not estimable in this target ",
-            "population: ", paste(dropped, collapse = ", "),
-            ". Ranking them would rank the prior. See estimable_effects_at().",
-            call. = FALSE)
-  }
-  keep <- ok
-  if (!include_screen_only) {
-    ds <- elems[ok & !by_ipd]
-    if (length(ds)) {
-      warning("Dropped from the hierarchy as identified only by aggregate arms ",
-              "(a first-order screen that can be optimistic): ",
-              paste(ds, collapse = ", "),
-              ". Set include_screen_only = TRUE to rank them.", call. = FALSE)
-    }
-    keep <- ok & by_ipd
-  }
-  elems <- elems[keep]
-  if (length(elems) < 2L) {
-    stop("Fewer than two elements are estimable",
-         if (!include_screen_only)
-           " (excluding elements identified only by aggregate arms)" else "",
-         " in this target population, so no hierarchy can be formed. See ",
-         "estimable_effects_at().", call. = FALSE)
-  }
-  Draws <- Draws[, elems, drop = FALSE]
-
-  sgn <- if (lower_is_better) 1 else -1
-  R <- t(apply(sgn * Draws, 1L, rank, ties.method = "min"))
+  ranked <- .cpaic_rank_engine(
+    object = object, newdata = newdata, what = what, set = set,
+    lower_is_better = lower_is_better,
+    include_screen_only = include_screen_only
+  )
+  elems <- ranked$elements
   n <- length(elems)
-  P <- vapply(seq_len(n), function(k) colMeans(R == k), numeric(n))
-  dimnames(P) <- list(elems, as.character(seq_len(n)))
+  P <- ranked$probabilities
   if (cumulative) P <- t(apply(P, 1L, cumsum))
 
   out <- data.frame(
@@ -164,8 +117,12 @@ rank_probs <- function(object, newdata = NULL,
     rank_position = rep(seq_len(n), each = n),
     probability = as.numeric(P),
     row.names = NULL, stringsAsFactors = FALSE)
-  attr(out, "dropped") <- dropped
-  attr(out, "target") <- x
+  attr(out, "dropped") <- ranked$dropped
+  attr(out, "dropped_screen") <- ranked$dropped_screen
+  attr(out, "target") <- ranked$target
+  attr(out, "target_mean") <- ranked$target
+  attr(out, "estimand") <- "average_conditional_link"
+  attr(out, "diagnostic_status") <- object$diagnostics$status %||% "unknown"
   attr(out, "what") <- what
   attr(out, "cumulative") <- cumulative
   class(out) <- c("cpaic_rank_probs", "data.frame")
@@ -179,8 +136,8 @@ rank_probs <- function(object, newdata = NULL,
 #' version gives the probability of being ranked among the best `k`, whose
 #' normalized area is SUCRA.
 #'
-#' Both are computed **in a named target population**, because a
-#' population-adjusted hierarchy is not population-free.
+#' Both are computed at named target effect-modifier means. They summarize the
+#' average conditional link-scale hierarchy, not a marginal hierarchy.
 #'
 #' @param x A `cpaic_rank_probs` object from [rank_probs()].
 #' @param y Unused, for compatibility with the [plot()] generic.
@@ -193,13 +150,13 @@ rank_probs <- function(object, newdata = NULL,
 plot.cpaic_rank_probs <- function(x, y, ...) {
   .cpaic_need_ggplot("plot.cpaic_rank_probs()")
   cumulative <- isTRUE(attr(x, "cumulative"))
-  target <- attr(x, "target")
+  target <- attr(x, "target_mean") %||% attr(x, "target")
   dat <- as.data.frame(x)
   dat$element <- factor(dat$element, levels = unique(dat$element))
   nrank <- max(dat$rank_position)
 
   subtitle <- if (length(target)) {
-    paste0("Target population: ",
+    paste0("Target effect-modifier means: ",
            paste(names(target), signif(target, 3), sep = " = ",
                  collapse = ", "))
   } else {
@@ -207,7 +164,7 @@ plot.cpaic_rank_probs <- function(x, y, ...) {
   }
   dropped <- attr(x, "dropped")
   caption <- if (length(dropped)) {
-    paste0("Not estimable in this population, so not ranked: ",
+    paste0("Not estimable at these means, so not ranked: ",
            paste(dropped, collapse = ", "), ".")
   } else {
     NULL
@@ -235,7 +192,7 @@ plot.cpaic_rank_probs <- function(x, y, ...) {
     .cpaic_theme()
 }
 
-#' Plot a population-adjusted hierarchy
+#' Plot an average conditional hierarchy at target means
 #'
 #' Plots the ranking metrics of a [cpaic_ranks()] hierarchy. Ranking metrics
 #' depend on the set being ranked, so read them alongside the relative effects,
@@ -256,7 +213,7 @@ plot.cpaic_ranks <- function(x, y, ...,
                                         "p_best")) {
   .cpaic_need_ggplot("plot.cpaic_ranks()")
   metric <- match.arg(metric)
-  target <- attr(x, "target")
+  target <- attr(x, "target_mean") %||% attr(x, "target")
   dropped <- attr(x, "dropped")
   dat <- as.data.frame(x)
   dat$value <- dat[[metric]]
@@ -275,27 +232,26 @@ plot.cpaic_ranks <- function(x, y, ...,
                  median_rank = "Median rank", p_best = "P(best)"),
       y = attr(x, "what"),
       subtitle = if (length(target)) {
-        paste0("Target population: ",
+        paste0("Target effect-modifier means: ",
                paste(names(target), signif(target, 3), sep = " = ",
                      collapse = ", "))
       },
       caption = if (length(dropped)) {
-        paste0("Not estimable in this population, so not ranked: ",
+        paste0("Not estimable at these means, so not ranked: ",
                paste(dropped, collapse = ", "), ".")
       }) +
     .cpaic_theme()
 }
 
-# The headline cpaic plot: a hierarchy that moves with the target population ---
+# The cpaic hierarchy as target effect-modifier means change -------------------
 
-#' How the hierarchy changes across target populations
+#' How the hierarchy changes across target effect-modifier means
 #'
-#' **The headline figure of cpaic.** Under population adjustment the component
-#' effects are `beta + Gamma x`, so a component's rank is a function of the
-#' target population `x` and components **cross**: the component that leads in
-#' one population can trail in another. A single hierarchy, quoted without a
-#' population, is therefore not a well-posed answer. This plot shows the whole
-#' family of hierarchies at once.
+#' The component effects are `beta + Gamma x`, so a component's rank is a
+#' function of the target means `x` and components can cross. A single hierarchy
+#' quoted without its target means is therefore incomplete. This plot shows the
+#' family of average conditional link-scale hierarchies across a mean grid. It
+#' does not standardize over different population distributions.
 #'
 #' There is no counterpart in multinma, which ranks in one population at a time.
 #'
@@ -344,24 +300,29 @@ plot_rank_curve <- function(x, em = NULL, values = NULL, at = NULL,
   em <- attr(curve, "em")
   what <- attr(curve, "what")
   dat <- as.data.frame(curve)
+  failed <- dat$status == "failed"
+  failed_index <- sort(unique(dat$target_index[failed]))
+  dat <- dat[!failed, , drop = FALSE]
   dat$target <- dat[[em]]
   dat$value <- dat[[metric]]
   dat$element <- factor(dat$element, levels = unique(dat$element))
+  dat$segment <- findInterval(dat$target_index, failed_index)
 
   ylab <- switch(metric, sucra = "SUCRA", mean_rank = "Mean rank",
                  p_best = "P(best)")
 
-  ggplot2::ggplot(dat, ggplot2::aes(x = target, y = value, colour = element)) +
+  ggplot2::ggplot(dat, ggplot2::aes(x = target, y = value, colour = element,
+                                    group = interaction(element, segment))) +
     ggplot2::geom_line(linewidth = 0.8) +
     ggplot2::geom_point(size = 1.4) +
     ggplot2::scale_colour_viridis_d(
       paste0(toupper(substring(what, 1, 1)), substring(what, 2)),
       end = 0.9) +
     ggplot2::labs(
-      x = paste0("Target population (", em, ")"),
+      x = paste0("Target effect-modifier mean (", em, ")"),
       y = ylab,
-      subtitle = paste0("The hierarchy is a function of the target ",
-                        "population; where the lines cross, the ",
+      subtitle = paste0("The average conditional hierarchy changes with the ",
+                        "target mean; where the lines cross, the ",
                         what, " ordering reverses"),
       caption = paste0("Ranking metrics depend on the set ranked. Report ",
                        "them with the relative effects, not instead of them.")
@@ -369,15 +330,14 @@ plot_rank_curve <- function(x, em = NULL, values = NULL, at = NULL,
     .cpaic_theme()
 }
 
-# Estimability across target populations ---------------------------------------
+# Estimability across target means ---------------------------------------------
 
-#' Map which contrasts are estimable, and on what evidence, across populations
+#' Map which contrasts are estimable, and on what evidence, across target means
 #'
-#' Estimability under population adjustment is itself a function of the target
-#' population: a contrast identified at the covariate origin need not be
-#' identified in a population where the relevant component by effect-modifier
-#' interactions are not pinned down. This plot evaluates
-#' [estimable_effects_at()] over a grid of target populations and tiles the
+#' Estimability of the average conditional link-scale contrast is a function of
+#' the target means. A contrast identified at the covariate origin need not be
+#' identified where the relevant component by effect-modifier interactions are
+#' not pinned down. This plot evaluates [estimable_effects_at()] over a grid and tiles the
 #' result, separating contrasts identified by **IPD** (a within-study
 #' interaction, which randomization protects) from those identified only
 #' **ecologically**, from between-study differences in aggregate covariate means
@@ -443,9 +403,9 @@ plot_estimability <- function(object, em, values, at = NULL, reference = NULL,
                  `Not estimable` = "#B2182B"),
       drop = FALSE) +
     ggplot2::labs(
-      x = paste0("Target population (", em, ")"),
+      x = paste0("Target effect-modifier mean (", em, ")"),
       y = "Contrast",
-      subtitle = "Estimability is a function of the target population",
+      subtitle = "Estimability is a function of the target mean",
       caption = paste0("An ecologically identified contrast rests on ",
                        "between-study covariate means, which randomization ",
                        "does not protect.")) +
@@ -534,6 +494,7 @@ plot_estimability <- function(object, em, values, at = NULL, reference = NULL,
   n_ipd <- nrow(ipd); n_agd <- nrow(agd)
   fam <- object$family
   mn <- function(v) colMeans(.cpaic_draws(object, v))
+  mn_exp <- function(v) colMeans(exp(.cpaic_draws(object, v)))
   switch(
     fam,
     binomial = list(
@@ -546,7 +507,7 @@ plot_estimability <- function(object, em, values, at = NULL, reference = NULL,
       fitted = c(mn("eta_ipd"), mn("eta_agd"))),
     poisson = list(
       observed = c(as.numeric(ipd[[args$outcome]]), as.numeric(agd[[args$r]])),
-      fitted = c(exp(mn("eta_ipd")), mn("lambda_agd"))),
+      fitted = c(mn_exp("eta_ipd"), mn_exp("log_lambda_agd"))),
     list(observed = rep(NA_real_, n_ipd + n_agd),
          fitted = rep(NA_real_, n_ipd + n_agd))
   )
@@ -1075,8 +1036,10 @@ plot.cpaic_mlnmr <- function(x, y, ...,
 #' ggplot2 layers, so it can be added to an existing plot; adding it to
 #' [plot_survival()] overlays the observed data on the fitted survival curves.
 #'
-#' Only status `1` counts as an event; statuses `0`, `2`, and `3` (right, left,
-#' and interval censoring) are treated as censored for the empirical curve.
+#' Only right-censored survival data are supported: status `1` is an event and
+#' status `0` is right censoring. Delayed entry is honored when configured on
+#' the fitted model. Curves reconstructed from aggregate event/censoring rows
+#' are labeled as reconstructed AgD and must not be read as observed IPD.
 #'
 #' @param object A [cmlnmr()] fit with `family = "survival"`.
 #' @param ... Passed to [survival::survfit()].
@@ -1097,12 +1060,17 @@ geom_km <- function(object, ..., curve_args = list(), cens_args = list()) {
          call. = FALSE)
   }
   dat <- .cpaic_surv_rows(object)
+  if (anyNA(dat$status) || any(!dat$status %in% c(0L, 1L))) {
+    stop("geom_km() supports only right-censored survival data with status ",
+         "codes 0/1.", call. = FALSE)
+  }
 
   km <- do.call(rbind, lapply(split(dat, dat$study_arm), function(d) {
     sf <- survival::survfit(
-      survival::Surv(d$time, as.integer(d$status == 1L)) ~ 1, ...)
+      survival::Surv(d$entry, d$time, d$status) ~ 1, ...)
     rbind(
-      data.frame(study_arm = d$study_arm[1], time = 0, surv = 1, n.censor = 0,
+      data.frame(study_arm = d$study_arm[1], time = min(d$entry),
+                 surv = 1, n.censor = 0,
                  stringsAsFactors = FALSE),
       data.frame(study_arm = d$study_arm[1], time = sf$time, surv = sf$surv,
                  n.censor = sf$n.censor, stringsAsFactors = FALSE))
@@ -1129,17 +1097,20 @@ geom_km <- function(object, ..., curve_args = list(), cens_args = list()) {
 #' @noRd
 .cpaic_surv_rows <- function(object) {
   args <- object$refit_args
-  grab <- function(d) {
+  grab <- function(d, source) {
     if (is.null(d) || !nrow(d)) return(NULL)
     data.frame(
+      source = source,
       study = as.character(d[[args$study]]),
       trt = as.character(d[[args$trt]]),
       time = as.numeric(d[[args$time]]),
       status = as.integer(d[[args$outcome]]),
+      entry = if (!is.null(args$entry) && args$entry %in% names(d))
+        as.numeric(d[[args$entry]]) else rep(0, nrow(d)),
       stringsAsFactors = FALSE)
   }
-  out <- rbind(grab(args$ipd), grab(args$agd))
-  out$study_arm <- paste0(out$study, ": ", out$trt)
+  out <- rbind(grab(args$ipd, "IPD"), grab(args$agd, "reconstructed AgD"))
+  out$study_arm <- paste0("[", out$source, "] ", out$study, ": ", out$trt)
   out
 }
 

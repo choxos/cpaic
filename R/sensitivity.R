@@ -50,8 +50,10 @@
 #' @param object A [cmlnmr()] fit.
 #' @param treatment,comparator The contrast to assess. `comparator` defaults to
 #'   the fit reference.
-#' @param newdata A one-row data frame giving the target population's
-#'   effect-modifier values (required when the model has effect modifiers).
+#' @param newdata A one-row data frame giving target effect-modifier means
+#'   (required when the model has effect modifiers). The assessed contrast is
+#'   the average conditional link-scale effect at those means, not a marginal
+#'   standardized effect.
 #' @param threshold Decision boundary on the link scale. Default `0` (no effect).
 #' @param plausible_drift Optional per-component drift bound (link scale) at
 #'   which to report the posterior probability that the conclusion is robust.
@@ -85,7 +87,7 @@ bridge_fragility <- function(object, treatment, comparator = NULL,
        !is.finite(plausible_drift) || plausible_drift <= 0)) {
     stop("`plausible_drift` must be a positive number or NULL.", call. = FALSE)
   }
-  x <- .cpaic_target_x(newdata, object$effect_modifiers)
+  x <- .cpaic_target_x(newdata, object$effect_modifiers, object$margins)
 
   m <- C[treatment, ] - C[comparator, ]
   # Estimability at this target: a non-estimable contrast has no meaningful
@@ -94,7 +96,7 @@ bridge_fragility <- function(object, treatment, comparator = NULL,
   N <- .cpaic_null_space(object$joint_design)
   if (!.cpaic_in_rowspace(matrix(v, nrow = 1L), N)) {
     stop("The contrast ", treatment, " vs ", comparator, " is not estimable at ",
-         "this target population, so its bridge fragility is undefined. See ",
+         "these target means, so its bridge fragility is undefined. See ",
          "estimable_effects_at().", call. = FALSE)
   }
 
@@ -110,7 +112,9 @@ bridge_fragility <- function(object, treatment, comparator = NULL,
   out <- structure(
     c(list(treatment = treatment, comparator = comparator,
            threshold = threshold, sm = object$sm,
-           target = stats::setNames(x, object$effect_modifiers)),
+           target = stats::setNames(x, object$effect_modifiers),
+           target_mean = stats::setNames(x, object$effect_modifiers),
+           estimand = "average_conditional_link"),
       stats[setdiff(names(stats), "bft")],
       list(bft_draws = stats$bft, contrast_draws = D)),
     class = "cpaic_fragility")
@@ -120,9 +124,10 @@ bridge_fragility <- function(object, treatment, comparator = NULL,
 #' @export
 print.cpaic_fragility <- function(x, digits = 3, ...) {
   cat("Bridge fragility (", x$treatment, " vs ", x$comparator, ")\n", sep = "")
-  if (length(x$target)) {
-    cat("  Target population: ",
-        paste(names(x$target), signif(x$target, 3), sep = " = ",
+  target_mean <- x$target_mean %||% x$target
+  if (length(target_mean)) {
+    cat("  Target effect-modifier means: ",
+        paste(names(target_mean), signif(target_mean, 3), sep = " = ",
               collapse = ", "), "\n", sep = "")
   }
   cat("  Link-scale contrast (median): ", round(x$contrast_median, digits),

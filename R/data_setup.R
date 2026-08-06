@@ -86,7 +86,8 @@ build_C_matrix <- function(treatments, sep.comps = "+", inactive = NULL) {
 #'   outcomes use `ipd_time`/`ipd_status` instead of (or alongside)
 #'   `ipd_outcome`; for Poisson rates an optional `ipd_exposure` offset.
 #' @param ipd_time,ipd_status Time and event-indicator column names in
-#'   `ipd` (survival family).
+#'   `ipd` (survival family). The event indicator must be coded `0` for
+#'   censored and `1` for an event. Missing values are not permitted.
 #' @param ipd_exposure Optional exposure/person-time column in `ipd`
 #'   (Poisson family); used as a log offset.
 #' @param ipd_covariates Character vector of covariate column names in
@@ -138,9 +139,15 @@ cpaic_network <- function(agd, ipd = NULL,
   # cmaic()/cstc().
   t1v <- as.character(agd[[treat1]])
   t2v <- as.character(agd[[treat2]])
-  if (anyNA(t1v) || anyNA(t2v) || any(!nzchar(t1v)) || any(!nzchar(t2v))) {
+  studyv <- as.character(agd[[studlab]])
+  if (anyNA(t1v) || anyNA(t2v) || any(!nzchar(trimws(t1v))) ||
+      any(!nzchar(trimws(t2v)))) {
     stop("`agd` has missing or empty treatment labels in `", treat1, "` / `",
          treat2, "`.", call. = FALSE)
+  }
+  if (anyNA(studyv) || any(!nzchar(trimws(studyv)))) {
+    stop("`agd` has missing or empty study labels in `", studlab, "`.",
+         call. = FALSE)
   }
   if (any(t1v == t2v)) {
     stop("`agd` has self-comparison row(s) where `", treat1, "` == `", treat2,
@@ -173,6 +180,9 @@ cpaic_network <- function(agd, ipd = NULL,
   ipd_info <- NULL
   if (!is.null(ipd)) {
     ipd <- as.data.frame(ipd)
+    if (nrow(ipd) == 0L) {
+      stop("`ipd` has no patients (zero rows).", call. = FALSE)
+    }
     if (is.null(family)) {
       stop("`family` is required when `ipd` is supplied.", call. = FALSE)
     }
@@ -193,6 +203,28 @@ cpaic_network <- function(agd, ipd = NULL,
       stop("`ipd` is missing covariate column(s): ",
            paste(miss_cov, collapse = ", "), call. = FALSE)
     }
+    for (nm in c(ipd_study, ipd_trt)) {
+      values <- as.character(ipd[[nm]])
+      if (anyNA(values) || any(!nzchar(trimws(values)))) {
+        stop("`ipd` has missing or empty labels in `", nm, "`.",
+             call. = FALSE)
+      }
+    }
+    bad_cov_type <- ipd_covariates[!vapply(ipd_covariates, function(nm) {
+      is.numeric(ipd[[nm]]) && !is.factor(ipd[[nm]])
+    }, logical(1))]
+    if (length(bad_cov_type)) {
+      stop("`ipd` covariate(s) must be numeric: ",
+           paste(bad_cov_type, collapse = ", "), ".", call. = FALSE)
+    }
+    bad_cov_value <- ipd_covariates[vapply(ipd_covariates, function(nm) {
+      any(!is.finite(ipd[[nm]]))
+    }, logical(1))]
+    if (length(bad_cov_value)) {
+      stop("`ipd` covariate(s) contain missing or non-finite values: ",
+           paste(bad_cov_value, collapse = ", "),
+           ". cpaic does not silently omit or impute IPD rows.", call. = FALSE)
+    }
     bad_arms <- setdiff(unique(as.character(ipd[[ipd_trt]])), treatments)
     if (length(bad_arms)) {
       stop("IPD treatment(s) not present in the aggregate network: ",
@@ -209,14 +241,55 @@ cpaic_network <- function(agd, ipd = NULL,
         stop("`ipd` is missing survival column(s): ",
              paste(miss_surv, collapse = ", "), call. = FALSE)
       }
+      tv <- ipd[[ipd_time]]
+      sv <- ipd[[ipd_status]]
+      if (!is.numeric(tv) || is.factor(tv) || any(!is.finite(tv)) ||
+          any(tv <= 0)) {
+        stop("survival IPD time must be positive and finite with no missing ",
+             "values.", call. = FALSE)
+      }
+      if ((!is.numeric(sv) && !is.logical(sv)) || is.factor(sv) ||
+          anyNA(sv) || any(!as.numeric(sv) %in% c(0, 1))) {
+        stop("survival IPD status must be coded 0/1 (0 = censored, 1 = event) ",
+             "with no missing values.", call. = FALSE)
+      }
     } else if (!ipd_outcome %in% names(ipd)) {
       stop("`ipd` is missing the outcome column `", ipd_outcome,
            "` (set via `ipd_outcome`).", call. = FALSE)
+    }
+    if (family != "survival") {
+      y <- ipd[[ipd_outcome]]
+      if ((!is.numeric(y) && !is.logical(y)) || is.factor(y)) {
+        stop("`ipd` outcome `", ipd_outcome, "` must be numeric.",
+             call. = FALSE)
+      }
+      if (family == "binomial" &&
+          (anyNA(y) || any(!as.numeric(y) %in% c(0, 1)))) {
+        stop("binomial IPD outcome must be 0 or 1 with no missing values.",
+             call. = FALSE)
+      }
+      if (family == "gaussian" && any(!is.finite(y))) {
+        stop("gaussian IPD outcome must be finite with no missing values.",
+             call. = FALSE)
+      }
+      if (family == "poisson" &&
+          (any(!is.finite(y)) || any(y < 0) || any(y != round(y)))) {
+        stop("poisson IPD outcome must be a non-negative integer count with ",
+             "no missing values.", call. = FALSE)
+      }
     }
     if (family == "poisson" && !is.null(ipd_exposure) &&
         !ipd_exposure %in% names(ipd)) {
       stop("`ipd` is missing the exposure column `", ipd_exposure,
            "` (set via `ipd_exposure`).", call. = FALSE)
+    }
+    if (family == "poisson" && !is.null(ipd_exposure)) {
+      ev <- ipd[[ipd_exposure]]
+      if (!is.numeric(ev) || is.factor(ev) || any(!is.finite(ev)) ||
+          any(ev <= 0)) {
+        stop("Poisson IPD exposure must be positive and finite with no ",
+             "missing values.", call. = FALSE)
+      }
     }
     # The IPD-adjusted contrast scale is fixed by the family's link, so the
     # network summary measure `sm` must be on the matching scale.

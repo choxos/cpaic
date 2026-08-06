@@ -17,7 +17,8 @@ prior_sensitivity(
 \arguments{
 \item{object}{A \code{\link[=cmlnmr]{cmlnmr()}} fit.}
 
-\item{newdata}{One target population, as for \code{\link[=relative_effects]{relative_effects()}}.}
+\item{newdata}{One row of target effect-modifier means, as for
+\code{\link[=relative_effects]{relative_effects()}}.}
 
 \item{prior}{Which scales to vary: the interaction prior, component-effect
 prior, or all configurable scale priors.}
@@ -36,6 +37,5 @@ the tighter and looser fits.
 \description{
 Prior movement is an empirical identification diagnostic. Contrasts that
 move substantially when a weakly identified prior is changed should not be
-interpreted as data-driven. This helper reuses the principle in
-\code{documentation/validation/estimability_gamma.R}.
+interpreted as data-driven.
 }

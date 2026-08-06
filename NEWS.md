@@ -1,29 +1,62 @@
 # cpaic 0.1.0
 
-First release. Research software: read the limitations before using a result for
-a decision.
+First release. Experimental research software. The methodology and
+implementation are not validated for clinical, regulatory, reimbursement,
+guideline, or other decision use.
+
+## Methodology safeguards
+
+* `cstc()` and `cmaic()` stop by default when adjusted IPD edges would be
+  mixed with retained aggregate edges from other study populations. Non-Gaussian
+  cMAIC bridges also stop because marginal effects are not generally
+  component-additive on nonlinear scales. `allow_experimental_bridge = TRUE`
+  records a research-only override and its reasons.
+* Partial-IPD multi-arm replacements are rejected. An IPD-only study edge
+  requires `allow_ipd_only_studies = TRUE` and is recorded in the result.
+* cML-NMR reporting and ranking methods identify their supported estimand as
+  `average_conditional_link` at target effect-modifier means. Marginal
+  standardized effects are not available. Bernoulli means in `[0, 1]` are
+  valid prevalences.
+* Two-stage network construction rejects missing analysis values, malformed
+  study labels, invalid family-specific outcomes, and ambiguous survival event
+  coding. Two-stage survival requires `0 = censored`, `1 = event`.
+* Ranking summaries and rank probabilities share one retained set and one exact
+  tie rule. Tied elements split probability across occupied ranks. Target-grid
+  failures remain explicit rows and plots break at them.
+* Poisson aggregate rates are calculated with log-sum-exp and fitted with the
+  log-rate likelihood. Predictive RNG overflow is represented by explicit
+  sentinels and counts. Predictive summaries require valid draws and never use
+  capped rates. Posterior fitted means average response-scale rates.
+* Sampler diagnostic extraction returns unknown values as `NA`, not zero. Fits
+  store a `passed`, `failed`, or `unknown` diagnostic status.
+* Relative-effect tables separate `estimate_link` and `se_link` from the
+  reporting-scale `estimate`, interval, and `scale` field.
+* Package and pkgdown builds include the current introduction and methods
+  articles. Five archived rendered examples remain outside published builds
+  until they are regenerated against the current interfaces.
 
 ## What the package does
 
-cpaic extends component network meta-analysis (cNMA) to population-adjusted
-indirect comparison (PAIC), so a **disconnected** treatment network can be
-reconnected through shared treatment components and, at the same time, adjusted
-for between-study imbalance in effect modifiers.
+cpaic combines component network meta-analysis (cNMA) with experimental
+population-adjustment methods for a **disconnected** treatment network. Shared
+components can identify a bridge. Scientific transportability across that gap
+remains an untestable assumption.
 
 * `cpaic_network()` builds a (possibly disconnected) contrast-level network and
   codes multi-component treatment labels into a treatment-by-component matrix
   with `build_C_matrix()`.
 * `cnma_bridge()` reconnects the network through the additive component model of
   Rücker et al. (2020), on top of `netmeta::discomb()`.
-* `cstc()` and `cmaic()` are the two-stage frequentist routes: anchored simulated
-  treatment comparison and anchored matching-adjusted indirect comparison replace
-  each IPD-bearing edge with a population-adjusted contrast, which the component
-  bridge then combines.
+* `cstc()` and `cmaic()` are the two-stage frequentist routes. They replace
+  IPD-bearing edges with target-specific contrasts. A gate prevents automatic
+  synthesis with incompatible retained edges or nonlinear marginal cMAIC
+  contrasts.
 * `cmlnmr()` is the Bayesian flagship: component-additive multilevel network
   meta-regression, fitted with rstan or CmdStan. The treatment effect is `C %*% beta`
   and the model carries component by effect-modifier interactions through the
-  whole network, so disconnected sub-networks are connected by construction and
-  every edge is adjusted to one target population coherently.
+  whole network, so disconnected sub-networks are connected by construction.
+  Reported target summaries are average conditional link-scale effects at
+  covariate means, not marginally standardized effects.
 
 Binary, continuous, count, and time-to-event outcomes are supported throughout.
 
@@ -38,8 +71,8 @@ the prior.
 
 * `cpaic_connectivity()` and `estimable_effects()` report the rank, the null
   space, the bridging components, and which relative effects are identified.
-* `estimable_effects_at()` extends the criterion to the population-adjusted
-  estimand, which depends on the target population, and grades each contrast
+* `estimable_effects_at()` extends the criterion to the target-mean average
+  conditional estimand and grades each contrast
   `"exact"`, `"first-order screen"`, or `"not identified"`.
 * `relative_effects()`, `component_effects()`, and `league_table()` return `NA`
   for a contrast that is not identified; `cpaic_ranks()` drops it from the
@@ -65,8 +98,9 @@ the prior.
   actually accepts, so a cmdstanr-only argument (or a misspelled one) is named
   rather than handed to rstan to kill every chain with a message about `@`.
 * `cpaic_network()` rejects self-comparisons, duplicate {study, treatment-pair}
-  rows, and missing treatment labels; `build_C_matrix()` rejects empty component
-  tokens and an `inactive` label matching no component.
+  rows, missing identifiers, missing or nonfinite analysis values, invalid
+  family-specific outcomes, and malformed survival status; `build_C_matrix()`
+  rejects empty component tokens and an `inactive` label matching no component.
 * An unset seed is drawn and recorded, so an unseeded fit reproduces.
 
 ## Diagnostics
@@ -83,8 +117,8 @@ the prior.
 * `bridge_fragility()` quantifies how much un-testable cross-sub-network drift
   would overturn a conclusion.
 * `cmlnmr()` checks divergences, tree depth, E-BFMI, R-hat, and effective sample
-  size across every sampled parameter block, and reports `NA` rather than an
-  ideal infinity when a diagnostic is unavailable.
+  size across every sampled parameter block. It reports `NA` when a diagnostic
+  is unavailable and records a formal sampler-validity status.
 * `posterior_summary()` summarizes any sampled parameter block of a `cmlnmr()`
   fit, with the same columns whichever sampler backend produced it.
 * `prior_sensitivity()`, `prior_predictive_check()`, `dic()`, `loo()`, `waic()`,
@@ -92,7 +126,7 @@ the prior.
   and sharing a fit without row-level data.
 * Plots: network, forest, rankogram, deviance, leverage, prior-versus-posterior,
   integration error, MCMC, and survival curves, plus three specific to cpaic (the
-  population-dependent rank curve, the estimability map, and edge influence).
+  target-mean rank curve, the estimability map, and edge influence).
 
 ## Documented limitations
 
@@ -102,18 +136,19 @@ These are stated in the manual pages, not only here.
   cross-gap evidence against which to test that component effects are constant
   across sub-networks.
 * **Only IPD edges are adjusted by the two-stage routes.** `cstc()` and `cmaic()`
-  leave every aggregate-only edge in its own study population. `cmlnmr()` is the
-  coherent single-target synthesis.
+  leave every aggregate-only edge in its own study population. The default gate
+  refuses that mixed bridge.
 * **Marginal effects do not add.** `cmaic()` targets a marginal effect, and on a
   non-collapsible scale the additive component model is false; the resulting bias
   survives perfect matching and infinite data.
-* **`cmlnmr()` reports a conditional contrast at a covariate profile**, not a
-  population-standardized marginal effect.
+* **`cmlnmr()` reports an average conditional link-scale contrast at target
+  means**, not a population-standardized marginal effect.
 * **One `Gamma` serves both roles.** It multiplies individual covariates and
   aggregate study means alike, so an interaction supported only by aggregate arms
   is an ecological association read as effect modification.
-* **`cmlnmr()` survival status coding** (0 right, 1 event, 2 left, 3 interval) is
-  not the coding `cstc()` and `cmaic()` pass to `survival::Surv()`.
+* **Survival status contracts differ.** `cmlnmr()` accepts 0 right-censored, 1
+  event, 2 left-censored, and 3 interval-censored. The two-stage constructor
+  accepts only 0 right-censored and 1 event.
 * Further approximations recorded in `?cmlnmr`: the Gaussian model has one
   residual standard deviation for the whole network; Poisson aggregate arms
   assume person-time is independent of the effect modifiers; the
@@ -132,8 +167,10 @@ These are stated in the manual pages, not only here.
   releases more closely and is often faster. It needs the `cmdstanr` package and
   a separate CmdStan installation.
 
-The two agree up to Monte Carlo error but do not share a random number stream,
-so the same `seed` gives different draws on each. Convergence diagnostics are
+The two are intended to fit the same Stan programs but do not share a random
+number stream,
+so the same `seed` gives different draws on each. Backend parity checks
+are not a validation of every family and parameterization. Diagnostics are
 computed the same way for both, so `rhat`, `ess_bulk`, and `ess_tail` mean the
 same thing whichever produced a fit, and every summary, plot, and diagnostic in
 the package works on either. The engine and its version are recorded in the
