@@ -19,7 +19,8 @@ utils::globalVariables(c(
   "bridges", "comparator", "contrast", "deviance_x", "deviance_y", "edge_type",
   "element", "estimate", "identified_by", "influence", "leverage", "lower",
   "n_int", "n_studies", "probability", "rank_position", "ssrd", "subnetwork",
-  "surv", "target", "time", "type", "upper", "value", "zero_influence"
+  "segment", "surv", "target", "time", "type", "upper", "value",
+  "zero_influence"
 ))
 
 #' Is ggplot2 available?
@@ -438,7 +439,7 @@ forest <- function(x, ..., what = c("relative", "component"),
     NULL
   }
   subtitle <- if (!is.null(target) && length(target)) {
-    paste0("Target population: ",
+    paste0("Target effect-modifier means: ",
            paste(names(target), signif(target, 3), sep = " = ",
                  collapse = ", "))
   } else {

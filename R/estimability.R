@@ -1,14 +1,14 @@
-# Estimability of population-adjusted component contrasts ---------------------
+# Estimability of target-mean component contrasts ------------------------------
 #
 # Wigle et al. (2026) show that in an aggregate-data component NMA the uniquely
 # estimable relative effects are exactly the row space of the design matrix
-# X = B C. Population adjustment changes the question, because the estimand
+# X = B C. Effect modification changes the question, because the estimand
 #
 #     theta_t(x) - theta_u(x) = m' (beta + Gamma x),      m = C_t - C_u,
 #
 # involves the component x effect-modifier interactions Gamma as well as the
 # component main effects beta. Estimability of m'beta is then necessary but not
-# sufficient for the population-adjusted contrast at any x != 0.
+# sufficient for the average conditional link-scale contrast at any x != 0.
 #
 # Stack the parameters as phi = (beta, vec(Gamma)) in R^{K(1+Q)}. The estimand is
 # the linear functional v' phi with
@@ -25,8 +25,9 @@
 #     arm main effect and each arm-by-covariate slope are identified directly.
 #
 #   * each aggregate contrast s (contrast m_s, covariate mean xbar_s): the single
-#     row ((1, xbar_s') %x% m_s), giving m_s'(beta + Gamma xbar_s), which is the
-#     contrast in that study's OWN population.
+#     row ((1, xbar_s') %x% m_s). This is the mean-anchored, first-order contrast
+#     used by the screen. Under a nonlinear link it is not the marginal effect in
+#     that study's population and need not be exactly identified by the arm data.
 #
 # A contrast is then identified by the first-order information iff
 # v(m, x) is in rowspace(D).
@@ -55,12 +56,13 @@
 #     as the marginal natural-scale effect), not the conditional link-scale
 #     contrast m'(beta + Gamma x).
 #
-#   ESTIMAND. m'(beta + Gamma x) is the CONDITIONAL contrast on the linear
-#     predictor scale, evaluated at covariate value x. It is not the marginal
-#     effect obtained by integrating natural-scale outcomes over the target
-#     population; on a non-collapsible scale those differ. ML-NMR distinguishes
-#     them (Phillippo et al. 2020) and so must any statement built on this
-#     criterion, including the hierarchies in R/ranks.R.
+#   ESTIMAND. When x is a vector of covariate means, m'(beta + Gamma x) is the
+#     average conditional contrast on the linear-predictor scale because the
+#     expression is linear in x. It is not the marginal effect obtained by
+#     integrating natural-scale outcomes over the target population. On a
+#     non-collapsible scale those differ. ML-NMR distinguishes them (Phillippo
+#     et al. 2020) and so must every statement built on this criterion, including
+#     the hierarchies in R/ranks.R.
 #
 #   ECOLOGICAL vs WITHIN-STUDY INTERACTION. Writing an effect as
 #     alpha + gamma_W (x - xbar_s) + gamma_B xbar_s, aggregate contrasts depend
@@ -70,12 +72,13 @@
 #     randomize covariate means ACROSS studies, so a between-study gradient is
 #     confounded in a way a within-study slope is not (Berlin et al. 2002;
 #     Freeman et al. 2018). `identified_by` therefore separates the two.
-#   An observed aggregate contrast is always estimable in its own population
-#     (take x = xbar_s in (*)).
+#   The screen always includes its mean-anchored row for an observed aggregate
+#     contrast (take x = xbar_s in (*)). Exact identification follows only in
+#     the special cases described above.
 #   A two-arm IPD study in which every effect modifier varies identifies its own
-#     contrast in EVERY target population, which is what anchored STC/MAIC do.
-#   Estimability can depend on the target population: the estimable set can
-#     shrink as x moves away from the covariate origin.
+#     contrast at EVERY target mean under the fitted regression model.
+#   Estimability can depend on the target means. The estimable set can shrink as
+#     x moves away from the covariate origin.
 
 #' Augmented target-contrast vector v = (1, x) %x% m
 #' @noRd
@@ -274,10 +277,10 @@
   do.call(rbind, rows)
 }
 
-#' Which population-adjusted contrasts are estimable at a target population?
+#' Which average conditional contrasts are estimable at target means?
 #'
 #' Extends the row-space criterion of Wigle et al. (2026) from the component
-#' main effects to the population-adjusted estimand
+#' main effects to the average conditional link-scale estimand
 #' `theta_t(x) = C_t' (beta + Gamma x)`. A relative effect is identified by the
 #' first-order information if and only if its augmented contrast vector
 #' `(1, x) %x% (C_t - C_u)` lies in the row space of the information design
@@ -285,9 +288,9 @@
 #' evidence).
 #'
 #' Because the criterion depends on `x`, **the estimable set can depend on the
-#' target population**: a contrast estimable at the covariate origin need not be
-#' estimable in a target population where the component by effect-modifier
-#' interactions are not identified.
+#' target means**. A contrast estimable at the covariate origin need not be
+#' estimable at means where the component by effect-modifier interactions are
+#' not identified. This does not assess a marginal standardized estimand.
 #'
 #' @section Strength of the guarantee:
 #' The `basis` column states how much the criterion actually proves for each
@@ -324,8 +327,8 @@
 #' }
 #'
 #' @param object A `cpaic_mlnmr` fit.
-#' @param newdata A one-row data frame giving the target population's
-#'   effect-modifier values. Defaults to the covariate origin.
+#' @param newdata A one-row data frame giving target effect-modifier means.
+#'   Defaults to the covariate origin.
 #' @param reference Reference treatment. Defaults to the fit's reference.
 #' @param ... Unused.
 #' @return A data frame with `treatment`, `comparator`, `estimable`,
@@ -345,7 +348,7 @@ estimable_effects_at <- function(object, newdata = NULL, reference = NULL,
   Q <- length(ems)
   if (is.null(reference)) reference <- object$reference
   x <- if (is.null(newdata)) rep(0, Q) else
-    .cpaic_target_x(newdata, ems)
+    .cpaic_target_x(newdata, ems, object$margins)
 
   D <- object$joint_design
   N <- .cpaic_null_space(D)
@@ -400,16 +403,18 @@ estimable_effects_at <- function(object, newdata = NULL, reference = NULL,
     row.names = NULL, stringsAsFactors = FALSE
   )
   attr(out, "target") <- stats::setNames(x, ems)
+  attr(out, "target_mean") <- stats::setNames(x, ems)
+  attr(out, "estimand") <- "average_conditional_link"
   class(out) <- c("cpaic_estimable", "data.frame")
   out
 }
 
 #' @export
 print.cpaic_estimable <- function(x, ...) {
-  tgt <- attr(x, "target")
-  cat("Estimability of the population-adjusted relative effects\n")
+  tgt <- attr(x, "target_mean") %||% attr(x, "target")
+  cat("Estimability of average conditional link-scale effects\n")
   if (length(tgt)) {
-    cat("  Target population: ",
+    cat("  Target effect-modifier means: ",
         paste(names(tgt), signif(tgt, 3), sep = " = ", collapse = ", "),
         "\n", sep = "")
   }

@@ -172,7 +172,8 @@ test_that("a separated two-stage fit is rejected, not passed to the bridge", {
                     seTE = c(0.2, 0.2))
   net <- cpaic_network(agd, ipd = ipd, sm = "OR", family = "binomial",
                        ipd_covariates = "x1", inactive = "Placebo")
-  expect_error(cstc(net, target = c(x1 = 0), effect_modifiers = "x1"),
+  expect_error(cstc(net, target = c(x1 = 0), effect_modifiers = "x1",
+                    allow_experimental_bridge = TRUE),
                "not usable|separation")
 })
 

@@ -62,7 +62,7 @@ transformed parameters {
   matrix[C, Q] gamma;
   vector[RE ? N_delta : 0] delta;
   vector[N_ipd] eta_ipd;
-  vector[N_agd] lambda_agd;
+  vector[N_agd] log_lambda_agd;
 
   allbeta = QR ? R_inv * beta_tilde : beta_tilde;
   mu = segment(allbeta, 1, N_studies);
@@ -85,7 +85,7 @@ transformed parameters {
     eta_ipd[i] = lp + log_offset[i];
   }
   for (a in 1:N_agd) {
-    real acc = 0;
+    vector[n_int] log_lambda_ii;
     for (k in 1:n_int) {
       int row = (a - 1) * n_int + k;
       real lp = QR ? Z_agd_int[row] * beta_tilde
@@ -93,9 +93,9 @@ transformed parameters {
       if (RE) {
         if (re_idx_agd[a] > 0) lp += delta[re_idx_agd[a]];
       }
-      acc += exp(lp);
+      log_lambda_ii[k] = log(E_agd[a]) + lp;
     }
-    lambda_agd[a] = E_agd[a] * acc / n_int;
+    log_lambda_agd[a] = log_sum_exp(log_lambda_ii) - log(n_int);
   }
 }
 
@@ -125,7 +125,7 @@ model {
 
   if (!prior_only) {
     if (N_ipd > 0) y_ipd ~ poisson_log(eta_ipd);
-    if (N_agd > 0) r_agd ~ poisson(lambda_agd);
+    if (N_agd > 0) r_agd ~ poisson_log(log_lambda_agd);
   }
 }
 
@@ -133,13 +133,34 @@ generated quantities {
   vector[N_ipd + N_agd] log_lik;
   array[N_ipd] int yrep_ipd;
   array[N_agd] int rrep_agd;
+  array[N_ipd] int yrep_ipd_overflow;
+  array[N_agd] int rrep_agd_overflow;
+  int yrep_ipd_overflow_count;
+  int rrep_agd_overflow_count;
+
+  yrep_ipd_overflow_count = 0;
+  rrep_agd_overflow_count = 0;
 
   for (i in 1:N_ipd) {
     log_lik[i] = poisson_log_lpmf(y_ipd[i] | eta_ipd[i]);
-    yrep_ipd[i] = poisson_log_rng(fmin(eta_ipd[i], 20));
+    if (eta_ipd[i] < 30 * log(2)) {
+      yrep_ipd[i] = poisson_log_rng(eta_ipd[i]);
+      yrep_ipd_overflow[i] = 0;
+    } else {
+      yrep_ipd[i] = -1;
+      yrep_ipd_overflow[i] = 1;
+      yrep_ipd_overflow_count += 1;
+    }
   }
   for (a in 1:N_agd) {
-    log_lik[N_ipd + a] = poisson_lpmf(r_agd[a] | lambda_agd[a]);
-    rrep_agd[a] = poisson_rng(fmin(lambda_agd[a], 1e9));
+    log_lik[N_ipd + a] = poisson_log_lpmf(r_agd[a] | log_lambda_agd[a]);
+    if (log_lambda_agd[a] < 30 * log(2)) {
+      rrep_agd[a] = poisson_log_rng(log_lambda_agd[a]);
+      rrep_agd_overflow[a] = 0;
+    } else {
+      rrep_agd[a] = -1;
+      rrep_agd_overflow[a] = 1;
+      rrep_agd_overflow_count += 1;
+    }
   }
 }

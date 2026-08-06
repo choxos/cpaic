@@ -2,7 +2,7 @@
 % Please edit documentation in R/ranks.R
 \name{cpaic_ranks}
 \alias{cpaic_ranks}
-\title{Population-adjusted treatment and component hierarchies}
+\title{Treatment and component hierarchies at target covariate means}
 \usage{
 cpaic_ranks(
   object,
@@ -11,14 +11,15 @@ cpaic_ranks(
   set = NULL,
   lower_is_better = FALSE,
   include_screen_only = FALSE,
+  estimand = "average_conditional_link",
   ...
 )
 }
 \arguments{
 \item{object}{A \code{\link[=cmlnmr]{cmlnmr()}} fit.}
 
-\item{newdata}{A one-row data frame giving the target population's
-effect-modifier values. Required when the model has effect modifiers.}
+\item{newdata}{A one-row data frame giving target effect-modifier means.
+Required when the model has effect modifiers.}
 
 \item{what}{\code{"treatment"} (default) or \code{"component"}. Ranking components by
 their incremental effect is only meaningful in an additive model.}
@@ -44,6 +45,10 @@ are therefore still ranked by default; dropping every survival element from
 every survival hierarchy would leave nothing to rank. Read a survival
 hierarchy alongside \code{\link[=estimable_effects_at]{estimable_effects_at()}} rather than on its own.}
 
+\item{estimand}{The only implemented value is
+\code{"average_conditional_link"}. Marginal standardized rankings are not yet
+implemented and are rejected explicitly.}
+
 \item{...}{Unused.}
 }
 \value{
@@ -51,21 +56,20 @@ A data frame, ordered from most to least preferred, with columns
 \code{element}, \code{estimate} (posterior mean of the relative effect versus the
 reference, on the link scale), \code{p_best}, \code{median_rank}, \code{mean_rank} and
 \code{sucra}. The \code{dropped} attribute lists elements excluded as not estimable
-in this target population.
+at these target means.
 }
 \description{
-Ranks treatments or components \emph{in a named target population}, following the
-workflow of Wigle et al. (2026) but with every quantity evaluated at the
-target's effect-modifier values. Because the component effects are
-population-specific under population adjustment, so is the hierarchy: a
-component may rank first in one population and last in another.
+Ranks treatments or components using average conditional link-scale effects
+evaluated at supplied effect-modifier means. Because the component contrast
+is linear in those means, the hierarchy can change with them. This is not a
+hierarchy of marginal effects standardized over a covariate distribution.
 }
 \details{
-Elements whose relative effect is not estimable at that target population are
+Elements whose relative effect is not estimable at those target means are
 \strong{dropped from the ranking set} rather than ranked from a prior-driven
 posterior, and are reported in the \code{dropped} attribute. This is Step 3 of the
 Wigle et al. workflow, and it matters more here than in the aggregate-data
-case, because the estimable set depends on the target (see
+case, because the estimable set depends on the target means (see
 \code{\link[=estimable_effects_at]{estimable_effects_at()}}).
 
 Ranking metrics depend on the set being ranked, so they are not comparable
@@ -74,7 +78,7 @@ instead of them.
 }
 \examples{
 \dontshow{if (FALSE) withAutoprint(\{ # examplesIf}
-# Which component is best for a patient population with x1 = 0.5?
+# Which component ranks best when the target mean of x1 is 0.5?
 cpaic_ranks(fit, newdata = data.frame(x1 = 0.5), what = "component")
 \dontshow{\}) # examplesIf}
 }

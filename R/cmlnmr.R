@@ -208,12 +208,12 @@
 #' network is connected by construction.
 #'
 #' The model includes component x effect-modifier interactions `gamma`, so the
-#' treatment effect is **population-specific**:
+#' average conditional link-scale treatment effect depends on target means:
 #' \deqn{\theta_t(x) = C_t' (\beta + \Gamma x).}
 #' The component main effects `beta` are the effects at the covariate origin
-#' (`x = 0`) and are *not* by themselves a population-adjusted quantity. Use
-#' `newdata` in [relative_effects()] / [component_effects()] to obtain effects
-#' in a named target population.
+#' (`x = 0`) and are not marginally standardized quantities. Use `newdata` in
+#' [relative_effects()] / [component_effects()] to obtain average conditional
+#' link-scale effects at named target effect-modifier means.
 #'
 #' Supported families: `"binomial"` (logit), `"gaussian"` (identity),
 #' `"poisson"` (log), and `"survival"`.
@@ -309,27 +309,25 @@
 #' [estimable_effects_at()] separates the two in its `identified_by` column
 #' (`"IPD"` versus `"aggregate"`) and marks the latter `basis = "first-order
 #' screen"`; [cpaic_ranks()] drops such elements from a hierarchy by default.
-#' Treat a target-population effect that leans on aggregate-identified
+#' Treat a target-mean effect that leans on aggregate-identified
 #' interactions as exploratory, and check it with [prior_sensitivity()].
 #'
 #' @section Survival status coding:
 #' `cmlnmr()` uses the four-level convention `0` right-censored, `1` observed
 #' event, `2` left-censored, `3` interval-censored. This is **not** the coding
-#' [cstc()] and [cmaic()] use: those pass the column straight to
-#' [survival::Surv()], which reads `0`/`1` or `1`/`2`, so a `2` there is an event
-#' rather than a left-censored observation. Do not reuse one status column across
-#' the two layers without recoding it.
+#' [cstc()] and [cmaic()] use. The two-stage network constructor accepts only
+#' `0` for right censoring and `1` for an event, and rejects all other codes.
+#' Do not reuse one status column across the two layers without recoding it.
 #'
 #' @section Scope and current limitations:
 #' Two gaps are worth naming for anyone comparing this with `multinma`.
 #'
-#' * **Effects are reported as conditional contrasts at a covariate value**,
-#'   `(C_t - C_u)'(beta + Gamma x)`, on the linear-predictor scale.
-#'   [relative_effects()] evaluates this at the target in `newdata`. There is no
-#'   marginal (population-standardized) effect path yet: on a non-collapsible
-#'   scale the conditional effect at a point differs from the average effect over
-#'   a population with a distribution of covariates, and only the former is
-#'   returned.
+#' * **Effects are reported as average conditional link-scale contrasts at
+#'   target means**, `(C_t - C_u)'(beta + Gamma x)`. Linearity in `x` makes
+#'   evaluation at `E[X]` equal to the average conditional link-scale contrast.
+#'   There is no marginal population-standardized effect path. For nonlinear
+#'   links, averaging absolute outcomes first and then forming an odds, rate, or
+#'   hazard ratio gives a different quantity.
 #' * **Every effect modifier enters both the prognostic terms and the full set of
 #'   component interactions.** There is no prognostic-only covariate role (unlike
 #'   [cstc()], which separates `prognostics`), so a covariate that shifts outcomes
@@ -422,8 +420,9 @@
 #'   though the random-effects survival model can still produce a few divergent
 #'   transitions and occasional rejected simplex proposals; inspect the
 #'   diagnostics rather than assuming they are clean. If a survival
-#'   fit is slow, reduce `n_int` before suspecting the geometry, and confirm the
-#'   answer is stable with [plot_integration_error()].
+#'   fit is slow, reduce `n_int` before suspecting the geometry. Refit at several
+#'   `n_int` values and compare the requested effects. [plot_integration_error()]
+#'   does not support survival likelihoods.
 #' @param QR Logical scalar. If `TRUE`, apply the scaled thin QR
 #'   reparameterization used by `multinma` to the complete fixed-effects design
 #'   matrix. This is only a reparameterization: it must not change the posterior
@@ -533,7 +532,7 @@
 #'                   x1_mean = c(0.2, 0.2), x1_sd = c(1, 1))
 #' fit <- cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "Placebo",
 #'               chains = 2, iter_warmup = 200, iter_sampling = 200)
-#' # Effects in a named target population (x1 = 0.2), not at the origin:
+#' # Average conditional link-scale effects at target mean x1 = 0.2:
 #' relative_effects(fit, newdata = data.frame(x1 = 0.2))
 #' }
 #' @export
@@ -1138,6 +1137,38 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
     max_treedepth = max_treedepth, sample_args = sample_args)
   diagnostics <- .cpaic_check_diagnostics(fit)
 
+  rep_overflow_variables <- if (family == "poisson") {
+    list(ipd = "yrep_ipd_overflow_count",
+         agd = "rrep_agd_overflow_count")
+  } else {
+    NULL
+  }
+  replication_overflow <- NULL
+  if (family == "poisson") {
+    overflow_summary <- .cpaic_poisson_overflow_summary(
+      fit, rep_overflow_variables
+    )
+    affected <- overflow_summary$overflowed_values > 0
+    replication_overflow <- list(
+      available = TRUE,
+      any = any(affected),
+      sentinel = -1L,
+      rng_log_rate_limit = 30 * log(2),
+      summary = overflow_summary
+    )
+    if (any(affected)) {
+      detail <- paste0(
+        overflow_summary$source[affected], "=",
+        overflow_summary$overflowed_values[affected], collapse = ", "
+      )
+      warning("Poisson generated-outcome replication exceeded Stan's safe ",
+              "RNG range (", detail, "). Affected generated counts are stored ",
+              "as -1 sentinels. The fitted likelihood is unaffected, but ",
+              "prior_predictive_check() will stop until the model is refit ",
+              "with more appropriate priors or scaling.", call. = FALSE)
+    }
+  }
+
   beta_draws <- .cpaic_draws_matrix(fit, "beta")
   comp_tbl <- data.frame(
     component = comps,
@@ -1254,7 +1285,10 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
            tau = list(distribution = prior_tau_dist, location = 0,
                       scale = prior_tau_scale, df = prior_tau_df)),
          prior_predictive = prior_predictive, observed = observed,
-         rep_variables = rep_variables, diagnostics = diagnostics,
+         rep_variables = rep_variables,
+         rep_overflow_variables = rep_overflow_variables,
+         replication_overflow = replication_overflow,
+         diagnostics = diagnostics,
          refit_args = refit_args),
     class = c("cpaic_mlnmr", "cpaic_fit"))
 }
@@ -1263,27 +1297,51 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
 #' @noRd
 .cpaic_check_diagnostics <- function(fit) {
   diag <- .cpaic_sampler_diagnostics(fit)
-  nd <- 0L
-  ntd <- 0L
+  diag_unavailable <- is.null(diag)
+  diag_error <- NA_character_
+  if (!is.null(diag) && isTRUE(diag$unavailable)) diag_unavailable <- TRUE
+  if (!is.null(diag) && !is.null(diag$error)) {
+    errors <- as.character(diag$error)
+    errors <- errors[!is.na(errors) & nzchar(errors)]
+    if (length(errors)) diag_error <- paste(errors, collapse = "; ")
+  }
+  if (is.null(diag)) {
+    diag <- list(num_divergent = NA_integer_,
+                 num_max_treedepth = NA_integer_, ebfmi = NA_real_)
+  }
+  metric_sum <- function(x) {
+    if (is.null(x) || !length(x)) return(NA_integer_)
+    x <- suppressWarnings(as.numeric(x))
+    if (!length(x) || any(!is.finite(x))) return(NA_integer_)
+    total <- sum(x)
+    if (!is.finite(total)) NA_integer_ else as.integer(total)
+  }
+  nd <- metric_sum(diag$num_divergent)
+  ntd <- metric_sum(diag$num_max_treedepth)
   ebfmi <- NA_real_
-  if (!is.null(diag)) {
-    nd <- sum(diag$num_divergent %||% 0)
-    if (nd > 0) {
-      warning(nd, " divergent transition(s) in cmlnmr(); results may be ",
-              "unreliable (consider higher adapt_delta or more iterations).",
-              call. = FALSE)
-    }
-    ntd <- sum(diag$num_max_treedepth %||% 0)
-    if (ntd > 0) {
-      warning(ntd, " iteration(s) saturated the maximum tree depth.",
-              call. = FALSE)
-    }
-    ebfmi <- diag$ebfmi %||% NA_real_
-    if (any(is.finite(ebfmi) & ebfmi < 0.3)) {
-      warning("Low E-BFMI (min ", round(min(ebfmi, na.rm = TRUE), 2),
-              " < 0.3); the sampler may be exploring the energy distribution ",
-              "inefficiently.", call. = FALSE)
-    }
+  if (!is.null(diag$ebfmi)) {
+    ebfmi <- suppressWarnings(as.numeric(diag$ebfmi))
+    if (!length(ebfmi)) ebfmi <- NA_real_
+  }
+  if (diag_unavailable || is.na(nd) || is.na(ntd)) {
+    detail <- if (length(diag_error) && !is.na(diag_error) &&
+                  nzchar(diag_error)) paste0(": ", diag_error) else ""
+    warning("Sampler diagnostics unavailable", detail,
+            "; divergence and tree-depth counts are unknown.", call. = FALSE)
+  }
+  if (is.finite(nd) && nd > 0) {
+    warning(nd, " divergent transition(s) in cmlnmr(); results may be ",
+            "unreliable (consider higher adapt_delta or more iterations).",
+            call. = FALSE)
+  }
+  if (is.finite(ntd) && ntd > 0) {
+    warning(ntd, " iteration(s) saturated the maximum tree depth.",
+            call. = FALSE)
+  }
+  if (any(is.finite(ebfmi) & ebfmi < 0.3)) {
+    warning("Low E-BFMI (min ", round(min(ebfmi, na.rm = TRUE), 2),
+            " < 0.3); the sampler may be exploring the energy distribution ",
+            "inefficiently.", call. = FALSE)
   }
   # Check convergence AND effective sample size across every sampled block, not
   # only beta/mu: a non-converged or poorly-mixed gamma, tau, prognostic,
@@ -1313,9 +1371,43 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
             " < 100); posterior summaries may be imprecise. Increase ",
             "`iter_sampling`.", call. = FALSE)
   }
+  extraction_unavailable <- isTRUE(diag_unavailable) || is.na(nd) || is.na(ntd)
+  summary_unavailable <- !is.finite(rh) || !is.finite(min_ess) ||
+    !length(ebfmi) || !any(is.finite(ebfmi))
+  failed_reasons <- character(0)
+  if (is.finite(nd) && nd > 0) {
+    failed_reasons <- c(failed_reasons, paste(nd, "divergent transition(s)"))
+  }
+  if (is.finite(ntd) && ntd > 0) {
+    failed_reasons <- c(failed_reasons,
+                        paste(ntd, "maximum tree-depth saturation(s)"))
+  }
+  if (any(is.finite(ebfmi) & ebfmi < 0.3)) {
+    failed_reasons <- c(failed_reasons, "E-BFMI below 0.3")
+  }
+  if (is.finite(rh) && rh > 1.05) {
+    failed_reasons <- c(failed_reasons, "maximum Rhat above 1.05")
+  }
+  if (is.finite(min_ess) && min_ess < 100) {
+    failed_reasons <- c(failed_reasons, "minimum bulk/tail ESS below 100")
+  }
+  status <- if (length(failed_reasons)) {
+    "failed"
+  } else if (extraction_unavailable || summary_unavailable) {
+    "unknown"
+  } else {
+    "passed"
+  }
   invisible(list(divergences = as.integer(nd),
                  max_treedepth = as.integer(ntd), max_rhat = rh,
-                 min_ess = min_ess, ebfmi = ebfmi))
+                 min_ess = min_ess, ebfmi = ebfmi,
+                 unavailable = extraction_unavailable || summary_unavailable,
+                 error = diag_error, status = status,
+                 decision_grade = identical(status, "passed"),
+                 reasons = failed_reasons,
+                 thresholds = list(divergences = 0L, max_treedepth = 0L,
+                                   min_ebfmi = 0.3, max_rhat = 1.05,
+                                   min_ess = 100)))
 }
 
 #' Compile (and cache) a cpaic Stan model with cmdstanr
@@ -1354,17 +1446,22 @@ cmlnmr <- function(ipd, agd, effect_modifiers, inactive = NULL,
 
 #' @param level Credible level for the component-effect intervals (default
 #'   `0.95`), for [cmlnmr()] fits.
+#' @param estimand The only implemented cML-NMR component-effect estimand is
+#'   `"average_conditional_link"`.
 #' @rdname component_effects
 #' @export
-component_effects.cpaic_mlnmr <- function(object, newdata = NULL, level = 0.95,
-                                          ...) {
+component_effects.cpaic_mlnmr <- function(
+    object, newdata = NULL, level = 0.95,
+    estimand = "average_conditional_link", ...) {
+  .cpaic_match_estimand(estimand, "average_conditional_link",
+                        "component_effects() for cmlnmr fits")
   if (!is.numeric(level) || length(level) != 1L || level <= 0 || level >= 1) {
     stop("`level` must be a single number in (0, 1).", call. = FALSE)
   }
   a <- (1 - level) / 2
   Q <- length(object$effect_modifiers)
   x <- if (is.null(newdata)) rep(0, Q) else
-    .cpaic_target_x(newdata, object$effect_modifiers)
+    .cpaic_target_x(newdata, object$effect_modifiers, object$margins)
   Beff <- .cpaic_beta_at(object, x)
   out <- data.frame(
     component = object$comps,
@@ -1373,15 +1470,18 @@ component_effects.cpaic_mlnmr <- function(object, newdata = NULL, level = 0.95,
     lower = apply(Beff, 2, stats::quantile, a),
     upper = apply(Beff, 2, stats::quantile, 1 - a),
     row.names = NULL, stringsAsFactors = FALSE)
-  # A component effect IN A TARGET POPULATION is beta_c + Gamma_c' x, so its
-  # estimability must be judged against the JOINT design at that x, not against
-  # the component-main-effect design alone.
+  # A component effect at target effect-modifier means is beta_c + Gamma_c' x,
+  # so its estimability must be judged against the joint design at that x, not
+  # against the component-main-effect design alone.
   Id <- diag(ncol(object$C.matrix))
   Vv <- do.call(rbind, lapply(seq_len(nrow(Id)),
                               function(i) .cpaic_target_vec(Id[i, ], x)))
   bad <- !.cpaic_in_rowspace(Vv, .cpaic_null_space(object$joint_design))
   if (any(bad)) out[bad, -1L] <- NA_real_
   attr(out, "target") <- x
+  attr(out, "target_mean") <- x
+  attr(out, "estimand") <- "average_conditional_link"
+  attr(out, "diagnostic_status") <- object$diagnostics$status %||% "unknown"
   out
 }
 
@@ -1423,6 +1523,13 @@ print.cpaic_mlnmr <- function(x, ...) {
   if (isTRUE(x$prior_predictive)) {
     cat("  Prior-predictive fit: observed likelihood omitted.\n")
   }
+  if (!is.null(x$diagnostics$status)) {
+    cat("  Sampler validity: ", toupper(x$diagnostics$status), "\n", sep = "")
+    if (!isTRUE(x$diagnostics$decision_grade)) {
+      cat("  Inferential summaries are not decision-grade unless the sampler ",
+          "validity is PASSED.\n", sep = "")
+    }
+  }
   cat("  Effect modifiers: ",
       paste(names(x$margins), " [", x$margins, "]", sep = "",
             collapse = ", "), "\n", sep = "")
@@ -1433,8 +1540,9 @@ print.cpaic_mlnmr <- function(x, ...) {
         substr(p$stan_source_md5 %||% "", 1L, 8L), ", seed ", p$seed, "\n",
         sep = "")
   }
-  cat("  Component effects below are at the covariate origin (x = 0).\n")
-  cat("  For a target population use relative_effects(fit, newdata = ...).\n\n")
+  cat("  Component effects below are at effect-modifier means x = 0.\n")
+  cat("  For average conditional link-scale effects at other target means,\n")
+  cat("  use relative_effects(fit, newdata = ...).\n\n")
   comp <- x$components
   comp[, c("estimate", "se", "lower", "upper")] <-
     round(comp[, c("estimate", "se", "lower", "upper")], 3)

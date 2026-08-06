@@ -17,8 +17,10 @@ test_that("cmaic reproduces a manual maicplus anchored Bucher comparison", {
   d <- .make_anchored()
   net <- cpaic_network(d$agd, ipd = d$ipd, sm = "OR", family = "binomial",
                        ipd_covariates = "x", reference = "C")
-  fit <- cmaic(net, target = c(x = d$target), effect_modifiers = "x",
-               n_boot = 50, seed = 1)
+  fit <- suppressWarnings(cmaic(
+    net, target = c(x = d$target), effect_modifiers = "x",
+    n_boot = 50, seed = 1, allow_experimental_bridge = TRUE
+  ))
 
   ipd2 <- d$ipd
   ipd2$x_CENTERED <- ipd2$x - d$target
@@ -39,7 +41,8 @@ test_that("cstc reproduces a manual anchored STC regression", {
   net <- cpaic_network(d$agd, ipd = d$ipd, sm = "OR", family = "binomial",
                        ipd_covariates = "x", reference = "C")
   fit <- suppressWarnings(cstc(net, target = c(x = d$target),
-                               effect_modifiers = "x"))
+                               effect_modifiers = "x",
+                               allow_experimental_bridge = TRUE))
 
   dd <- d$ipd
   dd$xc <- dd$x - d$target
@@ -61,7 +64,32 @@ test_that("population adjustment moves the estimate away from naive", {
   net <- cpaic_network(d$agd, ipd = d$ipd, sm = "OR", family = "binomial",
                        ipd_covariates = "x", reference = "C")
   fit <- suppressWarnings(cstc(net, target = c(x = d$target),
-                               effect_modifiers = "x"))
+                               effect_modifiers = "x",
+                               allow_experimental_bridge = TRUE))
   adj <- unname(fit$bridge$fit$TE.random["A", "C"])
   expect_false(isTRUE(all.equal(adj, naive, tolerance = 1e-3)))
+})
+
+test_that("two-stage approximations require explicit exploratory opt-in", {
+  d <- .make_anchored()
+  net <- cpaic_network(d$agd, ipd = d$ipd, sm = "OR", family = "binomial",
+                       ipd_covariates = "x", reference = "C")
+
+  expect_error(
+    cstc(net, target = c(x = d$target), effect_modifiers = "x"),
+    "retained aggregate-only edge"
+  )
+  expect_error(
+    cmaic(net, target = c(x = d$target), effect_modifiers = "x", n_boot = 2),
+    "retained aggregate-only edge|not generally additive"
+  )
+
+  fit <- suppressWarnings(cstc(
+    net, target = c(x = d$target), effect_modifiers = "x",
+    allow_experimental_bridge = TRUE
+  ))
+  expect_false(fit$bridge_validity$decision_grade)
+  expect_true(fit$bridge_validity$experimental_override)
+  expect_gt(nrow(fit$bridge_validity$retained_aggregate_edges), 0L)
+  expect_s3_class(fit$adjusted_contrasts, "data.frame")
 })

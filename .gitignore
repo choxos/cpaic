@@ -39,10 +39,7 @@ src/*
 # Codegraph / tooling artifacts
 .codegraph
 .omo/
-.claude/
 
-# Agent guidance files (local only, not part of the R package)
-CLAUDE.md
+# Development guidance files (local only, not part of the R package)
 AGENTS.md
 Rplots.pdf
-

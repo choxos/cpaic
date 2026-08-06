@@ -128,8 +128,9 @@ the fixed-effects model (no divergences in the fixed-effects checks here),
 though the random-effects survival model can still produce a few divergent
 transitions and occasional rejected simplex proposals; inspect the
 diagnostics rather than assuming they are clean. If a survival
-fit is slow, reduce \code{n_int} before suspecting the geometry, and confirm the
-answer is stable with \code{\link[=plot_integration_error]{plot_integration_error()}}.}
+fit is slow, reduce \code{n_int} before suspecting the geometry. Refit at several
+\code{n_int} values and compare the requested effects. \code{\link[=plot_integration_error]{plot_integration_error()}}
+does not support survival likelihoods.}
 
 \item{QR}{Logical scalar. If \code{TRUE}, apply the scaled thin QR
 reparameterization used by \code{multinma} to the complete fixed-effects design
@@ -220,12 +221,12 @@ network is connected by construction.
 }
 \details{
 The model includes component x effect-modifier interactions \code{gamma}, so the
-treatment effect is \strong{population-specific}:
+average conditional link-scale treatment effect depends on target means:
 \deqn{\theta_t(x) = C_t' (\beta + \Gamma x).}
 The component main effects \code{beta} are the effects at the covariate origin
-(\code{x = 0}) and are \emph{not} by themselves a population-adjusted quantity. Use
-\code{newdata} in \code{\link[=relative_effects]{relative_effects()}} / \code{\link[=component_effects]{component_effects()}} to obtain effects
-in a named target population.
+(\code{x = 0}) and are not marginally standardized quantities. Use \code{newdata} in
+\code{\link[=relative_effects]{relative_effects()}} / \code{\link[=component_effects]{component_effects()}} to obtain average conditional
+link-scale effects at named target effect-modifier means.
 
 Supported families: \code{"binomial"} (logit), \code{"gaussian"} (identity),
 \code{"poisson"} (log), and \code{"survival"}.
@@ -330,7 +331,7 @@ The practical consequence: an interaction supported only by aggregate arms is
 an \strong{ecological} association being read as effect modification.
 \code{\link[=estimable_effects_at]{estimable_effects_at()}} separates the two in its \code{identified_by} column
 (\code{"IPD"} versus \code{"aggregate"}) and marks the latter \code{basis = "first-order screen"}; \code{\link[=cpaic_ranks]{cpaic_ranks()}} drops such elements from a hierarchy by default.
-Treat a target-population effect that leans on aggregate-identified
+Treat a target-mean effect that leans on aggregate-identified
 interactions as exploratory, and check it with \code{\link[=prior_sensitivity]{prior_sensitivity()}}.
 }
 
@@ -338,23 +339,21 @@ interactions as exploratory, and check it with \code{\link[=prior_sensitivity]{p
 
 \code{cmlnmr()} uses the four-level convention \code{0} right-censored, \code{1} observed
 event, \code{2} left-censored, \code{3} interval-censored. This is \strong{not} the coding
-\code{\link[=cstc]{cstc()}} and \code{\link[=cmaic]{cmaic()}} use: those pass the column straight to
-\code{\link[survival:Surv]{survival::Surv()}}, which reads \code{0}/\code{1} or \code{1}/\code{2}, so a \code{2} there is an event
-rather than a left-censored observation. Do not reuse one status column across
-the two layers without recoding it.
+\code{\link[=cstc]{cstc()}} and \code{\link[=cmaic]{cmaic()}} use. The two-stage network constructor accepts only
+\code{0} for right censoring and \code{1} for an event, and rejects all other codes.
+Do not reuse one status column across the two layers without recoding it.
 }
 
 \section{Scope and current limitations}{
 
 Two gaps are worth naming for anyone comparing this with \code{multinma}.
 \itemize{
-\item \strong{Effects are reported as conditional contrasts at a covariate value},
-\verb{(C_t - C_u)'(beta + Gamma x)}, on the linear-predictor scale.
-\code{\link[=relative_effects]{relative_effects()}} evaluates this at the target in \code{newdata}. There is no
-marginal (population-standardized) effect path yet: on a non-collapsible
-scale the conditional effect at a point differs from the average effect over
-a population with a distribution of covariates, and only the former is
-returned.
+\item \strong{Effects are reported as average conditional link-scale contrasts at
+target means}, \verb{(C_t - C_u)'(beta + Gamma x)}. Linearity in \code{x} makes
+evaluation at \code{E[X]} equal to the average conditional link-scale contrast.
+There is no marginal population-standardized effect path. For nonlinear
+links, averaging absolute outcomes first and then forming an odds, rate, or
+hazard ratio gives a different quantity.
 \item \strong{Every effect modifier enters both the prognostic terms and the full set of
 component interactions.} There is no prognostic-only covariate role (unlike
 \code{\link[=cstc]{cstc()}}, which separates \code{prognostics}), so a covariate that shifts outcomes
@@ -433,7 +432,7 @@ agd <- data.frame(.study = "S2", .trt = c("Placebo", "A+B"),
                   x1_mean = c(0.2, 0.2), x1_sd = c(1, 1))
 fit <- cmlnmr(ipd, agd, effect_modifiers = "x1", inactive = "Placebo",
               chains = 2, iter_warmup = 200, iter_sampling = 200)
-# Effects in a named target population (x1 = 0.2), not at the origin:
+# Average conditional link-scale effects at target mean x1 = 0.2:
 relative_effects(fit, newdata = data.frame(x1 = 0.2))
 }
 \dontshow{\}) # examplesIf}

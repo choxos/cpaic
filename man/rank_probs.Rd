@@ -2,25 +2,30 @@
 % Please edit documentation in R/plot-mlnmr.R
 \name{rank_probs}
 \alias{rank_probs}
-\title{Posterior rank probabilities in a target population}
+\title{Posterior rank probabilities at target effect-modifier means}
 \usage{
 rank_probs(
   object,
   newdata = NULL,
   what = c("treatment", "component"),
+  set = NULL,
   lower_is_better = FALSE,
   cumulative = FALSE,
   include_screen_only = FALSE,
+  estimand = "average_conditional_link",
   ...
 )
 }
 \arguments{
 \item{object}{A \code{\link[=cmlnmr]{cmlnmr()}} fit.}
 
-\item{newdata}{A one-row data frame giving the target population's
-effect-modifier values.}
+\item{newdata}{A one-row data frame giving target effect-modifier means.}
 
 \item{what}{\code{"treatment"} (default) or \code{"component"}.}
+
+\item{set}{Optional character vector restricting the elements to rank, as in
+\code{\link[=cpaic_ranks]{cpaic_ranks()}}. Defaults to all treatments, including the reference, or
+all components.}
 
 \item{lower_is_better}{If \code{TRUE}, a smaller effect is preferred.}
 
@@ -30,6 +35,9 @@ summarizes) instead of the rankogram? Default \code{FALSE}.}
 \item{include_screen_only}{If \code{FALSE} (default), elements identified only by
 aggregate arms (a first-order screen) are excluded, as in \code{\link[=cpaic_ranks]{cpaic_ranks()}}.}
 
+\item{estimand}{The only implemented value is
+\code{"average_conditional_link"}. Marginal standardized ranks are rejected.}
+
 \item{...}{Unused.}
 }
 \value{
@@ -38,14 +46,14 @@ rank) and columns \code{element}, \code{rank_position}, and \code{probability}.
 }
 \description{
 The full rank distribution behind \code{\link[=cpaic_ranks]{cpaic_ranks()}}: the posterior probability
-that each treatment (or component) takes each rank, \strong{in a named target
-population}. Ported from multinma's \code{posterior_rank_probs()} (Phillippo et
-al. 2020) and extended, because under population adjustment the hierarchy is
-a function of the target: the component effects are \verb{beta + Gamma x}, so the
-ranks move with \code{x}.
+that each treatment (or component) takes each rank, using average conditional
+link-scale effects evaluated at target means. Ported from multinma's
+\code{posterior_rank_probs()} (Phillippo et al. 2020) and extended because the
+component effects are \verb{beta + Gamma x}, so the ranks move with \code{x}. These are
+not ranks of marginal standardized ORs, RRs, or HRs.
 }
 \details{
-Elements that are not estimable at the target population are dropped from the
+Elements that are not estimable at the target means are dropped from the
 ranking set rather than ranked from the prior, exactly as in \code{\link[=cpaic_ranks]{cpaic_ranks()}}
 (Step 3 of Wigle et al. 2026); they are listed in the \code{dropped} attribute.
 }

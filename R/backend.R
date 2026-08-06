@@ -212,18 +212,57 @@
 #' Sampler diagnostics: divergences, tree-depth saturation, and E-BFMI
 #' @noRd
 .cpaic_sampler_diagnostics <- function(fit) {
-  if (inherits(fit, "stanfit")) {
-    return(list(
-      num_divergent = tryCatch(rstan::get_num_divergent(fit),
-                               error = function(e) 0L),
-      num_max_treedepth = tryCatch(rstan::get_num_max_treedepth(fit),
-                                   error = function(e) 0L),
-      ebfmi = tryCatch(rstan::get_bfmi(fit), error = function(e) NA_real_)))
+  errors <- character()
+  capture <- function(name, expr, missing) {
+    out <- tryCatch(
+      expr,
+      error = function(e) {
+        errors <<- c(errors, paste0(name, ": ", conditionMessage(e)))
+        missing
+      }
+    )
+    if (is.null(out) || !length(out)) {
+      errors <<- c(errors, paste0(name, ": returned no values"))
+      missing
+    } else {
+      out
+    }
   }
-  d <- tryCatch(fit$diagnostic_summary(quiet = TRUE), error = function(e) NULL)
-  if (is.null(d)) return(NULL)
-  list(num_divergent = d$num_divergent, num_max_treedepth = d$num_max_treedepth,
-       ebfmi = d$ebfmi)
+  finish <- function(num_divergent, num_max_treedepth, ebfmi) {
+    list(
+      num_divergent = num_divergent,
+      num_max_treedepth = num_max_treedepth,
+      ebfmi = ebfmi,
+      unavailable = length(errors) > 0L,
+      error = if (length(errors)) paste(errors, collapse = "; ") else NA_character_
+    )
+  }
+  if (inherits(fit, "stanfit")) {
+    return(finish(
+      capture("get_num_divergent()", rstan::get_num_divergent(fit), NA_integer_),
+      capture("get_num_max_treedepth()",
+              rstan::get_num_max_treedepth(fit), NA_integer_),
+      capture("get_bfmi()", rstan::get_bfmi(fit), NA_real_)
+    ))
+  }
+  d <- capture("diagnostic_summary()", fit$diagnostic_summary(quiet = TRUE), NULL)
+  if (is.null(d)) {
+    return(finish(NA_integer_, NA_integer_, NA_real_))
+  }
+  value <- function(name, missing) {
+    out <- capture(paste0("diagnostic_summary()$", name), d[[name]], missing)
+    if (is.null(out)) {
+      errors <<- c(errors, paste0("diagnostic_summary()$", name,
+                                  " is unavailable"))
+      return(missing)
+    }
+    out
+  }
+  finish(
+    value("num_divergent", NA_integer_),
+    value("num_max_treedepth", NA_integer_),
+    value("ebfmi", NA_real_)
+  )
 }
 
 #' Names of the sampled and generated variables in a fit

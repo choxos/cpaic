@@ -2,7 +2,7 @@
 % Please edit documentation in R/ranks.R
 \name{rank_curve}
 \alias{rank_curve}
-\title{How a hierarchy changes across target populations}
+\title{How a hierarchy changes across target effect-modifier means}
 \usage{
 rank_curve(
   object,
@@ -31,13 +31,13 @@ to 0 for each.}
 }
 \value{
 A data frame with one row per (element, target value), giving \code{sucra},
-\code{mean_rank}, \code{p_best} and \code{estimate}, plus \code{estimable}.
+\code{mean_rank}, \code{p_best}, and \code{estimate}. Failed target values are retained as
+one \code{status = "failed"} row with \code{NA} metrics and an explanatory \code{error}.
 }
 \description{
-Recomputes \code{\link[=cpaic_ranks]{cpaic_ranks()}} over a grid of target populations, so that the
-population dependence of the hierarchy is visible. Under population adjustment
-a component's rank is a function of the target, and this is the object that
-shows it.
+Recomputes \code{\link[=cpaic_ranks]{cpaic_ranks()}} over a grid of target means. This exposes how the
+hierarchy of average conditional link-scale effects changes with the chosen
+mean. It does not standardize effects over a sequence of target distributions.
 }
 \examples{
 \dontshow{if (FALSE) withAutoprint(\{ # examplesIf}

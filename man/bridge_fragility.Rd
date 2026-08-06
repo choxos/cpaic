@@ -20,8 +20,10 @@ bridge_fragility(
 \item{treatment, comparator}{The contrast to assess. \code{comparator} defaults to
 the fit reference.}
 
-\item{newdata}{A one-row data frame giving the target population's
-effect-modifier values (required when the model has effect modifiers).}
+\item{newdata}{A one-row data frame giving target effect-modifier means
+(required when the model has effect modifiers). The assessed contrast is
+the average conditional link-scale effect at those means, not a marginal
+standardized effect.}
 
 \item{threshold}{Decision boundary on the link scale. Default \code{0} (no effect).}
 

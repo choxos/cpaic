@@ -2,7 +2,7 @@
 % Please edit documentation in R/plot-mlnmr.R
 \name{plot_estimability}
 \alias{plot_estimability}
-\title{Map which contrasts are estimable, and on what evidence, across populations}
+\title{Map which contrasts are estimable, and on what evidence, across target means}
 \usage{
 plot_estimability(object, em, values, at = NULL, reference = NULL, ...)
 }
@@ -24,11 +24,10 @@ to 0 for each.}
 A \code{ggplot} object.
 }
 \description{
-Estimability under population adjustment is itself a function of the target
-population: a contrast identified at the covariate origin need not be
-identified in a population where the relevant component by effect-modifier
-interactions are not pinned down. This plot evaluates
-\code{\link[=estimable_effects_at]{estimable_effects_at()}} over a grid of target populations and tiles the
+Estimability of the average conditional link-scale contrast is a function of
+the target means. A contrast identified at the covariate origin need not be
+identified where the relevant component by effect-modifier interactions are
+not pinned down. This plot evaluates \code{\link[=estimable_effects_at]{estimable_effects_at()}} over a grid and tiles the
 result, separating contrasts identified by \strong{IPD} (a within-study
 interaction, which randomization protects) from those identified only
 \strong{ecologically}, from between-study differences in aggregate covariate means

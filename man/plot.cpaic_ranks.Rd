@@ -2,7 +2,7 @@
 % Please edit documentation in R/plot-mlnmr.R
 \name{plot.cpaic_ranks}
 \alias{plot.cpaic_ranks}
-\title{Plot a population-adjusted hierarchy}
+\title{Plot an average conditional hierarchy at target means}
 \usage{
 \method{plot}{cpaic_ranks}(x, y, ..., metric = c("sucra", "mean_rank", "median_rank", "p_best"))
 }

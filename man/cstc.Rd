@@ -11,14 +11,16 @@ cstc(
   prognostics = NULL,
   common = FALSE,
   random = TRUE,
-  reference = NULL
+  reference = NULL,
+  allow_experimental_bridge = FALSE,
+  allow_ipd_only_studies = FALSE
 )
 }
 \arguments{
 \item{network}{A \code{\link[=cpaic_network]{cpaic_network()}} object that includes IPD.}
 
-\item{target}{Named numeric vector (or list / one-row data frame) of
-target-population means for the effect modifiers.}
+\item{target}{Named numeric vector (or list / one-row data frame) of target
+means for the effect modifiers.}
 
 \item{effect_modifiers}{Covariates that interact with treatment
 (centered at \code{target}). Defaults to all IPD covariates.}
@@ -30,6 +32,16 @@ the effect modifiers (so each enters as main effect + interaction).}
 
 \item{reference}{Optional anchor (comparator) arm to use in every IPD study
 in which it appears, instead of inferring it from the aggregate row order.}
+
+\item{allow_experimental_bridge}{Logical. The default \code{FALSE} stops when
+aggregate-only edges would be combined with target-adjusted IPD edges.
+Set \code{TRUE} only for explicitly exploratory sensitivity work; the fit
+records the retained edges and the reason the bridge is approximate.}
+
+\item{allow_ipd_only_studies}{Logical. The default \code{FALSE} requires every
+IPD study to match exactly one aggregate two-arm edge. Set \code{TRUE} to append
+an IPD-derived edge that has no aggregate row. Such additions are recorded
+in the returned fit.}
 }
 \value{
 An object of class \code{cpaic_stc} (and \code{cpaic_fit}).
@@ -38,17 +50,18 @@ An object of class \code{cpaic_stc} (and \code{cpaic_fit}).
 Anchored STC generalized to a (possibly disconnected) component network.
 For each IPD study an outcome regression is fitted with treatment
 main effects, prognostic main effects, and treatment-by-effect-modifier
-interactions; the effect modifiers are centered at a common \code{target}
-population so the treatment coefficient is the anchored,
-population-adjusted contrast in that population. These adjusted
+interactions. The effect modifiers are centered at common target means, so
+the treatment coefficient is the anchored average conditional link-scale
+contrast at those means. These adjusted
 contrasts replace the corresponding unadjusted aggregate contrasts and
 \code{\link[=cnma_bridge]{cnma_bridge()}} combines them through the additive component model.
 }
 \details{
 Unlike \code{\link[=cmaic]{cmaic()}} (reweighting) this is the regression-adjustment route.
 The reported treatment coefficient is the \emph{conditional} effect at the
-target effect-modifier means (not a marginal standardization); for
-collapsible measures the two coincide. It is implemented natively here
+target effect-modifier means. Equivalently, under the fitted linear
+interaction model this is the average conditional link-scale effect at the
+supplied target means, not a marginal standardization. It is implemented natively here
 because the \code{stc()} function in the mlumr package targets the \emph{unanchored}
 two-trial case; the link and standard-error machinery is adapted from that
 package. (Written without the double-colon form on purpose: mlumr is not a
@@ -58,23 +71,24 @@ package-and-function reference by loading that package.)
 \section{What the two-stage bridge does and does not adjust}{
 
 Only the edges carrying individual patient data are population-adjusted to the
-target. Every aggregate-only edge keeps its published, study-population
+target means. Every aggregate-only edge keeps its published study-specific
 contrast, and the additive bridge then combines all edges as if they estimated
 the same component effects. Under effect modification they do not: an aggregate
 edge estimates its contrast in \emph{its own} trial population, while the adjusted
 IPD edge estimates it at the target. The two agree only when the aggregate
 populations resemble the target, or when the components on those edges are not
 effect-modified. Treat a cross-network contrast that leans on aggregate-only
-edges as adjusted for the IPD part alone, and prefer \code{\link[=cmlnmr]{cmlnmr()}}, which carries
-the component by effect-modifier interactions through the whole network and so
-adjusts every edge to the same target population coherently.
+edges as adjusted for the IPD part alone. Prefer \code{\link[=cmlnmr]{cmlnmr()}} for a joint model
+whose average conditional link-scale outputs are explicitly evaluated at
+common target effect-modifier means.
 }
 
 \examples{
 net <- cpaic_network(cpaic_bin_agd, ipd = cpaic_bin_ipd, sm = "OR",
                      family = "binomial", ipd_covariates = "x1",
                      inactive = "Placebo")
-fit <- cstc(net, target = c(x1 = 0), effect_modifiers = "x1")
+fit <- cstc(net, target = c(x1 = 0), effect_modifiers = "x1",
+             allow_experimental_bridge = TRUE)
 relative_effects(fit)
 additivity_test(fit)
 }

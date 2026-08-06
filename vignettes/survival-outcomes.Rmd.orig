@@ -5,6 +5,10 @@ bibliography: cpaic.bib
 link-citations: yes
 ---
 
+> **Archived example source.** This vignette is excluded from package
+> builds and pkgdown until it is regenerated against the current estimand
+> labels, bridge safeguards, and API. Do not treat it as current guidance.
+
 ```{r, include = FALSE}
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7,
                       fig.height = 4.2, fig.align = "center",
@@ -409,10 +413,17 @@ target covariate values. `cmaic()` reweights each IPD study to the target and
 fits an unadjusted weighted Cox model, so its coefficient is the **marginal**
 log hazard ratio in the target population [@signorovitch2010; @phillippo2018].
 
+This archived example opts into `allow_experimental_bridge = TRUE` because
+unadjusted AgD edges remain and marginal hazard ratios are not
+component-additive in general. The override records these constraints; it does
+not fix them.
+
 ```{r freq}
-stc_ckd  <- cstc(net,  target = target_ckd, effect_modifiers = "egfr_c")
+stc_ckd  <- cstc(net, target = target_ckd, effect_modifiers = "egfr_c",
+                 allow_experimental_bridge = TRUE)
 maic_ckd <- cmaic(net, target = target_ckd, effect_modifiers = "egfr_c",
-                  n_boot = 200, seed = 7)
+                  n_boot = 200, seed = 7,
+                  allow_experimental_bridge = TRUE)
 relative_effects(stc_ckd,  reference = "Std+B")
 relative_effects(maic_ckd, reference = "Std+B")
 effective_sample_size(maic_ckd)

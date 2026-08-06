@@ -8,6 +8,10 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
+> **Archived example output.** This vignette is excluded from package
+> builds and pkgdown until it is regenerated against the current estimand
+> labels, bridge safeguards, and API. Do not treat the results below as current.
+
 
 
 

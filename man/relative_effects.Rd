@@ -11,6 +11,7 @@ relative_effects(
   backtransf = TRUE,
   level = 0.95,
   newdata = NULL,
+  estimand = NULL,
   ...
 )
 }
@@ -28,15 +29,19 @@ of versus the reference.}
 
 \item{level}{Confidence level for the intervals. Default \code{0.95}.}
 
-\item{newdata}{For \code{\link[=cmlnmr]{cmlnmr()}} fits: a one-row data frame giving the target
-population's effect-modifier values. Required when the model has effect
-modifiers.}
+\item{newdata}{For \code{\link[=cmlnmr]{cmlnmr()}} fits: a one-row data frame giving target
+effect-modifier means. Required when the model has effect modifiers.}
+
+\item{estimand}{For \code{\link[=cmlnmr]{cmlnmr()}} fits, the only implemented value is
+\code{"average_conditional_link"}. Requests for \code{"marginal"} fail explicitly.}
 
 \item{...}{Unused.}
 }
 \value{
 A data frame with columns \code{treatment}, \code{comparator}, \code{estimate},
-\code{se} (link scale), \code{lower}, \code{upper}, and \code{z}/\code{p} for frequentist fits.
+\code{estimate_link}, \code{se_link}, \code{lower}, \code{upper}, \code{scale}, and \code{z}/\code{p} for
+frequentist fits. \code{estimate_link} and \code{se_link} are always on the model's
+link scale. \code{estimate}, \code{lower}, and \code{upper} use the scale named in \code{scale}.
 For \code{\link[=cmlnmr]{cmlnmr()}} (Bayesian) fits the intervals are credible intervals and
 the final column is \code{pr_gt0}, the posterior probability that the
 effect (on the link scale) exceeds zero, instead of \code{z}/\code{p}.
@@ -54,13 +59,14 @@ contrast vector lies outside the row space of \verb{X = B C}) are returned as
 \code{\link[=estimable_effects]{estimable_effects()}}.
 
 For \code{\link[=cmlnmr]{cmlnmr()}} fits the model contains component x effect-modifier
-interactions, so relative effects are \strong{population-specific}:
-\verb{theta_t(x) = C_t' (beta + gamma x)}. You must name the target population
-through \code{newdata}; there is no population-free relative effect.
+interactions, so relative effects depend on the supplied covariate means:
+\verb{theta_t(x) = C_t' (beta + gamma x)}. Because this expression is linear in
+\code{x}, evaluating it at \code{E[X]} gives the average conditional link-scale effect.
+It is not a marginal standardized OR, RR, or HR.
 
 Two things this returns are narrower than they may look, both documented in
-full under \code{\link[=cmlnmr]{cmlnmr()}}. The value is the \strong{conditional} contrast at the
-covariate profile \code{x}, not the marginal effect standardized over a population
+full under \code{\link[=cmlnmr]{cmlnmr()}}. The value is the \strong{average conditional link-scale}
+contrast at target means \code{x}, not the marginal effect standardized over a population
 with a distribution of covariates; on a non-collapsible scale (odds ratio,
 hazard ratio) those differ, so \verb{newdata = <a study's covariate means>} does not
 give that study's population-average effect. And where the interactions are

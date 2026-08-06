@@ -25,7 +25,11 @@ reference:
   - cnma_bridge
   - additivity_test
 - title: Population adjustment
-  desc: Anchored, population-adjusted indirect comparison across the network.
+  desc: >
+    Experimental population-adjustment methods. Two-stage cSTC/cMAIC bridges
+    stop by default when they would mix target-specific IPD contrasts with
+    retained AgD contrasts, and nonlinear cMAIC bridges require explicit
+    experimental opt-in.
   contents:
   - cmaic
   - cstc
@@ -35,9 +39,9 @@ reference:
   - edge_influence
 - title: Hierarchies
   desc: >
-    Rank treatments or components IN A TARGET POPULATION. Because component
-    effects are population-specific under population adjustment, so are the
-    rankings: a component can lead in one population and trail in another.
+    Rank treatments or components by average conditional link-scale effects at
+    supplied target covariate means. These are not marginally standardized
+    population rankings.
   contents:
   - cpaic_ranks
   - rank_curve
@@ -54,9 +58,9 @@ reference:
     ggplot2 verbs. The network, forest, rankogram, deviance, prior-posterior,
     integration-error, MCMC, and survival plots are ported from multinma
     (Phillippo et al. 2020). The rank curve, the estimability map, and the
-    edge-influence plot are specific to cpaic: under population adjustment the
-    hierarchy, and the estimable set itself, are functions of the target
-    population.
+    edge-influence plot are specific to cpaic. Under effect modification the
+    hierarchy, and the estimable set itself, are functions of the supplied
+    target covariate means.
   contents:
   - plot.cpaic_network
   - forest
@@ -92,18 +96,3 @@ articles:
   contents:
   - cpaic-intro
   - cpaic-methods
-- title: Worked examples, by outcome type
-  navbar: Outcomes
-  desc: >
-    Each example plants a known truth, then asks whether the method recovers it.
-    All four fit Stan models and are pre-rendered, so they are not re-run at
-    build time.
-  contents:
-  - binary-outcomes
-  - continuous-outcomes
-  - count-outcomes
-  - survival-outcomes
-- title: Disconnected networks
-  navbar: ~
-  contents:
-  - cpaic-disconnected-myeloma

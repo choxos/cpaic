@@ -4,10 +4,9 @@
 #'
 #' Fits a family-appropriate outcome regression with treatment main
 #' effects, prognostic main effects, and treatment-by-effect-modifier
-#' interactions, where the effect modifiers are centered at the target
-#' population means. The treatment coefficient is then the
-#' population-adjusted (anchored) contrast versus the reference arm in the
-#' target population (the interaction terms vanish at centered = 0).
+#' interactions, where the effect modifiers are centered at target means. The
+#' treatment coefficient is the anchored average conditional link-scale
+#' contrast versus the reference arm at those means.
 #' @noRd
 .cpaic_stc_one_study <- function(ipd_s, info, family, ref_arm, target_mean,
                                  effect_modifiers, prognostics, sm,
@@ -22,7 +21,7 @@
     stop("cstc(): the reserved column `.cpaic_arm` collides with an IPD column ",
          "in study '", study_id, "'; rename it.", call. = FALSE)
   }
-  # Center effect modifiers at the target population; only EM centering
+  # Center effect modifiers at the target means; only EM centering
   # affects the treatment coefficient (no treatment x prognostic terms).
   for (em in effect_modifiers) d[[em]] <- d[[em]] - target_mean[[em]]
   d$.cpaic_arm <- stats::relevel(factor(d[[arm_col]]), ref = ref_arm)
@@ -57,7 +56,7 @@
       ") ~ ", rhs))
     fit <- capture(survival::coxph(f, data = d))
     n_events <- tapply(d[[outcome_args$status]], d$.cpaic_arm,
-                       function(z) sum(z != 0))
+                       function(z) sum(z == 1L))
   } else {
     fam <- switch(family,
                   binomial = stats::binomial(),
@@ -101,16 +100,17 @@
 #' Anchored STC generalized to a (possibly disconnected) component network.
 #' For each IPD study an outcome regression is fitted with treatment
 #' main effects, prognostic main effects, and treatment-by-effect-modifier
-#' interactions; the effect modifiers are centered at a common `target`
-#' population so the treatment coefficient is the anchored,
-#' population-adjusted contrast in that population. These adjusted
+#' interactions. The effect modifiers are centered at common target means, so
+#' the treatment coefficient is the anchored average conditional link-scale
+#' contrast at those means. These adjusted
 #' contrasts replace the corresponding unadjusted aggregate contrasts and
 #' [cnma_bridge()] combines them through the additive component model.
 #'
 #' Unlike [cmaic()] (reweighting) this is the regression-adjustment route.
 #' The reported treatment coefficient is the *conditional* effect at the
-#' target effect-modifier means (not a marginal standardization); for
-#' collapsible measures the two coincide. It is implemented natively here
+#' target effect-modifier means. Equivalently, under the fitted linear
+#' interaction model this is the average conditional link-scale effect at the
+#' supplied target means, not a marginal standardization. It is implemented natively here
 #' because the `stc()` function in the mlumr package targets the *unanchored*
 #' two-trial case; the link and standard-error machinery is adapted from that
 #' package. (Written without the double-colon form on purpose: mlumr is not a
@@ -118,8 +118,8 @@
 #' package-and-function reference by loading that package.)
 #'
 #' @param network A [cpaic_network()] object that includes IPD.
-#' @param target Named numeric vector (or list / one-row data frame) of
-#'   target-population means for the effect modifiers.
+#' @param target Named numeric vector (or list / one-row data frame) of target
+#'   means for the effect modifiers.
 #' @param effect_modifiers Covariates that interact with treatment
 #'   (centered at `target`). Defaults to all IPD covariates.
 #' @param prognostics Covariates included as main effects only. Defaults to
@@ -127,19 +127,27 @@
 #' @param reference Optional anchor (comparator) arm to use in every IPD study
 #'   in which it appears, instead of inferring it from the aggregate row order.
 #' @param common,random Passed to [cnma_bridge()].
+#' @param allow_experimental_bridge Logical. The default `FALSE` stops when
+#'   aggregate-only edges would be combined with target-adjusted IPD edges.
+#'   Set `TRUE` only for explicitly exploratory sensitivity work; the fit
+#'   records the retained edges and the reason the bridge is approximate.
+#' @param allow_ipd_only_studies Logical. The default `FALSE` requires every
+#'   IPD study to match exactly one aggregate two-arm edge. Set `TRUE` to append
+#'   an IPD-derived edge that has no aggregate row. Such additions are recorded
+#'   in the returned fit.
 #'
 #' @section What the two-stage bridge does and does not adjust:
 #' Only the edges carrying individual patient data are population-adjusted to the
-#' target. Every aggregate-only edge keeps its published, study-population
+#' target means. Every aggregate-only edge keeps its published study-specific
 #' contrast, and the additive bridge then combines all edges as if they estimated
 #' the same component effects. Under effect modification they do not: an aggregate
 #' edge estimates its contrast in *its own* trial population, while the adjusted
 #' IPD edge estimates it at the target. The two agree only when the aggregate
 #' populations resemble the target, or when the components on those edges are not
 #' effect-modified. Treat a cross-network contrast that leans on aggregate-only
-#' edges as adjusted for the IPD part alone, and prefer [cmlnmr()], which carries
-#' the component by effect-modifier interactions through the whole network and so
-#' adjusts every edge to the same target population coherently.
+#' edges as adjusted for the IPD part alone. Prefer [cmlnmr()] for a joint model
+#' whose average conditional link-scale outputs are explicitly evaluated at
+#' common target effect-modifier means.
 #'
 #' @return An object of class `cpaic_stc` (and `cpaic_fit`).
 #' @seealso [cmaic()], [cnma_bridge()]
@@ -147,13 +155,15 @@
 #' net <- cpaic_network(cpaic_bin_agd, ipd = cpaic_bin_ipd, sm = "OR",
 #'                      family = "binomial", ipd_covariates = "x1",
 #'                      inactive = "Placebo")
-#' fit <- cstc(net, target = c(x1 = 0), effect_modifiers = "x1")
+#' fit <- cstc(net, target = c(x1 = 0), effect_modifiers = "x1",
+#'              allow_experimental_bridge = TRUE)
 #' relative_effects(fit)
 #' additivity_test(fit)
 #' @export
 cstc <- function(network, target, effect_modifiers = NULL,
                  prognostics = NULL, common = FALSE, random = TRUE,
-                 reference = NULL) {
+                 reference = NULL, allow_experimental_bridge = FALSE,
+                 allow_ipd_only_studies = FALSE) {
   stopifnot(inherits(network, "cpaic_network"))
   if (is.null(network$ipd)) {
     stop("`network` has no IPD; cstc() requires individual patient data.",
@@ -183,33 +193,20 @@ cstc <- function(network, target, effect_modifiers = NULL,
                        exposure = network$cols$ipd_exposure)
   agd <- network$agd
   cols <- network$cols
-  adj <- vector("list", length(info$studies))
+  plan <- .cpaic_two_stage_plan(
+    network, reference, "cstc()",
+    allow_ipd_only_studies = allow_ipd_only_studies)
+  bridge_validity <- .cpaic_two_stage_bridge_gate(
+    agd, plan$adjusted, cols, "cstc()", family,
+    allow_experimental_bridge = allow_experimental_bridge)
+  bridge_validity$ipd_only_studies <- plan$ipd_only_studies
+  adj <- vector("list", length(plan$studies))
 
-  for (i in seq_along(info$studies)) {
-    s <- info$studies[i]
-    ipd_s <- network$ipd[as.character(network$ipd[[info$study]]) == s, ,
-                         drop = FALSE]
-    agd_s <- agd[as.character(agd[[cols$studlab]]) == s, , drop = FALSE]
-    arms <- unique(as.character(ipd_s[[info$trt]]))
-    if (length(arms) < 2L) {
-      stop("IPD study '", s, "' has a single arm; cstc() needs a within-study ",
-           "contrast (at least two arms). A one-arm study carries no anchored ",
-           "treatment effect.", call. = FALSE)
-    }
-    if (length(arms) > 2L) {
-      stop("IPD study '", s, "' has ", length(arms), " arms; cstc() ",
-           "supports two-arm IPD studies in this version.", call. = FALSE)
-    }
-    ref_arm <- if (!is.null(reference) && reference %in% arms) {
-      reference
-    } else if (nrow(agd_s)) {
-      as.character(agd_s[[cols$treat2]][1])
-    } else if (network$reference %in% arms) {
-      network$reference
-    } else {
-      sort(arms)[1]
-    }
-    if (!ref_arm %in% arms) ref_arm <- sort(arms)[1]
+  for (i in seq_along(plan$studies)) {
+    study_plan <- plan$studies[[i]]
+    s <- study_plan$study
+    ipd_s <- study_plan$ipd
+    ref_arm <- study_plan$reference
 
     res <- .cpaic_stc_one_study(ipd_s, info, family, ref_arm, target_mean,
                                 effect_modifiers, prognostics, network$sm,
@@ -232,6 +229,9 @@ cstc <- function(network, target, effect_modifiers = NULL,
       effect_modifiers = effect_modifiers,
       prognostics = prognostics,
       method = "cSTC",
+      adjusted_contrasts = adj_df,
+      ipd_only_studies = plan$ipd_only_studies,
+      bridge_validity = bridge_validity,
       network = network
     ),
     class = c("cpaic_stc", "cpaic_fit")
@@ -240,10 +240,46 @@ cstc <- function(network, target, effect_modifiers = NULL,
 
 #' @export
 print.cpaic_stc <- function(x, ...) {
-  cat("cpaic: component STC (anchored; IPD edges adjusted to target)\n")
-  cat("  Diagnostic two-stage bridge: aggregate-only edges keep their own study\n",
-      "  population, so the pooled result is only partially target-adjusted.\n",
-      "  Prefer cmlnmr() for a coherent single-target synthesis.\n", sep = "")
+  cat("cpaic: component STC (anchored; IPD edges at target means)\n")
+  validity <- x$bridge_validity
+  if (is.null(validity)) {
+    cat("  Two-stage bridge gate: NOT RECORDED\n",
+        "  Refit before interpreting this result for decision-grade use.\n",
+        sep = "")
+  } else if (isTRUE(validity$decision_grade)) {
+    cat("  Two-stage bridge gate: PASSED (decision-grade eligibility only)\n",
+        "  This gate result does not establish overall model validity.\n",
+        sep = "")
+  } else {
+    override <- if (isTRUE(validity$experimental_override)) {
+      "EXPERIMENTAL OVERRIDE ACTIVE"
+    } else {
+      "FAILED"
+    }
+    cat("  Two-stage bridge gate: ", override, "\n", sep = "")
+    cat("  This bridge is not decision-grade; interpret it only as exploratory\n",
+        "  sensitivity output.\n", sep = "")
+    if (length(validity$reasons)) {
+      cat("  Reasons:\n")
+      for (reason in validity$reasons) cat("    - ", reason, "\n", sep = "")
+    }
+    retained <- validity$retained_aggregate_edges
+    cols <- x$network$cols
+    required <- unlist(cols[c("studlab", "treat1", "treat2")], use.names = FALSE)
+    if (is.data.frame(retained) && nrow(retained) &&
+        length(required) == 3L && all(required %in% names(retained))) {
+      labels <- paste0(
+        as.character(retained[[cols$studlab]]), ": ",
+        as.character(retained[[cols$treat1]]), " vs ",
+        as.character(retained[[cols$treat2]]))
+      cat("  Retained aggregate-only edges: ",
+          paste(labels, collapse = "; "), "\n", sep = "")
+    }
+  }
+  if (length(validity$ipd_only_studies)) {
+    cat("  Explicitly appended IPD-only studies: ",
+        paste(validity$ipd_only_studies, collapse = ", "), "\n", sep = "")
+  }
   cat("  Effect modifiers (x treatment): ",
       paste(x$effect_modifiers, collapse = ", "), "\n", sep = "")
   cat("  Prognostic main effects:        ",

@@ -23,8 +23,8 @@ version gives the probability of being ranked among the best \code{k}, whose
 normalized area is SUCRA.
 }
 \details{
-Both are computed \strong{in a named target population}, because a
-population-adjusted hierarchy is not population-free.
+Both are computed at named target effect-modifier means. They summarize the
+average conditional link-scale hierarchy, not a marginal hierarchy.
 }
 \examples{
 \dontshow{if (FALSE) withAutoprint(\{ # examplesIf}

@@ -24,8 +24,10 @@ ggplot2 layers, so it can be added to an existing plot; adding it to
 \code{\link[=plot_survival]{plot_survival()}} overlays the observed data on the fitted survival curves.
 }
 \details{
-Only status \code{1} counts as an event; statuses \code{0}, \code{2}, and \code{3} (right, left,
-and interval censoring) are treated as censored for the empirical curve.
+Only right-censored survival data are supported: status \code{1} is an event and
+status \code{0} is right censoring. Delayed entry is honored when configured on
+the fitted model. Curves reconstructed from aggregate event/censoring rows
+are labeled as reconstructed AgD and must not be read as observed IPD.
 }
 \examples{
 \dontshow{if (FALSE) withAutoprint(\{ # examplesIf}

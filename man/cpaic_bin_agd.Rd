@@ -28,7 +28,7 @@ the two, and components \code{C} and \code{D} are identified within sub-network 
 \details{
 Studies \code{S3} and \code{S4} also have individual patient data
 (\link{cpaic_bin_ipd}); their rows here are the \emph{unadjusted} contrasts, which
-\code{\link[=cmaic]{cmaic()}} / \code{\link[=cstc]{cstc()}} replace with population-adjusted versions.
+\code{\link[=cmaic]{cmaic()}} / \code{\link[=cstc]{cstc()}} replace with target-matched versions.
 }
 \seealso{
 \link{cpaic_bin_ipd}, \code{\link[=cpaic_network]{cpaic_network()}}
